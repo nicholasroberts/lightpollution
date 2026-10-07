@@ -1,0 +1,50 @@
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.env
+
+# Editors / OS
+.vscode/
+.idea/
+.DS_Store
+
+# Jupyter
+.ipynb_checkpoints/
+
+# Raw data: retain folders, ignore their contents
+data/raw/viirs/*
+!data/raw/viirs/.gitkeep
+
+data/raw/nuts/*
+!data/raw/nuts/.gitkeep
+
+data/raw/eurostat/*
+!data/raw/eurostat/.gitkeep
+
+# Processed data
+data/processed/*
+!data/processed/.gitkeep
+
+# Generated figures
+figures/annual_radiance/*
+!figures/annual_radiance/.gitkeep
+
+figures/annual_change/*
+!figures/annual_change/.gitkeep
+
+figures/population_relationship/*
+!figures/population_relationship/.gitkeep
+
+# Large scientific data anywhere
+*.tif
+*.tiff
+*.vrt
+*.nc
+*.hdf
+*.h5
+
+# Temporary files
+*.tmp
+*.log
