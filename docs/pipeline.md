@@ -67,11 +67,24 @@ confounded with temporal changes in radiance or population density.
 
 ## Important methodological decision
 
-The production radiance extractor is intentionally not implemented in the
-initial skeleton. VIIRS is supplied on a geographic latitude/longitude grid,
-so cell areas vary with latitude. Before production extraction, the workflow
-will validate a method that accounts for both fractional polygon overlap and
-physical cell area rather than using a simple unweighted mean of raster cells.
+The production radiance extractor uses exact polygon overlap with
+`coverage_weight=area_spherical_m2`. VIIRS is supplied on a geographic
+longitude/latitude grid, so physical cell area varies with latitude.
+
+A 2024 validation across representative NUTS3 regions compared:
+
+- a pixel-centre mean;
+- an exact fractional-overlap mean; and
+- exact fractional overlap weighted by spherical cell area.
+
+Boundary treatment changed mean radiance by about 2% for some small/coastal
+regions, while physical-area weighting changed the result by about 2.5% for a
+large high-latitude region. The area-weighted exact method was therefore
+selected for production extraction.
+
+Both mean and median are calculated using the same spherical-area coverage
+weight. The output also records the valid VIIRS-covered area in square
+kilometres as a quality-control field.
 
 ## Local data
 
