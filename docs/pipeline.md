@@ -57,10 +57,13 @@ coverage has been inspected.
    - write a tidy Parquet table
 
 4. **population**
-   - retrieve Eurostat `DEMO_R_D3DENS`
-   - retain NUTS3 annual population density
-   - preserve Eurostat flags/status where useful
-   - write a tidy Parquet table
+   - retrieve Eurostat `DEMO_R_D3DENS` from the official Statistics API
+   - request `geoLevel=nuts3` and retain the raw JSON-stat response
+   - use `wget` by default for the raw download
+   - retain annual population density for the configured analysis period
+   - flag whether each Eurostat geography matches the fixed NUTS 2024 geometry
+   - preserve Eurostat status flags
+   - write tidy Parquet and CSV tables
 
 5. **merge**
    - join on year and NUTS_ID
