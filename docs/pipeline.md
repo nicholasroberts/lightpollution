@@ -22,9 +22,26 @@ The intended final table contains, at minimum:
 
 ## Fixed geography
 
-The initial workflow uses a single NUTS 2024 level-3 geography for every
-analysis year. This prevents administrative boundary changes from being
-confounded with temporal changes in radiance or population density.
+The workflow uses a single NUTS 2024 level-3 geography for every analysis
+year. This prevents administrative boundary changes from being confounded
+with temporal changes in radiance or population density.
+
+## European study area
+
+The GISCO NUTS file includes some geographically distant overseas territories.
+The production analysis therefore applies an explicit geographic study-area
+filter before extraction.
+
+A NUTS3 region is retained when its representative point lies within the
+configured longitude/latitude envelope:
+
+`[-32.0, 27.0, 45.0, 72.5]`
+
+This broad envelope deliberately retains the Azores, Madeira, Canary Islands,
+Cyprus and all of Türkiye, while excluding distant overseas regions such as
+French Guiana, the Caribbean departments, Réunion and Mayotte. The rule is
+stored in `config/pipeline.yaml` and the extractor reports all excluded
+regions at runtime.
 
 ## Pipeline stages
 
