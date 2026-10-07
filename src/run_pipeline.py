@@ -1,10 +1,5 @@
 #!/usr/bin/env python3
-"""Top-level entry point for the European VIIRS/NUTS3 analysis pipeline.
-
-At this stage the runner exposes the intended workflow and implements input
-validation. Scientific processing stages are added independently so they can
-be tested before being enabled here.
-"""
+"""Top-level entry point for the European VIIRS/NUTS3 analysis pipeline."""
 
 from __future__ import annotations
 
@@ -17,6 +12,7 @@ from project_config import PROJECT_ROOT
 
 
 STAGES = {
+    "nuts": PROJECT_ROOT / "src" / "fetch_nuts_boundaries.py",
     "validate": PROJECT_ROOT / "src" / "validate_inputs.py",
     "weighting-test": PROJECT_ROOT / "src" / "validate_zonal_weighting.py",
     "radiance": PROJECT_ROOT / "src" / "extract_nuts3_radiance.py",
@@ -33,19 +29,12 @@ def run_script(script: Path, config: str) -> None:
 
 def main() -> None:
     parser = argparse.ArgumentParser()
-    parser.add_argument(
-        "stage",
-        choices=[*STAGES, "all"],
-        help="Pipeline stage to run.",
-    )
-    parser.add_argument(
-        "--config",
-        default="config/pipeline.yaml",
-    )
+    parser.add_argument("stage", choices=[*STAGES, "all"])
+    parser.add_argument("--config", default="config/pipeline.yaml")
     args = parser.parse_args()
 
     if args.stage == "all":
-        order = ["validate", "radiance", "population", "merge"]
+        order = ["nuts", "validate", "radiance", "population", "merge"]
     else:
         order = [args.stage]
 
