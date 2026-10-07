@@ -13,7 +13,7 @@ viirs:
   product: annual_vnl_v2_2
   variable: average_masked_radiance
   units: "nW cm-2 sr-1"
-  raster_pattern: "*average-masked*.tif"
+  raster_pattern: "*average_masked*.tif"
   available_year_start: 2012
   display:
     europe_bounds_4326: [-25.0, 34.0, 36.0, 72.5]
