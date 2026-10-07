@@ -1,0 +1,53 @@
+project:
+  name: lightpollution
+  description: European VIIRS night-time radiance analysis at NUTS3 level
+
+paths:
+  viirs_raw: data/raw/viirs
+  nuts_raw: data/raw/nuts
+  eurostat_raw: data/raw/eurostat
+  processed: data/processed
+  figures: figures
+
+viirs:
+  product: annual_vnl_v2_2
+  variable: average_masked_radiance
+  units: "nW cm-2 sr-1"
+  raster_pattern: "*average-masked*.tif"
+  available_year_start: 2012
+  display:
+    europe_bounds_4326: [-25.0, 34.0, 36.0, 72.5]
+    max_pixels_across: 2200
+    radiance_percentile: 99.7
+    symlog_linthresh: 0.2
+
+nuts:
+  release: 2024
+  level: 3
+  crs: EPSG:4326
+  expected_filename: NUTS_RG_01M_2024_4326_LEVL_3.geojson
+  id_field: NUTS_ID
+
+population:
+  provider: Eurostat
+  dataset: DEMO_R_D3DENS
+  geo_level: nuts3
+  frequency: A
+  expected_units: "persons per square kilometre"
+
+analysis:
+  first_year: 2013
+  last_year: 2024
+  fixed_geography: true
+  radiance_statistics:
+    - weighted_mean
+    - median
+  area_weighting:
+    enabled: true
+    method: pending_validation
+
+outputs:
+  radiance_by_nuts3: nuts3_viirs_radiance.parquet
+  population_by_nuts3: nuts3_population_density.parquet
+  merged: nuts3_radiance_population.parquet
+  csv_export: nuts3_radiance_population.csv
