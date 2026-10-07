@@ -44,7 +44,7 @@ analysis:
     - median
   area_weighting:
     enabled: true
-    method: pending_validation
+    method: exact_overlap_area_spherical_m2
     candidate_method: area_spherical_m2
     validation:
       year: 2024
