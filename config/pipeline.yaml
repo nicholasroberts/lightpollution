@@ -39,15 +39,6 @@ analysis:
   first_year: 2013
   last_year: 2024
   fixed_geography: true
-  study_area:
-    name: europe
-    method: representative_point_bounds
-    bounds_4326: [-32.0, 27.0, 45.0, 72.5]
-    notes: >
-      Broad European/NUTS envelope retaining the Azores, Madeira, Canary
-      Islands, Cyprus and all of Türkiye while excluding distant overseas
-      NUTS territories such as French Guiana, the Caribbean departments,
-      Réunion and Mayotte.
   radiance_statistics:
     - weighted_mean
     - median
