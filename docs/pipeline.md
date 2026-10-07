@@ -34,25 +34,31 @@ confounded with temporal changes in radiance or population density.
    - confirm NUTS3 geometry
    - report missing analysis years
 
-2. **radiance**
+2. **weighting-test**
+   - select representative NUTS3 regions spanning latitude, area and shape
+   - compare pixel-centre, exact fractional-overlap and physical-area-weighted means
+   - write a diagnostic CSV and figure
+   - use the result to choose the production zonal-statistics method
+
+3. **radiance**
    - calculate annual NUTS3 radiance summaries
    - use exact polygon overlap
    - use physically appropriate area weighting
    - preserve source nodata/mask semantics
    - write a tidy Parquet table
 
-3. **population**
+4. **population**
    - retrieve Eurostat `DEMO_R_D3DENS`
    - retain NUTS3 annual population density
    - preserve Eurostat flags/status where useful
    - write a tidy Parquet table
 
-4. **merge**
+5. **merge**
    - join on year and NUTS_ID
    - report unmatched regions
    - write Parquet and CSV analysis tables
 
-5. **figures**
+6. **figures**
    - annual VIIRS small multiples
    - annual radiance change
    - NUTS3 choropleths
