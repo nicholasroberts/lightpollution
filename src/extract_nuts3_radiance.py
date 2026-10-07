@@ -98,6 +98,58 @@ def load_nuts(config: dict) -> gpd.GeoDataFrame:
     return nuts
 
 
+def filter_nuts_to_study_area(
+    nuts: gpd.GeoDataFrame,
+    config: dict,
+) -> gpd.GeoDataFrame:
+    """Restrict NUTS3 regions to the configured European study area.
+
+    A representative point is used rather than polygon intersection so that
+    large polygons cannot be retained merely because a tiny part overlaps the
+    bounding envelope. The configured envelope is intentionally broad enough
+    to retain the Azores, Madeira, Canary Islands, Cyprus and all of Türkiye,
+    while excluding distant overseas NUTS territories.
+    """
+    study = config["analysis"]["study_area"]
+    method = study["method"]
+
+    if method != "representative_point_bounds":
+        raise ValueError(
+            "Unsupported study-area method "
+            f"{method!r}; expected 'representative_point_bounds'."
+        )
+
+    west, south, east, north = study["bounds_4326"]
+
+    points = nuts.geometry.representative_point()
+    keep = (
+        points.x.between(west, east)
+        & points.y.between(south, north)
+    )
+
+    included = nuts.loc[keep].copy()
+    excluded = nuts.loc[~keep].copy()
+
+    id_field = config["nuts"]["id_field"]
+    print(
+        f"Study area: {study['name']} "
+        f"({method}; bounds={study['bounds_4326']})"
+    )
+    print(f"NUTS3 included: {len(included):,}")
+    print(f"NUTS3 excluded: {len(excluded):,}")
+
+    if not excluded.empty:
+        preview_cols = [
+            column
+            for column in [id_field, "CNTR_CODE", "NUTS_NAME"]
+            if column in excluded.columns
+        ]
+        print("Excluded overseas/out-of-area regions:")
+        print(excluded[preview_cols].to_string(index=False))
+
+    return included
+
+
 def validate_raster(path: Path, expected_crs: str) -> None:
     with rasterio.open(path) as src:
         if src.crs is None:
@@ -208,6 +260,7 @@ def main() -> None:
     requested = requested_years_from_args(args, config)
     rasters = discover_rasters(config, requested)
     nuts = load_nuts(config)
+    nuts = filter_nuts_to_study_area(nuts, config)
 
     expected_crs = config["nuts"]["crs"]
     frames = []
