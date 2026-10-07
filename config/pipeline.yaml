@@ -22,11 +22,30 @@ viirs:
     symlog_linthresh: 0.2
 
 nuts:
-  release: 2024
   level: 3
   crs: EPSG:4326
-  expected_filename: NUTS_RG_01M_2024_4326_LEVL_3.geojson
+  resolution: 01M
   id_field: NUTS_ID
+  filename_template: "NUTS_RG_01M_{release}_4326_LEVL_3.geojson"
+  releases:
+    - 2010
+    - 2013
+    - 2016
+    - 2021
+    - 2024
+  release_by_year:
+    2013: 2010
+    2014: 2010
+    2015: 2013
+    2016: 2013
+    2017: 2013
+    2018: 2016
+    2019: 2016
+    2020: 2016
+    2021: 2021
+    2022: 2021
+    2023: 2021
+    2024: 2024
 
 population:
   provider: Eurostat
@@ -39,10 +58,10 @@ population:
 analysis:
   first_year: 2013
   last_year: 2024
-  fixed_geography: true
+  fixed_geography: false
+  year_specific_nuts: true
   radiance_statistics:
     - weighted_mean
-    - median
   area_weighting:
     enabled: true
     method: exact_overlap_area_spherical_m2
