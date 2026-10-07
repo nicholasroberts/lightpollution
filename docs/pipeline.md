@@ -5,98 +5,86 @@
 Create a reproducible annual dataset linking VIIRS night-time radiance to
 population density for European NUTS3 regions.
 
-The analytical unit is:
+The analytical unit is an available `year × NUTS_ID` observation. Within each
+country and year, matched NUTS3 radiance/population-density pairs are treated
+as the observations used for the log-radiance versus log-population-density
+relationship. A NUTS3 region does not need to exist in every year.
 
-`year × NUTS_ID`
+## Year-specific NUTS geography
 
-The intended final table contains, at minimum:
+The workflow deliberately uses the NUTS classification applicable to each
+reference year rather than forcing all years onto NUTS 2024:
 
-- year
-- NUTS_ID
-- country code
-- NUTS3 name
-- mean annual VIIRS radiance
-- median annual VIIRS radiance
-- population density
-- provenance fields for the VIIRS product, NUTS release and demographic source
+- 2013-2014: NUTS 2010
+- 2015-2017: NUTS 2013
+- 2018-2020: NUTS 2016
+- 2021-2023: NUTS 2021
+- 2024: NUTS 2024
 
-## Fixed geography
+This follows Eurostat's official applicability periods. Boundary changes,
+splits, mergers and code changes between NUTS releases therefore do not require
+harmonisation for this analysis: each annual country-level relationship uses
+the valid NUTS3 observations available for that year.
 
-The workflow uses a single NUTS 2024 level-3 geography for every analysis
-year. This prevents administrative boundary changes from being confounded
-with temporal changes in radiance or population density.
-
-## Analysis geography
-
-The production radiance extraction is not geographically filtered in advance.
-The final analytical study set is defined after population-density retrieval by
-matching fixed NUTS 2024 level-3 identifiers to regions with usable Eurostat
-population-density data. Any additional geographic exclusions (for example,
-overseas territories) must be explicit and justified after the demographic
-coverage has been inspected.
+The required GISCO Level-3 GeoJSON releases are downloaded and retained
+locally. Missing Eurostat observations or identifiers that do not match that
+year's NUTS release are omitted rather than imputed.
 
 ## Pipeline stages
 
-1. **validate**
+1. **nuts**
+   - download NUTS 2010, 2013, 2016, 2021 and 2024 Level-3 GISCO GeoJSON
+   - use 01M resolution and EPSG:4326
+   - use `wget` when available
+
+2. **validate**
    - discover local VIIRS annual rasters
-   - inspect CRS and raster dimensions
-   - confirm NUTS3 geometry
-   - report missing analysis years
+   - inspect raster CRS/dimensions
+   - confirm all required NUTS releases
+   - report year-to-NUTS-release mapping and missing VIIRS years
 
-2. **weighting-test**
-   - select representative NUTS3 regions spanning latitude, area and shape
-   - compare pixel-centre, exact fractional-overlap and physical-area-weighted means
-   - write a diagnostic CSV and figure
-   - use the result to choose the production zonal-statistics method
+3. **weighting-test**
+   - compare pixel-centre, exact fractional-overlap and spherical-area-weighted
+     means on representative NUTS3 regions
 
-3. **radiance**
-   - calculate annual NUTS3 radiance summaries
-   - use exact polygon overlap
-   - use physically appropriate area weighting
-   - preserve source nodata/mask semantics
-   - write a tidy Parquet table
-
-4. **population**
-   - retrieve Eurostat `DEMO_R_D3DENS` from the official Statistics API
-   - request `geoLevel=nuts3` and retain the raw JSON-stat response
-   - use `wget` by default for the raw download
-   - retain annual population density for the configured analysis period
-   - flag whether each Eurostat geography matches the fixed NUTS 2024 geometry
-   - preserve Eurostat status flags
+4. **radiance**
+   - select the NUTS release applicable to each VIIRS year
+   - calculate exact-overlap, spherical-area-weighted mean radiance
+   - retain valid covered area and provenance
    - write tidy Parquet and CSV tables
 
-5. **merge**
-   - join on year and NUTS_ID
-   - report unmatched regions
-   - write Parquet and CSV analysis tables
+5. **population**
+   - retrieve Eurostat `DEMO_R_D3DENS`
+   - request `geoLevel=nuts3`
+   - retain the raw JSON-stat response
+   - use `wget` by default
+   - associate each year with its applicable NUTS release
+   - flag whether each population record matches that release
+   - preserve Eurostat status flags
 
-6. **figures**
-   - annual VIIRS small multiples
-   - annual radiance change
-   - NUTS3 choropleths
-   - population-density versus radiance relationships
-   - residual maps showing regions brighter/darker than expected for population
+6. **merge**
+   - inner join on `year + NUTS_ID + nuts_release`
+   - omit unmatched/missing observations rather than harmonising or imputing
+   - calculate log10 radiance and log10 population-density fields
+   - report the number of paired observations for every country/year
 
-## Important methodological decision
+## Radiance statistic
 
 The production radiance extractor uses exact polygon overlap with
 `coverage_weight=area_spherical_m2`. VIIRS is supplied on a geographic
 longitude/latitude grid, so physical cell area varies with latitude.
 
-A 2024 validation across representative NUTS3 regions compared:
+The 2024 validation showed that exact boundary treatment changed mean radiance
+by about 2% for some small/coastal regions, while spherical physical-area
+weighting changed the result by about 2.5% for a large high-latitude region.
+The exact-overlap, area-weighted mean is therefore the production radiance
+metric.
 
-- a pixel-centre mean;
-- an exact fractional-overlap mean; and
-- exact fractional overlap weighted by spherical cell area.
-
-Boundary treatment changed mean radiance by about 2% for some small/coastal
-regions, while physical-area weighting changed the result by about 2.5% for a
-large high-latitude region. The area-weighted exact method was therefore
-selected for production extraction.
-
-Both mean and median are calculated using the same spherical-area coverage
-weight. The output also records the valid VIIRS-covered area in square
-kilometres as a quality-control field.
+The median is not used in the production analysis. Testing showed that the
+weighted median/quantile returned by the extraction library did not correspond
+to the ordinary pixel-value median expected for zero-dominated dark regions,
+whereas the mean passed the direct raster checks and is the relevant metric for
+the population-density relationship.
 
 ## Local data
 
