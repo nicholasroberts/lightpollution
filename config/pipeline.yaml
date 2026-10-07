@@ -45,6 +45,12 @@ analysis:
   area_weighting:
     enabled: true
     method: pending_validation
+    candidate_method: area_spherical_m2
+    validation:
+      year: 2024
+      sample_size: 9
+      output_csv: zonal_weighting_validation_{year}.csv
+      output_figure: zonal_weighting_validation_{year}.pdf
 
 outputs:
   radiance_by_nuts3: nuts3_viirs_radiance.parquet
