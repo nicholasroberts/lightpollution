@@ -1,20 +1,13 @@
 #!/usr/bin/env python3
-"""Extract annual VIIRS radiance statistics for fixed NUTS3 regions.
+"""Extract annual VIIRS mean radiance using the NUTS release valid for each year.
 
-Production method
------------------
-For each NUTS3 polygon, radiance summaries are calculated with exactextract.
-Coverage is expressed as spherical surface area rather than simple cell
-fraction:
+For each NUTS3 polygon, mean radiance is calculated with exact polygon overlap
+and spherical physical-area weighting:
 
-    coverage_weight=area_spherical_m2
+    mean(coverage_weight=area_spherical_m2)
 
-This means each raster contribution is weighted by:
-  1. the exact fraction of the VIIRS cell covered by the NUTS3 polygon, and
-  2. the physical area of that longitude/latitude cell.
-
-The method was selected after validation against pixel-centre and uncorrected
-fractional-overlap approaches on representative 2024 NUTS3 regions.
+The NUTS release is selected from config/pipeline.yaml independently for each
+analysis year, following Eurostat's official NUTS applicability periods.
 """
 
 from __future__ import annotations
@@ -37,6 +30,19 @@ YEAR_RE = re.compile(r"(20\d{2})")
 def raster_year(path: Path) -> int | None:
     match = YEAR_RE.search(path.name)
     return int(match.group(1)) if match else None
+
+
+def nuts_release_for_year(config: dict, year: int) -> int:
+    mapping = config["nuts"]["release_by_year"]
+    release = mapping.get(year, mapping.get(str(year)))
+    if release is None:
+        raise KeyError(f"No NUTS release configured for analysis year {year}")
+    return int(release)
+
+
+def nuts_path_for_release(config: dict, release: int) -> Path:
+    filename = config["nuts"]["filename_template"].format(release=release)
+    return configured_path(config, "nuts_raw") / filename
 
 
 def discover_rasters(config: dict, requested_years: list[int] | None) -> dict[int, Path]:
@@ -74,18 +80,20 @@ def discover_rasters(config: dict, requested_years: list[int] | None) -> dict[in
     return dict(sorted(found.items()))
 
 
-def load_nuts(config: dict) -> gpd.GeoDataFrame:
-    path = (
-        configured_path(config, "nuts_raw")
-        / config["nuts"]["expected_filename"]
-    )
+def load_nuts(config: dict, year: int) -> tuple[gpd.GeoDataFrame, int]:
+    release = nuts_release_for_year(config, year)
+    path = nuts_path_for_release(config, release)
+
     if not path.exists():
-        raise FileNotFoundError(f"NUTS3 file not found: {path}")
+        raise FileNotFoundError(
+            f"NUTS {release} Level-3 file not found: {path}. "
+            "Run: python src/run_pipeline.py nuts"
+        )
 
     nuts = gpd.read_file(path)
 
     if nuts.crs is None:
-        raise ValueError(f"NUTS3 file has no CRS: {path}")
+        raise ValueError(f"NUTS file has no CRS: {path}")
 
     target_crs = config["nuts"]["crs"]
     if nuts.crs.to_string() != target_crs:
@@ -95,8 +103,7 @@ def load_nuts(config: dict) -> gpd.GeoDataFrame:
     if id_field not in nuts.columns:
         raise ValueError(f"Missing NUTS identifier field {id_field!r}")
 
-    return nuts
-
+    return nuts, release
 
 
 def validate_raster(path: Path, expected_crs: str) -> None:
@@ -118,6 +125,7 @@ def extract_year(
     raster_path: Path,
     year: int,
     nuts: gpd.GeoDataFrame,
+    nuts_release: int,
     config: dict,
 ) -> pd.DataFrame:
     id_field = config["nuts"]["id_field"]
@@ -138,11 +146,13 @@ def extract_year(
 
     operations = [
         "radiance_mean=mean(coverage_weight=area_spherical_m2)",
-        "radiance_median=median(coverage_weight=area_spherical_m2)",
         "valid_area_km2=count(coverage_weight=area_spherical_km2)",
     ]
 
-    print(f"Processing {year}: {raster_path.name}", flush=True)
+    print(
+        f"Processing {year} with NUTS {nuts_release}: {raster_path.name}",
+        flush=True,
+    )
 
     result = exact_extract(
         str(raster_path),
@@ -158,7 +168,7 @@ def extract_year(
     result["viirs_product"] = config["viirs"]["product"]
     result["radiance_variable"] = config["viirs"]["variable"]
     result["radiance_units"] = config["viirs"]["units"]
-    result["nuts_release"] = int(config["nuts"]["release"])
+    result["nuts_release"] = nuts_release
     result["zonal_method"] = config["analysis"]["area_weighting"]["method"]
 
     return result
@@ -173,7 +183,6 @@ def requested_years_from_args(args, config: dict) -> list[int] | None:
         last = int(config["analysis"]["last_year"])
         return list(range(first, last + 1))
 
-    # Default: process every matching raster currently available locally.
     return None
 
 
@@ -208,14 +217,13 @@ def main() -> None:
 
     requested = requested_years_from_args(args, config)
     rasters = discover_rasters(config, requested)
-    nuts = load_nuts(config)
-
     expected_crs = config["nuts"]["crs"]
     frames = []
 
     for year, raster_path in rasters.items():
         validate_raster(raster_path, expected_crs)
-        frames.append(extract_year(raster_path, year, nuts, config))
+        nuts, release = load_nuts(config, year)
+        frames.append(extract_year(raster_path, year, nuts, release, config))
 
     combined = pd.concat(frames, ignore_index=True)
 
@@ -226,8 +234,7 @@ def main() -> None:
     output_dir.mkdir(parents=True, exist_ok=True)
 
     parquet_path = output_dir / config["outputs"]["radiance_by_nuts3"]
-    csv_name = Path(config["outputs"]["radiance_by_nuts3"]).with_suffix(".csv").name
-    csv_path = output_dir / csv_name
+    csv_path = parquet_path.with_suffix(".csv")
 
     combined.to_parquet(parquet_path, index=False)
     combined.to_csv(csv_path, index=False)
@@ -235,7 +242,14 @@ def main() -> None:
     print()
     print(f"Rows written: {len(combined):,}")
     print(f"Years: {sorted(combined['year'].unique().tolist())}")
-    print(f"NUTS3 regions per year: {combined.groupby('year')[id_field].nunique().to_dict()}")
+    print(
+        "NUTS3 regions per year: "
+        f"{combined.groupby('year')[id_field].nunique().to_dict()}"
+    )
+    print(
+        "NUTS release per year: "
+        f"{combined.groupby('year')['nuts_release'].first().to_dict()}"
+    )
     print(f"Wrote: {parquet_path}")
     print(f"Wrote: {csv_path}")
 
