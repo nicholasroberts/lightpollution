@@ -18,6 +18,7 @@ from project_config import PROJECT_ROOT
 
 STAGES = {
     "validate": PROJECT_ROOT / "src" / "validate_inputs.py",
+    "weighting-test": PROJECT_ROOT / "src" / "validate_zonal_weighting.py",
     "radiance": PROJECT_ROOT / "src" / "extract_nuts3_radiance.py",
     "population": PROJECT_ROOT / "src" / "fetch_eurostat_population.py",
     "merge": PROJECT_ROOT / "src" / "merge_radiance_population.py",
