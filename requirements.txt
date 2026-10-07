@@ -6,3 +6,5 @@ shapely
 matplotlib
 pyproj
 affine
+PyYAML
+pyarrow
