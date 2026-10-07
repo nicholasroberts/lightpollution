@@ -21,6 +21,14 @@ def raster_year(path: Path) -> int | None:
     return int(match.group(1)) if match else None
 
 
+def nuts_release_for_year(config: dict, year: int) -> int:
+    mapping = config["nuts"]["release_by_year"]
+    release = mapping.get(year, mapping.get(str(year)))
+    if release is None:
+        raise KeyError(f"No NUTS release configured for {year}")
+    return int(release)
+
+
 def validate_viirs(config: dict) -> list[Path]:
     root = configured_path(config, "viirs_raw")
     pattern = config["viirs"]["raster_pattern"]
@@ -41,27 +49,26 @@ def validate_viirs(config: dict) -> list[Path]:
     return rasters
 
 
-def validate_nuts(config: dict) -> Path:
+def validate_nuts(config: dict) -> None:
     root = configured_path(config, "nuts_raw")
-    expected = root / config["nuts"]["expected_filename"]
-
-    print(f"NUTS expected:    {expected}")
-
-    if not expected.exists():
-        print("  MISSING")
-        return expected
-
-    nuts = gpd.read_file(expected)
-    print(
-        f"  found {len(nuts):,} features; "
-        f"CRS={nuts.crs}; columns={', '.join(nuts.columns)}"
-    )
-
+    template = config["nuts"]["filename_template"]
     id_field = config["nuts"]["id_field"]
-    if id_field not in nuts.columns:
-        raise ValueError(f"NUTS ID field {id_field!r} not present in {expected}")
 
-    return expected
+    print("NUTS releases:")
+    for release in config["nuts"]["releases"]:
+        path = root / template.format(release=release)
+        if not path.exists():
+            print(f"  {release}: MISSING  {path}")
+            continue
+
+        nuts = gpd.read_file(path)
+        if id_field not in nuts.columns:
+            raise ValueError(f"NUTS ID field {id_field!r} not present in {path}")
+
+        print(
+            f"  {release}: {len(nuts):,} features; "
+            f"CRS={nuts.crs}; {path.name}"
+        )
 
 
 def validate_year_coverage(config: dict, rasters: list[Path]) -> None:
@@ -76,15 +83,14 @@ def validate_year_coverage(config: dict, rasters: list[Path]) -> None:
     print(f"Analysis years:   {first}-{last}")
     print(f"Years present:    {present or 'none'}")
     print(f"Years missing:    {missing or 'none'}")
+    print("Year -> NUTS release:")
+    for year in range(first, last + 1):
+        print(f"  {year}: NUTS {nuts_release_for_year(config, year)}")
 
 
 def main() -> None:
     parser = argparse.ArgumentParser()
-    parser.add_argument(
-        "--config",
-        default="config/pipeline.yaml",
-        help="Configuration path relative to repository root.",
-    )
+    parser.add_argument("--config", default="config/pipeline.yaml")
     args = parser.parse_args()
 
     config = load_config(args.config)
