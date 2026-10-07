@@ -33,6 +33,7 @@ population:
   dataset: DEMO_R_D3DENS
   geo_level: nuts3
   frequency: A
+  api_geo_level: nuts3
   expected_units: "persons per square kilometre"
 
 analysis:
