@@ -9,3 +9,4 @@ affine
 PyYAML
 pyarrow
 exactextract>=0.3.0
+scipy\nstatsmodels\n
