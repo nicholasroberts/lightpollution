@@ -347,7 +347,20 @@ def main() -> None:
     )
 
     needs_fill = result["population_density"].isna()
-    can_fill = needs_fill & result["fallback_population_density"].notna()
+
+    allowed_countries = set(
+        config["population"].get("fallback_recovery_countries", [])
+    )
+    if allowed_countries:
+        eligible_country = result["CNTR_CODE"].isin(allowed_countries)
+    else:
+        eligible_country = pd.Series(False, index=result.index)
+
+    can_fill = (
+        needs_fill
+        & result["fallback_population_density"].notna()
+        & eligible_country
+    )
 
     result.loc[can_fill, "population_density"] = result.loc[
         can_fill, "fallback_population_density"
