@@ -25,7 +25,7 @@ import warnings
 
 import numpy as np
 import pandas as pd
-from scipy.stats import chi2
+from scipy.stats import chi2, norm
 import statsmodels.formula.api as smf
 
 from project_config import configured_path, load_config
@@ -177,11 +177,7 @@ def main() -> None:
             "z": final.fe_params.values / final.bse_fe.values,
         }
     )
-    fixed["p_value"] = 2 * (
-        1 - pd.Series(
-            np.abs(fixed["z"])
-        ).map(lambda z: 0.5 * (1 + np.math.erf(z / np.sqrt(2))))
-    )
+    fixed["p_value"] = 2 * norm.sf(np.abs(fixed["z"]))
 
     random_var = float(np.asarray(final.cov_re)[0, 0])
     residual_var = float(final.scale)
