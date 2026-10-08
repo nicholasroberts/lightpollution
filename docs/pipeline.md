@@ -87,8 +87,10 @@ Eurostat-aligned release are flagged and omitted rather than imputed.
    - fill only absent/null density observations using
      `demo_r_pjanaggr3 / reg_area3` total land area
    - restrict production recovery to a validated country allow-list
-     (currently Netherlands only)
+     (currently Belgium, Estonia, Croatia, Italy and the Netherlands)
    - retain explicit provenance and recovery flags for every derived value
+   - Norway is excluded from production recovery because validation overlap is
+     sparse and several target NUTS3 regions remain unrecovered
 
 8. **merge**
    - inner join on `year + NUTS_ID + nuts_release`
