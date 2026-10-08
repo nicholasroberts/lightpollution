@@ -60,6 +60,10 @@ population:
   fallback_area_measure: total_land_area
   # Only use validated fallback countries in production.
   fallback_recovery_countries:
+    - BE
+    - EE
+    - HR
+    - IT
     - NL
 
 analysis:
