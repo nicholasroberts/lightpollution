@@ -10,13 +10,27 @@ Reproducible workflow for analysing annual VIIRS night-time light radiance acros
 - Analyse changes in the population–radiance relationship through time.
 - Produce publication-quality spatial and statistical figures.
 
-## Current design
+## Current production design
 
-The pipeline uses a **fixed NUTS 2024 level-3 geography** across all analysis years so that administrative boundary changes are not confused with temporal change.
+The production workflow now covers **2013-2024** and uses the Eurostat-aligned
+NUTS3 coding represented by the current `DEMO_R_D3DENS` series:
 
-The target demographic source is Eurostat dataset **`DEMO_R_D3DENS`**.
+- 2013-2020: NUTS 2016
+- 2021-2022: NUTS 2021
+- 2023-2024: NUTS 2024
 
-The production VIIRS zonal-statistics step will use an area-aware method that accounts for both polygon overlap and the changing physical area of geographic-grid cells with latitude. That method is intentionally being validated before it is enabled in the pipeline.
+VIIRS radiance is extracted using exact polygon overlap with spherical physical
+cell-area weighting. A validated additive zero-point correction is applied from
+2017 onward for the currently calibrated countries, while raw radiance is
+retained for provenance. Population-density gaps are recovered only for
+validated countries and only where published Eurostat density is absent.
+
+The pipeline now includes annual country fits, longitudinal mixed-effects
+models with NUTS3 random intercepts, all-year country facets, and publication
+maps of corrected NUTS3 radiance across Europe.
+
+See [the 2026-10-08 production milestone](docs/milestone_2026-10-08.md) and
+[the detailed pipeline notes](docs/pipeline.md).
 
 ## Pipeline stages
 
