@@ -1,9 +1,10 @@
 #!/usr/bin/env python3
 """Merge annual NUTS3 VIIRS radiance and Eurostat population density.
 
-The merge is intentionally an inner join on year + NUTS_ID. Each year uses the
-NUTS release applicable to that year; unmatched or missing regions simply do
-not contribute a point to that year's country-level relationship.
+The merge is intentionally an inner join on year + NUTS_ID + nuts_release.
+Radiance comes from the production-calibrated table, which retains both raw
+and corrected values. Unmatched or missing regions simply do not contribute
+a point to that year's country-level relationship.
 """
 
 from __future__ import annotations
@@ -25,7 +26,7 @@ def main() -> None:
     config = load_config(args.config)
     processed = configured_path(config, "processed")
 
-    radiance_path = processed / config["outputs"]["radiance_by_nuts3"]
+    radiance_path = processed / config["outputs"]["radiance_by_nuts3_calibrated"]
     population_path = processed / config["outputs"]["population_by_nuts3"]
 
     radiance = pd.read_parquet(radiance_path)
@@ -46,17 +47,31 @@ def main() -> None:
         suffixes=("", "_population"),
     )
 
-    # Log-ready fields. Zero radiance cannot be represented on a logarithmic
-    # axis, so retain the raw value and mark log10 as missing for those rows.
-    merged["log10_radiance_mean"] = np.where(
-        merged["radiance_mean"] > 0,
-        np.log10(merged["radiance_mean"]),
-        np.nan,
+    # The corrected value is the production radiance metric. Raw radiance is
+    # retained alongside it for provenance and diagnostic comparisons.
+    merged["radiance_mean"] = merged["radiance_mean_corrected"]
+
+    # Log-ready fields. Non-positive radiance cannot be represented on a
+    # logarithmic axis; retain the linear values and mark log10 as missing.
+    merged["log10_radiance_mean_raw"] = np.nan
+    raw_positive = merged["radiance_mean_raw"] > 0
+    merged.loc[raw_positive, "log10_radiance_mean_raw"] = np.log10(
+        merged.loc[raw_positive, "radiance_mean_raw"]
     )
-    merged["log10_population_density"] = np.where(
-        merged["population_density"] > 0,
-        np.log10(merged["population_density"]),
-        np.nan,
+
+    merged["log10_radiance_mean_corrected"] = np.nan
+    corrected_positive = merged["radiance_mean_corrected"] > 0
+    merged.loc[corrected_positive, "log10_radiance_mean_corrected"] = np.log10(
+        merged.loc[corrected_positive, "radiance_mean_corrected"]
+    )
+
+    # Backwards-compatible alias used by downstream analysis: this is now the
+    # corrected production radiance.
+    merged["log10_radiance_mean"] = merged["log10_radiance_mean_corrected"]
+    merged["log10_population_density"] = np.nan
+    pop_positive = merged["population_density"] > 0
+    merged.loc[pop_positive, "log10_population_density"] = np.log10(
+        merged.loc[pop_positive, "population_density"]
     )
 
     merged = merged.sort_values(["year", "CNTR_CODE", id_field]).reset_index(drop=True)
