@@ -193,12 +193,24 @@ def main() -> None:
             p = chi2.sf(max(lr, 0), df) if df > 0 else np.nan
             r2_reduced = nakagawa_r2(previous)[0]
             r2_full = nakagawa_r2(result)[0]
-            delta_r2 = r2_full - r2_reduced
-            cohens_f2 = (
-                delta_r2 / (1.0 - r2_full)
-                if np.isfinite(r2_full) and r2_full < 1.0
+
+            # Likelihood-ratio pseudo-R2 for the incremental contribution of
+            # the added term block. This is monotonic for nested ML models:
+            #   R2_LR = 1 - exp(-LR / n)
+            # and avoids misleading negative "effect sizes" that can occur
+            # when differencing Nakagawa marginal R2 across refitted models.
+            n_obs = float(result.nobs)
+            lr_pseudo_r2 = (
+                1.0 - np.exp(-max(lr, 0.0) / n_obs)
+                if n_obs > 0
                 else np.nan
             )
+            lr_f2 = (
+                lr_pseudo_r2 / (1.0 - lr_pseudo_r2)
+                if np.isfinite(lr_pseudo_r2) and lr_pseudo_r2 < 1.0
+                else np.nan
+            )
+
             comparison_rows.append(
                 {
                     "reduced_model": previous_name,
@@ -208,8 +220,9 @@ def main() -> None:
                     "p_value": float(p),
                     "marginal_r2_reduced": r2_reduced,
                     "marginal_r2_full": r2_full,
-                    "delta_marginal_r2": delta_r2,
-                    "cohens_f2_incremental": cohens_f2,
+                    "delta_marginal_r2_diagnostic": r2_full - r2_reduced,
+                    "lr_pseudo_r2_incremental": lr_pseudo_r2,
+                    "lr_f2_incremental": lr_f2,
                 }
             )
 
@@ -295,6 +308,13 @@ def main() -> None:
         handle.write(f"Residual variance: {residual_var:.8f}\n")
         handle.write(f"NUTS3 ICC: {icc:.8f}\n")
 
+    print(
+        "\nEffect-size note: Nakagawa marginal R2 is retained as a whole-model "
+        "summary. Incremental term-block effect sizes use LR pseudo-R2 and "
+        "LR-based f2 because differences in marginal R2 are not monotonic "
+        "across refitted mixed models."
+    )
+
     print("\nMODEL COMPARISON")
     print(model_table.to_string(index=False, float_format=lambda x: f"{x:.6g}"))
 
@@ -319,8 +339,8 @@ def main() -> None:
                 "lr_statistic",
                 "df_added",
                 "p_value",
-                "delta_marginal_r2",
-                "cohens_f2_incremental",
+                "lr_pseudo_r2_incremental",
+                "lr_f2_incremental",
             ]
         ].to_string(index=False, float_format=lambda x: f"{x:.6g}")
     )
