@@ -66,6 +66,19 @@ population:
     - IT
     - NL
 
+calibration:
+  enabled: true
+  method: country_additive_dark_regions
+  dark_fraction: 0.20
+  apply_from_year: 2017
+  estimation_years: [2015, 2016, 2017, 2018]
+  countries:
+    - DE
+    - IT
+    - NL
+    - FR
+    - ES
+
 analysis:
   first_year: 2013
   last_year: 2024
@@ -92,6 +105,8 @@ analysis:
 
 outputs:
   radiance_by_nuts3: nuts3_viirs_radiance.parquet
+  radiance_by_nuts3_calibrated: nuts3_viirs_radiance_calibrated.parquet
+  calibration_offsets: viirs_country_calibration_offsets.csv
   population_by_nuts3: nuts3_population_density.parquet
   merged: nuts3_radiance_population.parquet
   csv_export: nuts3_radiance_population.csv
