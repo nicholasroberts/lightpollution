@@ -198,3 +198,21 @@ only from logarithmic fitting.
 The production correction is currently validated for DE, IT, NL, FR and ES.
 Countries outside that configured set retain their raw radiance unchanged until
 their calibration correction is separately validated.
+
+
+16. **country-facets**
+   - generate a multi-page publication PDF with six countries per page
+   - order countries alphabetically by country code
+   - show all available years in every country panel
+   - plot corrected NUTS3 radiance versus population density in log10-log10 space
+   - use common axes across all pages for direct comparison
+
+17. **mixed-model**
+   - fit a Gaussian linear mixed-effects model to corrected log10 radiance
+   - use NUTS3 as a random intercept
+   - include fixed effects of log10 population density, centred year and country
+   - include country-specific population-density slopes and country-specific
+     temporal trends
+   - fit nested ML models and likelihood-ratio tests for the added effects
+   - report the NUTS3 random-intercept variance and ICC
+   - exclude countries represented by fewer than three unique NUTS3 regions
