@@ -55,7 +55,12 @@ all four years with NUTS3 identifier as a random intercept.
   - also contains the mean slope and mean intercept across those four years.
 
 - `figures/6.fitting_graphs.pdf`
-  - original multi-country fitted relationship figure.
+  - original multi-country fitted relationship figure;
+  - the original binary PDF was supplied with the archive materials and its
+    SHA-256 hash is recorded in `SHA256SUMS`;
+  - the PDF is a derived output and is not required to reproduce the numerical
+    results. It should be copied into this path unchanged when syncing the
+    remaining binary archive artifact from the original workstation.
 
 ## Original processing logic
 
@@ -118,4 +123,6 @@ exactly.
 ## Integrity
 
 SHA-256 hashes for the six original uploaded files are recorded in
-`SHA256SUMS`.
+`SHA256SUMS`. The code and data files are archived directly in GitHub. The
+binary figure PDF is tracked by hash until the unchanged original is copied
+into `figures/6.fitting_graphs.pdf` from the workstation.
