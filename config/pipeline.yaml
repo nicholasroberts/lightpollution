@@ -60,6 +60,12 @@ analysis:
   last_year: 2024
   fixed_geography: false
   year_specific_nuts: true
+  comparison_countries:
+    - DE
+    - IT
+    - NL
+    - FR
+    - ES
   radiance_statistics:
     - weighted_mean
   area_weighting:
