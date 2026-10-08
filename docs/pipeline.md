@@ -86,6 +86,8 @@ Eurostat-aligned release are flagged and omitted rather than imputed.
    - restrict recovery to NUTS3 codes belonging to the configured geography
    - fill only absent/null density observations using
      `demo_r_pjanaggr3 / reg_area3` total land area
+   - restrict production recovery to a validated country allow-list
+     (currently Netherlands only)
    - retain explicit provenance and recovery flags for every derived value
 
 8. **merge**
