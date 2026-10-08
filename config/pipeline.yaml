@@ -93,6 +93,13 @@ analysis:
     - ES
   radiance_statistics:
     - weighted_mean
+  mixed_model:
+    min_country_regions: 3
+    random_intercept: NUTS_ID
+    year_effect: numeric_centered
+    country_effect: fixed
+    include_country_density_interaction: true
+    include_country_year_interaction: true
   area_weighting:
     enabled: true
     method: exact_overlap_area_spherical_m2
