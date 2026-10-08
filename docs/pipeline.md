@@ -74,6 +74,12 @@ year's NUTS release are omitted rather than imputed.
    - exclude only non-positive values from the logarithmic fit
    - write a fit-summary CSV and a multi-panel comparison figure
 
+8. **benchmark**
+   - compare rebuilt country fits with the archived 2016-2019 analysis
+   - report old mean/range and new slope/intercept values
+   - flag whether the new value lies inside the legacy four-year range
+   - write a comparison CSV and benchmark figure
+
 ## Radiance statistic
 
 The production radiance extractor uses exact polygon overlap with
