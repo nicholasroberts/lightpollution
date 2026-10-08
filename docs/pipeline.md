@@ -81,25 +81,32 @@ Eurostat-aligned release are flagged and omitted rather than imputed.
    - quantify the expected difference caused by annual-average versus
      1-January population definitions
 
-7. **merge**
+7. **population-recover**
+   - preserve every published `DEMO_R_D3DENS` value unchanged
+   - restrict recovery to NUTS3 codes belonging to the configured geography
+   - fill only absent/null density observations using
+     `demo_r_pjanaggr3 / reg_area3` total land area
+   - retain explicit provenance and recovery flags for every derived value
+
+8. **merge**
    - inner join on `year + NUTS_ID + nuts_release`
    - omit unmatched/missing observations rather than harmonising or imputing
    - calculate log10 radiance and log10 population-density fields
    - report the number of paired observations for every country/year
 
-8. **fit**
+9. **fit**
    - fit a separate OLS line in log10-log10 space for every country/year
    - report n, slope, intercept and R²
    - exclude only non-positive values from the logarithmic fit
    - write a fit-summary CSV and a multi-panel comparison figure
 
-9. **benchmark**
+10. **benchmark**
    - compare rebuilt country fits with the archived 2016-2019 analysis
    - report old mean/range and new slope/intercept values
    - flag whether the new value lies inside the legacy four-year range
    - write a comparison CSV and benchmark figure
 
-10. **trends**
+11. **trends**
    - plot country-specific slope, intercept and R² from 2013-2024
    - mark the 2016/2017 VIIRS calibration transition
    - calculate year-to-year changes in slope, intercept and R²
