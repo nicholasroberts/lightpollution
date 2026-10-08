@@ -16,6 +16,7 @@ STAGES = {
     "validate": PROJECT_ROOT / "src" / "validate_inputs.py",
     "weighting-test": PROJECT_ROOT / "src" / "validate_zonal_weighting.py",
     "radiance": PROJECT_ROOT / "src" / "extract_nuts3_radiance.py",
+    "calibration": PROJECT_ROOT / "src" / "apply_radiance_calibration.py",
     "population": PROJECT_ROOT / "src" / "fetch_eurostat_population.py",
     "population-fallback-test": PROJECT_ROOT / "src" / "validate_population_fallback.py",
     "population-recover": PROJECT_ROOT / "src" / "recover_population_density.py",
@@ -42,7 +43,17 @@ def main() -> None:
     args = parser.parse_args()
 
     if args.stage == "all":
-        order = ["nuts", "validate", "radiance", "population", "merge"]
+        order = [
+            "nuts",
+            "validate",
+            "radiance",
+            "calibration",
+            "population",
+            "population-recover",
+            "merge",
+            "fit",
+            "trends",
+        ]
     else:
         order = [args.stage]
 
