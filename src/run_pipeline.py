@@ -26,6 +26,7 @@ STAGES = {
     "trends": PROJECT_ROOT / "src" / "plot_fit_trends.py",
     "country-facets": PROJECT_ROOT / "src" / "plot_country_facets.py",
     "mixed-model": PROJECT_ROOT / "src" / "mixed_effects_analysis.py",
+    "europe-maps": PROJECT_ROOT / "src" / "plot_europe_radiance_maps.py",
     "calibration-offset-test": PROJECT_ROOT / "src" / "test_calibration_offset.py",
     "calibration-country-test": PROJECT_ROOT / "src" / "test_country_calibration_correction.py",
     "calibration-sensitivity": PROJECT_ROOT / "src" / "calibration_sensitivity.py",
