@@ -55,6 +55,9 @@ population:
   frequency: A
   api_geo_level: nuts3
   expected_units: "persons per square kilometre"
+  fallback_population_dataset: demo_r_pjanaggr3
+  fallback_area_dataset: reg_area3
+  fallback_area_measure: total_land_area
 
 analysis:
   first_year: 2013
