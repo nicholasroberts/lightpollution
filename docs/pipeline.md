@@ -72,25 +72,34 @@ Eurostat-aligned release are flagged and omitted rather than imputed.
    - flag whether each population record matches that release
    - preserve Eurostat status flags
 
-6. **merge**
+6. **population-fallback-test**
+   - diagnostic only; does not alter production data
+   - test whether missing `DEMO_R_D3DENS` values can be recovered from
+     `demo_r_pjanaggr3` population on 1 January divided by `reg_area3`
+     total land area
+   - compare reconstructed density with published density wherever both exist
+   - quantify the expected difference caused by annual-average versus
+     1-January population definitions
+
+7. **merge**
    - inner join on `year + NUTS_ID + nuts_release`
    - omit unmatched/missing observations rather than harmonising or imputing
    - calculate log10 radiance and log10 population-density fields
    - report the number of paired observations for every country/year
 
-7. **fit**
+8. **fit**
    - fit a separate OLS line in log10-log10 space for every country/year
    - report n, slope, intercept and R²
    - exclude only non-positive values from the logarithmic fit
    - write a fit-summary CSV and a multi-panel comparison figure
 
-8. **benchmark**
+9. **benchmark**
    - compare rebuilt country fits with the archived 2016-2019 analysis
    - report old mean/range and new slope/intercept values
    - flag whether the new value lies inside the legacy four-year range
    - write a comparison CSV and benchmark figure
 
-9. **trends**
+10. **trends**
    - plot country-specific slope, intercept and R² from 2013-2024
    - mark the 2016/2017 VIIRS calibration transition
    - calculate year-to-year changes in slope, intercept and R²
