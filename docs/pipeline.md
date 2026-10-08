@@ -138,3 +138,11 @@ the population-density relationship.
 
 Large raw and generated datasets are deliberately excluded from Git. Expected
 local locations are defined in `config/pipeline.yaml`.
+
+
+12. **calibration-offset-test**
+   - diagnostic only; does not alter production radiance
+   - use matched NUTS3 regions across 2015-2018
+   - estimate the excess 2016-to-2017 change in linear radiance
+   - compare that estimate across 2016-radiance deciles and countries
+   - test whether a simple additive zero-point shift is sufficient
