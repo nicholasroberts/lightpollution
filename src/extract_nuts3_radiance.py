@@ -1,13 +1,14 @@
 #!/usr/bin/env python3
-"""Extract annual VIIRS mean radiance using the NUTS release valid for each year.
+"""Extract annual VIIRS mean radiance on the configured Eurostat-aligned NUTS geography.
 
 For each NUTS3 polygon, mean radiance is calculated with exact polygon overlap
 and spherical physical-area weighting:
 
     mean(coverage_weight=area_spherical_m2)
 
-The NUTS release is selected from config/pipeline.yaml independently for each
-analysis year, following Eurostat's official NUTS applicability periods.
+The NUTS release is selected from config/pipeline.yaml so that VIIRS radiance
+is aggregated on the same retrospectively harmonized NUTS classification used
+by the current Eurostat population-density time series.
 """
 
 from __future__ import annotations
