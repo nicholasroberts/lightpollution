@@ -20,6 +20,7 @@ STAGES = {
     "merge": PROJECT_ROOT / "src" / "merge_radiance_population.py",
     "fit": PROJECT_ROOT / "src" / "fit_population_radiance.py",
     "benchmark": PROJECT_ROOT / "src" / "compare_legacy_fits.py",
+    "trends": PROJECT_ROOT / "src" / "plot_fit_trends.py",
 }
 
 
