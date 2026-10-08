@@ -61,9 +61,18 @@ Eurostat-aligned release are flagged and omitted rather than imputed.
    - select the Eurostat-aligned NUTS release configured for each VIIRS year
    - calculate exact-overlap, spherical-area-weighted mean radiance
    - retain valid covered area and provenance
-   - write tidy Parquet and CSV tables
+   - write the unmodified raw radiance table
 
-5. **population**
+5. **calibration**
+   - preserve extracted radiance as `radiance_mean_raw`
+   - estimate country-specific additive offsets from the darkest 20% of
+     matched 2015-2018 NUTS3 regions
+   - apply the offset from 2017 onward for DE, IT, NL, FR and ES
+   - retain offset, method, threshold and application flag for every row
+   - store the result as `radiance_mean_corrected`
+   - retain non-positive corrected values without clipping or pseudocounts
+
+6. **population**
    - retrieve Eurostat `DEMO_R_D3DENS`
    - request `geoLevel=nuts3`
    - retain the raw JSON-stat response
@@ -72,7 +81,7 @@ Eurostat-aligned release are flagged and omitted rather than imputed.
    - flag whether each population record matches that release
    - preserve Eurostat status flags
 
-6. **population-fallback-test**
+7. **population-fallback-test**
    - diagnostic only; does not alter production data
    - test whether missing `DEMO_R_D3DENS` values can be recovered from
      `demo_r_pjanaggr3` population on 1 January divided by `reg_area3`
@@ -81,7 +90,7 @@ Eurostat-aligned release are flagged and omitted rather than imputed.
    - quantify the expected difference caused by annual-average versus
      1-January population definitions
 
-7. **population-recover**
+8. **population-recover**
    - preserve every published `DEMO_R_D3DENS` value unchanged
    - restrict recovery to NUTS3 codes belonging to the configured geography
    - fill only absent/null density observations using
@@ -92,25 +101,25 @@ Eurostat-aligned release are flagged and omitted rather than imputed.
    - Norway is excluded from production recovery because validation overlap is
      sparse and several target NUTS3 regions remain unrecovered
 
-8. **merge**
+9. **merge**
    - inner join on `year + NUTS_ID + nuts_release`
    - omit unmatched/missing observations rather than harmonising or imputing
    - calculate log10 radiance and log10 population-density fields
    - report the number of paired observations for every country/year
 
-9. **fit**
+10. **fit**
    - fit a separate OLS line in log10-log10 space for every country/year
    - report n, slope, intercept and R²
    - exclude only non-positive values from the logarithmic fit
    - write a fit-summary CSV and a multi-panel comparison figure
 
-10. **benchmark**
+11. **benchmark**
    - compare rebuilt country fits with the archived 2016-2019 analysis
    - report old mean/range and new slope/intercept values
    - flag whether the new value lies inside the legacy four-year range
    - write a comparison CSV and benchmark figure
 
-11. **trends**
+12. **trends**
    - plot country-specific slope, intercept and R² from 2013-2024
    - mark the 2016/2017 VIIRS calibration transition
    - calculate year-to-year changes in slope, intercept and R²
@@ -140,7 +149,7 @@ Large raw and generated datasets are deliberately excluded from Git. Expected
 local locations are defined in `config/pipeline.yaml`.
 
 
-12. **calibration-offset-test**
+13. **calibration-offset-test**
    - diagnostic only; does not alter production radiance
    - use matched NUTS3 regions across 2015-2018
    - estimate the excess 2016-to-2017 change in linear radiance
@@ -148,7 +157,7 @@ local locations are defined in `config/pipeline.yaml`.
    - test whether a simple additive zero-point shift is sufficient
 
 
-13. **calibration-country-test**
+14. **calibration-country-test**
    - diagnostic only; does not alter production radiance
    - estimate a country-specific additive 2017 offset from the darkest 20% of
      matched 2016 NUTS3 regions
@@ -157,7 +166,7 @@ local locations are defined in `config/pipeline.yaml`.
      slope/intercept discontinuity before and after correction
 
 
-14. **calibration-sensitivity**
+15. **calibration-sensitivity**
    - diagnostic only; does not alter production radiance
    - repeat the country-specific additive offset estimate using the darkest
      10%, 15%, 20%, 25% and 30% of matched regions
@@ -165,3 +174,27 @@ local locations are defined in `config/pipeline.yaml`.
    - compare corrected 2017-2019 changes relative to 2016 against the archived
      legacy analysis, which used an upstream zero-point correction
    - rank thresholds jointly by discontinuity removal and legacy agreement
+
+
+## Production radiance calibration
+
+The 2017 VIIRS discontinuity is treated as an additive zero-point shift in
+linear radiance. Sensitivity analysis using the darkest 10-30% of matched
+NUTS3 regions found the 20% threshold gave the smallest residual 2016-2017
+slope/intercept discontinuity and the best agreement with the archived
+2016-2019 analysis that had an upstream zero-point correction.
+
+The production estimator uses matched 2015-2018 regions within each configured
+country. The darkest 20% are selected by 2016 radiance. The expected natural
+2016-2017 change is estimated from the mean of the median 2015-2016 and
+2017-2018 changes, and the excess is treated as the additive calibration
+offset.
+
+The correction is applied from 2017 onward. Raw and corrected radiance are
+both retained. Corrected values are never clipped or replaced with a
+pseudocount; non-positive values remain in the linear dataset and are excluded
+only from logarithmic fitting.
+
+The production correction is currently validated for DE, IT, NL, FR and ES.
+Countries outside that configured set retain their raw radiance unchanged until
+their calibration correction is separately validated.
