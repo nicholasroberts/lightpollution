@@ -10,30 +10,40 @@ country and year, matched NUTS3 radiance/population-density pairs are treated
 as the observations used for the log-radiance versus log-population-density
 relationship. A NUTS3 region does not need to exist in every year.
 
-## Year-specific NUTS geography
+## Eurostat-aligned NUTS geography
 
-The workflow deliberately uses the NUTS classification applicable to each
-reference year rather than forcing all years onto NUTS 2024:
+The workflow uses the NUTS classification represented by the current Eurostat
+`DEMO_R_D3DENS` population-density time series. Eurostat retrospectively
+recasts historical regional statistics onto newer NUTS classifications, so
+the geographical coding in the live population dataset does not always equal
+the NUTS release formally applicable in the original reference year.
 
-- 2013-2014: NUTS 2010
-- 2015-2017: NUTS 2013
-- 2018-2020: NUTS 2016
-- 2021-2023: NUTS 2021
-- 2024: NUTS 2024
+Direct comparison of the population codes against GISCO NUTS3 releases showed
+the following best-matching geography:
 
-This follows Eurostat's official applicability periods. Boundary changes,
-splits, mergers and code changes between NUTS releases therefore do not require
-harmonisation for this analysis: each annual country-level relationship uses
-the valid NUTS3 observations available for that year.
+- 2013-2020: NUTS 2016
+- 2021-2022: NUTS 2021
+- 2023-2024: NUTS 2024
+
+VIIRS radiance is therefore aggregated using exactly this mapping. This gives
+radiance and population density compatible NUTS identifiers within each year
+and avoids large artificial losses of observations caused by joining
+retrospectively recoded Eurostat population data to obsolete historical NUTS
+codes.
+
+This is a deliberate analytical choice. The objective is the country-level
+relationship between population density and radiance, so preserving compatible
+regional units is more important here than retaining the exact boundary regime
+that was legally in force in each historical year.
 
 The required GISCO Level-3 GeoJSON releases are downloaded and retained
-locally. Missing Eurostat observations or identifiers that do not match that
-year's NUTS release are omitted rather than imputed.
+locally. Population observations that still do not match their configured
+Eurostat-aligned release are flagged and omitted rather than imputed.
 
 ## Pipeline stages
 
 1. **nuts**
-   - download NUTS 2010, 2013, 2016, 2021 and 2024 Level-3 GISCO GeoJSON
+   - download NUTS 2016, 2021 and 2024 Level-3 GISCO GeoJSON
    - use 01M resolution and EPSG:4326
    - use `wget` when available
 
@@ -41,14 +51,14 @@ year's NUTS release are omitted rather than imputed.
    - discover local VIIRS annual rasters
    - inspect raster CRS/dimensions
    - confirm all required NUTS releases
-   - report year-to-NUTS-release mapping and missing VIIRS years
+   - report the Eurostat-aligned year-to-NUTS-release mapping and missing VIIRS years
 
 3. **weighting-test**
    - compare pixel-centre, exact fractional-overlap and spherical-area-weighted
      means on representative NUTS3 regions
 
 4. **radiance**
-   - select the NUTS release applicable to each VIIRS year
+   - select the Eurostat-aligned NUTS release configured for each VIIRS year
    - calculate exact-overlap, spherical-area-weighted mean radiance
    - retain valid covered area and provenance
    - write tidy Parquet and CSV tables
@@ -58,7 +68,7 @@ year's NUTS release are omitted rather than imputed.
    - request `geoLevel=nuts3`
    - retain the raw JSON-stat response
    - use `wget` by default
-   - associate each year with its applicable NUTS release
+   - associate each year with the NUTS release used by the harmonized Eurostat population series
    - flag whether each population record matches that release
    - preserve Eurostat status flags
 
