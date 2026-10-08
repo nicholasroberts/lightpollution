@@ -2,7 +2,8 @@
 """Download and normalise Eurostat NUTS3 population-density data.
 
 The raw source is Eurostat DEMO_R_D3DENS. Each observation is checked against
-the NUTS release officially applicable to its reference year.
+the NUTS release used by the current retrospectively harmonized Eurostat
+population-density time series for that reference year.
 """
 
 from __future__ import annotations
@@ -202,7 +203,7 @@ def main() -> None:
 
     print()
     print(f"Rows written: {len(frame):,}")
-    print("Coverage by year and applicable NUTS release:")
+    print("Coverage by year and configured Eurostat-aligned NUTS release:")
     print(coverage.to_string())
 
     print()
