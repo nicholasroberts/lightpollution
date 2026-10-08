@@ -5,11 +5,12 @@ Each available NUTS3 pair is treated as an independent observation within a
 country/year. Fits are ordinary least-squares straight lines in log10-log10
 space:
 
-    log10(mean VIIRS radiance) ~ log10(population density)
+    log10(corrected mean VIIRS radiance) ~ log10(population density)
 
-Rows with non-positive radiance or population density are retained in the
-merged data but cannot enter a logarithmic fit, so they are counted and
-reported separately.
+The corrected production radiance is used by default. Raw radiance remains in
+the merged dataset for provenance. Rows with non-positive corrected radiance
+or population density are retained but cannot enter a logarithmic fit, so they
+are counted and reported separately.
 """
 
 from __future__ import annotations
@@ -27,7 +28,7 @@ from project_config import configured_path, load_config
 def fit_one(group: pd.DataFrame) -> dict:
     raw_n = len(group)
     fit = group[
-        (group["radiance_mean"] > 0)
+        (group["radiance_mean_corrected"] > 0)
         & (group["population_density"] > 0)
     ].copy()
 
@@ -107,12 +108,12 @@ def plot_countries(
     for ax, country in zip(axes.flat, present):
         group = subset[subset["CNTR_CODE"] == country].copy()
         group = group[
-            (group["radiance_mean"] > 0)
+            (group["radiance_mean_corrected"] > 0)
             & (group["population_density"] > 0)
         ]
 
         x = np.log10(group["population_density"].to_numpy(dtype=float))
-        y = np.log10(group["radiance_mean"].to_numpy(dtype=float))
+        y = np.log10(group["radiance_mean_corrected"].to_numpy(dtype=float))
 
         ax.scatter(x, y, s=22, alpha=0.7)
 
@@ -131,14 +132,14 @@ def plot_countries(
             f"slope={stats['slope']:.3f}  R²={stats['r2']:.3f}"
         )
         ax.set_xlabel("log10 population density (people km⁻²)")
-        ax.set_ylabel("log10 mean VIIRS radiance (nW cm⁻² sr⁻¹)")
+        ax.set_ylabel("log10 corrected mean VIIRS radiance (nW cm⁻² sr⁻¹)")
         ax.grid(alpha=0.2)
 
     for ax in axes.flat[len(present):]:
         ax.remove()
 
     fig.suptitle(
-        f"NUTS3 population density vs VIIRS radiance, {year}",
+        f"NUTS3 population density vs corrected VIIRS radiance, {year}",
         fontsize=15,
     )
 
