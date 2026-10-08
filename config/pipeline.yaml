@@ -58,6 +58,9 @@ population:
   fallback_population_dataset: demo_r_pjanaggr3
   fallback_area_dataset: reg_area3
   fallback_area_measure: total_land_area
+  # Only use validated fallback countries in production.
+  fallback_recovery_countries:
+    - NL
 
 analysis:
   first_year: 2013
