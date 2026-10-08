@@ -155,3 +155,13 @@ local locations are defined in `config/pipeline.yaml`.
    - subtract that constant from 2017+ radiance for the test only
    - re-fit annual country relationships and compare the 2016-to-2017
      slope/intercept discontinuity before and after correction
+
+
+14. **calibration-sensitivity**
+   - diagnostic only; does not alter production radiance
+   - repeat the country-specific additive offset estimate using the darkest
+     10%, 15%, 20%, 25% and 30% of matched regions
+   - quantify residual 2016-to-2017 slope/intercept discontinuities
+   - compare corrected 2017-2019 changes relative to 2016 against the archived
+     legacy analysis, which used an upstream zero-point correction
+   - rank thresholds jointly by discontinuity removal and legacy agreement
