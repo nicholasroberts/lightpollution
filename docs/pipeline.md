@@ -146,3 +146,12 @@ local locations are defined in `config/pipeline.yaml`.
    - estimate the excess 2016-to-2017 change in linear radiance
    - compare that estimate across 2016-radiance deciles and countries
    - test whether a simple additive zero-point shift is sufficient
+
+
+13. **calibration-country-test**
+   - diagnostic only; does not alter production radiance
+   - estimate a country-specific additive 2017 offset from the darkest 20% of
+     matched 2016 NUTS3 regions
+   - subtract that constant from 2017+ radiance for the test only
+   - re-fit annual country relationships and compare the 2016-to-2017
+     slope/intercept discontinuity before and after correction
