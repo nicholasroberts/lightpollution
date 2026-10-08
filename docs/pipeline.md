@@ -68,6 +68,12 @@ year's NUTS release are omitted rather than imputed.
    - calculate log10 radiance and log10 population-density fields
    - report the number of paired observations for every country/year
 
+7. **fit**
+   - fit a separate OLS line in log10-log10 space for every country/year
+   - report n, slope, intercept and R²
+   - exclude only non-positive values from the logarithmic fit
+   - write a fit-summary CSV and a multi-panel comparison figure
+
 ## Radiance statistic
 
 The production radiance extractor uses exact polygon overlap with
