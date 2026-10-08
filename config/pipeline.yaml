@@ -100,6 +100,13 @@ analysis:
     country_effect: fixed
     include_country_density_interaction: true
     include_country_year_interaction: true
+  europe_maps:
+    extent_4326: [-25.0, 34.0, 45.0, 72.5]
+    projection: EPSG:3035
+    cmap: inferno
+    colour_min_quantile: 0.01
+    colour_max_quantile: 0.99
+    dpi: 600
   area_weighting:
     enabled: true
     method: exact_overlap_area_spherical_m2
