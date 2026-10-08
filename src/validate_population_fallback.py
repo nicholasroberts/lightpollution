@@ -285,11 +285,52 @@ def select_area_for_population(
     return pd.DataFrame(rows)
 
 
+def nuts_release_for_year(config: dict, year: int) -> int:
+    mapping = config["nuts"]["release_by_year"]
+    release = mapping.get(year, mapping.get(str(year)))
+    if release is None:
+        raise KeyError(f"No NUTS release configured for {year}")
+    return int(release)
+
+
+def configured_target_codes(config: dict, years: list[int]) -> pd.DataFrame:
+    import geopandas as gpd
+
+    root = configured_path(config, "nuts_raw")
+    template = config["nuts"]["filename_template"]
+    frames = []
+    cache = {}
+
+    for year in years:
+        release = nuts_release_for_year(config, year)
+        if release not in cache:
+            path = root / template.format(release=release)
+            g = gpd.read_file(path, ignore_geometry=True)
+            keep = ["NUTS_ID"]
+            if "CNTR_CODE" in g.columns:
+                keep.append("CNTR_CODE")
+            cache[release] = g[keep].copy()
+
+        y = cache[release].copy()
+        if "CNTR_CODE" not in y.columns:
+            y["CNTR_CODE"] = y["NUTS_ID"].str[:2]
+        y["year"] = year
+        y["nuts_release"] = release
+        frames.append(y)
+
+    return pd.concat(frames, ignore_index=True)
+
+
 def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--config", default="config/pipeline.yaml")
     parser.add_argument("--force-download", action="store_true")
-    parser.add_argument("--country", default="NL")
+    parser.add_argument(
+        "--countries",
+        nargs="+",
+        default=["BE", "EE", "HR", "IT", "NL", "NO"],
+        help="Country codes to validate.",
+    )
     parser.add_argument(
         "--years",
         nargs="+",
@@ -350,58 +391,115 @@ def main() -> None:
         / comparison["population_density"]
     )
 
-    country_prefix = args.country.upper()
-    c = comparison[
-        comparison["NUTS_ID"].str.startswith(country_prefix)
-        & comparison["year"].isin(args.years)
+    target = configured_target_codes(config, args.years)
+    comparison = target.merge(
+        comparison,
+        on=["year", "NUTS_ID"],
+        how="left",
+        validate="one_to_one",
+    )
+
+    comparison = comparison[
+        comparison["CNTR_CODE"].isin([c.upper() for c in args.countries])
     ].copy()
 
     output_dir = configured_path(config, "processed")
-    output = output_dir / (
-        f"population_density_fallback_validation_{country_prefix.lower()}.csv"
-    )
-    c.to_csv(output, index=False)
+    output = output_dir / "population_density_fallback_validation_countries.csv"
+    comparison.to_csv(output, index=False)
 
-    print(
-        f"\n{country_prefix}: comparison of Jan-1/land-area density "
-        "with official demo_r_d3dens"
-    )
-    print("=" * 78)
+    summary_rows = []
 
-    for year in args.years:
-        y = c[c["year"] == year].copy()
-        both = y[y["population_density"].notna()].copy()
-        missing = y[y["population_density"].isna()].copy()
+    for country_prefix in [c.upper() for c in args.countries]:
+        c = comparison[comparison["CNTR_CODE"] == country_prefix].copy()
 
-        print(f"\n{year}")
-        print(f"  derived density rows: {len(y)}")
-        print(f"  rows also having official density: {len(both)}")
-        print(f"  candidate recovered missing density rows: {len(missing)}")
+        print(
+            f"\n{country_prefix}: comparison of Jan-1/land-area density "
+            "with official demo_r_d3dens"
+        )
+        print("=" * 78)
 
-        if not both.empty:
-            abs_pct = both["density_percent_difference"].abs()
-            print(
-                "  validation |% difference|: "
-                f"median={abs_pct.median():.3f}%  "
-                f"mean={abs_pct.mean():.3f}%  "
-                f"max={abs_pct.max():.3f}%"
-            )
-            corr = both[
-                ["derived_density_jan1", "population_density"]
-            ].corr().iloc[0, 1]
-            print(f"  correlation with official density: {corr:.6f}")
+        for year in args.years:
+            y = c[c["year"] == year].copy()
+            both = y[
+                y["population_density"].notna()
+                & y["derived_density_jan1"].notna()
+            ].copy()
+            missing_official = y[y["population_density"].isna()].copy()
+            recoverable = missing_official[
+                missing_official["derived_density_jan1"].notna()
+            ].copy()
+            unrecovered = missing_official[
+                missing_official["derived_density_jan1"].isna()
+            ].copy()
 
-        if not missing.empty:
-            print("  recovered codes:")
-            for row in missing.sort_values("NUTS_ID").itertuples():
+            print(f"\n{year}")
+            print(f"  target NUTS3 regions: {len(y)}")
+            print(f"  official density rows: {y['population_density'].notna().sum()}")
+            print(f"  validation overlap rows: {len(both)}")
+            print(f"  recoverable missing density rows: {len(recoverable)}")
+            print(f"  still missing after fallback: {len(unrecovered)}")
+
+            median_abs_pct = mean_abs_pct = max_abs_pct = corr = float("nan")
+
+            if not both.empty:
+                abs_pct = both["density_percent_difference"].abs()
+                median_abs_pct = abs_pct.median()
+                mean_abs_pct = abs_pct.mean()
+                max_abs_pct = abs_pct.max()
+
+                if len(both) >= 2:
+                    corr = both[
+                        ["derived_density_jan1", "population_density"]
+                    ].corr().iloc[0, 1]
+
                 print(
-                    f"    {row.NUTS_ID}: "
-                    f"population={row.population_jan1:,.0f}, "
-                    f"land_area={row.land_area_km2:,.3f} km2, "
-                    f"derived_density={row.derived_density_jan1:,.3f}"
+                    "  validation |% difference|: "
+                    f"median={median_abs_pct:.3f}%  "
+                    f"mean={mean_abs_pct:.3f}%  "
+                    f"max={max_abs_pct:.3f}%"
                 )
+                if pd.notna(corr):
+                    print(f"  correlation with official density: {corr:.6f}")
 
+            if not recoverable.empty:
+                print("  recovered target codes:")
+                for row in recoverable.sort_values("NUTS_ID").itertuples():
+                    print(
+                        f"    {row.NUTS_ID}: "
+                        f"population={row.population_jan1:,.0f}, "
+                        f"land_area={row.land_area_km2:,.3f} km2, "
+                        f"derived_density={row.derived_density_jan1:,.3f}"
+                    )
+
+            summary_rows.append(
+                {
+                    "country": country_prefix,
+                    "year": year,
+                    "target_regions": len(y),
+                    "official_density_rows": int(
+                        y["population_density"].notna().sum()
+                    ),
+                    "validation_overlap_rows": len(both),
+                    "recoverable_missing_rows": len(recoverable),
+                    "still_missing_after_fallback": len(unrecovered),
+                    "median_abs_pct_difference": median_abs_pct,
+                    "mean_abs_pct_difference": mean_abs_pct,
+                    "max_abs_pct_difference": max_abs_pct,
+                    "correlation": corr,
+                }
+            )
+
+    summary = pd.DataFrame(summary_rows)
+    summary_output = (
+        output_dir / "population_density_fallback_validation_summary.csv"
+    )
+    summary.to_csv(summary_output, index=False)
+
+    print("\nSUMMARY")
+    print("=" * 78)
+    print(summary.to_string(index=False, float_format=lambda x: f"{x:.4f}"))
     print(f"\nWrote: {output}")
+    print(f"Wrote: {summary_output}")
     print(
         "\nDiagnostic only: production density values have NOT been modified."
     )
