@@ -90,6 +90,12 @@ Eurostat-aligned release are flagged and omitted rather than imputed.
    - flag whether the new value lies inside the legacy four-year range
    - write a comparison CSV and benchmark figure
 
+9. **trends**
+   - plot country-specific slope, intercept and R² from 2013-2024
+   - mark the 2016/2017 VIIRS calibration transition
+   - calculate year-to-year changes in slope, intercept and R²
+   - write the change table for later calibration analysis
+
 ## Radiance statistic
 
 The production radiance extractor uses exact polygon overlap with
