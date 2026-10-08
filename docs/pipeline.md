@@ -215,4 +215,10 @@ their calibration correction is separately validated.
      temporal trends
    - fit nested ML models and likelihood-ratio tests for the added effects
    - report the NUTS3 random-intercept variance and ICC
+   - additionally test population density × year and the
+     population density × year × country interaction
+   - report Nakagawa-style marginal and conditional R² for every nested model
+   - report Δ marginal R² and incremental Cohen's f² for each added effect block
+   - fit a standardized full model for directly comparable continuous-effect
+     coefficients
    - exclude countries represented by fewer than three unique NUTS3 regions
