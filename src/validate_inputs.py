@@ -83,7 +83,7 @@ def validate_year_coverage(config: dict, rasters: list[Path]) -> None:
     print(f"Analysis years:   {first}-{last}")
     print(f"Years present:    {present or 'none'}")
     print(f"Years missing:    {missing or 'none'}")
-    print("Year -> NUTS release:")
+    print("Year -> Eurostat-aligned NUTS release:")
     for year in range(first, last + 1):
         print(f"  {year}: NUTS {nuts_release_for_year(config, year)}")
 
