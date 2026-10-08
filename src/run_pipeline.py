@@ -23,6 +23,7 @@ STAGES = {
     "fit": PROJECT_ROOT / "src" / "fit_population_radiance.py",
     "benchmark": PROJECT_ROOT / "src" / "compare_legacy_fits.py",
     "trends": PROJECT_ROOT / "src" / "plot_fit_trends.py",
+    "calibration-offset-test": PROJECT_ROOT / "src" / "test_calibration_offset.py",
 }
 
 
