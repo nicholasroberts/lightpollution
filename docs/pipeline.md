@@ -227,3 +227,14 @@ their calibration correction is separately validated.
    - fit a standardized full model for directly comparable continuous-effect
      coefficients
    - exclude countries represented by fewer than three unique NUTS3 regions
+
+
+18. **europe-maps**
+   - generate one high-resolution PNG for every analysis year
+   - map `radiance_mean_corrected` only; raw radiance is never used
+   - use the Eurostat-aligned NUTS release configured for each year
+   - crop to a European longitude/latitude extent to exclude overseas territories
+   - project to ETRS89 / LAEA Europe (EPSG:3035)
+   - use one common logarithmic colour scale across 2013-2024
+   - draw NUTS3 boundaries and stronger national outlines
+   - write the common colour-scale metadata alongside the figures
