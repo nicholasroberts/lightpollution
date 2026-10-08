@@ -24,6 +24,7 @@ STAGES = {
     "benchmark": PROJECT_ROOT / "src" / "compare_legacy_fits.py",
     "trends": PROJECT_ROOT / "src" / "plot_fit_trends.py",
     "calibration-offset-test": PROJECT_ROOT / "src" / "test_calibration_offset.py",
+    "calibration-country-test": PROJECT_ROOT / "src" / "test_country_calibration_correction.py",
 }
 
 
