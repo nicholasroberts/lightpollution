@@ -18,6 +18,7 @@ STAGES = {
     "radiance": PROJECT_ROOT / "src" / "extract_nuts3_radiance.py",
     "population": PROJECT_ROOT / "src" / "fetch_eurostat_population.py",
     "merge": PROJECT_ROOT / "src" / "merge_radiance_population.py",
+    "fit": PROJECT_ROOT / "src" / "fit_population_radiance.py",
 }
 
 
