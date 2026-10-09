@@ -13,14 +13,16 @@ Key design points
 2. Reproduce the published colour-ratio quality filters.
 3. Apply a VIIRS-DNB > 0.5 nW cm-2 sr-1 mask to suppress unreliable ratios in
    dark pixels, as in the paper.
-4. Extract the spectral change at NUTS3 as well as country level.
-5. Test whether spectral change has a population-density gradient within
+4. Use common pre/post spatial support: both VIIRS masks, both ISS mosaics,
+   and both period quality filters must pass for a pixel to enter the change.
+5. Extract paired-pixel spectral change at NUTS3 as well as country level.
+6. Test whether spectral change has a population-density gradient within
    countries: this is the mechanism that can alter the observed log-log slope.
-6. Compare that spectral-density gradient with the observed 2013 -> 2020
+7. Compare that spectral-density gradient with the observed 2013 -> 2020
    change in country log-log slopes.
-7. Compare country-average spectral shift with change in radiance at a common
+8. Compare country-average spectral shift with change in radiance at a common
    reference population density (log10 density = 2, i.e. 100 people km-2).
-8. Fit a NUTS3 change model containing spectral shift x population density and
+9. Fit a NUTS3 change model containing spectral shift x population density and
    ask whether country-specific residual slope heterogeneity remains.
 
 Important temporal approximation
@@ -304,13 +306,210 @@ def ratio_stats_for_geometry(
     }
 
 
+def paired_ratio_stats_for_geometry(
+    pre_iss: rasterio.io.DatasetReader,
+    post_iss: rasterio.io.DatasetReader,
+    pre_viirs: rasterio.io.DatasetReader,
+    post_viirs: rasterio.io.DatasetReader,
+    geometry,
+    threshold: float,
+) -> dict:
+    """Calculate pre/post ratios on exactly the same valid physical pixels.
+
+    A pixel is retained only when:
+      * it lies inside the polygon;
+      * both pre and post ISS RGB(A) values are valid;
+      * both pre and post VIIRS radiance exceed the threshold;
+      * both periods pass the published ratio-quality bounds.
+
+    The primary delta variables are medians of the paired pixelwise changes,
+    not differences between medians. Differences between the common-support
+    period medians are retained separately for diagnostics.
+    """
+    if pre_iss.crs != post_iss.crs:
+        raise RuntimeError("Pre/post ISS CRS mismatch.")
+
+    geom = gpd.GeoSeries([geometry], crs="EPSG:4326").to_crs(pre_iss.crs).iloc[0]
+
+    try:
+        window = geometry_window(pre_iss, [geom.__geo_interface__])
+    except Exception:
+        return {
+            "n_common_valid_pixels": 0,
+            "pre_n_valid_pixels": 0,
+            "post_n_valid_pixels": 0,
+            "pre_bg_median": np.nan,
+            "post_bg_median": np.nan,
+            "pre_gr_median": np.nan,
+            "post_gr_median": np.nan,
+            "delta_bg_median": np.nan,
+            "delta_gr_median": np.nan,
+            "difference_of_bg_medians": np.nan,
+            "difference_of_gr_medians": np.nan,
+        }
+
+    full = rasterio.windows.Window(0, 0, pre_iss.width, pre_iss.height)
+    try:
+        window = window.intersection(full)
+    except Exception:
+        return {
+            "n_common_valid_pixels": 0,
+            "pre_n_valid_pixels": 0,
+            "post_n_valid_pixels": 0,
+            "pre_bg_median": np.nan,
+            "post_bg_median": np.nan,
+            "pre_gr_median": np.nan,
+            "post_gr_median": np.nan,
+            "delta_bg_median": np.nan,
+            "delta_gr_median": np.nan,
+            "difference_of_bg_medians": np.nan,
+            "difference_of_gr_medians": np.nan,
+        }
+
+    indexes = [1, 2, 3] + ([4] if pre_iss.count >= 4 else [])
+    pre = pre_iss.read(indexes, window=window, masked=True).astype("float32")
+    post = post_iss.read(indexes, window=window, masked=True).astype("float32")
+    vp = pre_viirs.read(1, window=window, masked=True).astype("float32")
+    vq = post_viirs.read(1, window=window, masked=True).astype("float32")
+
+    if not (
+        pre.shape == post.shape
+        and pre.shape[1:] == vp.shape
+        and vp.shape == vq.shape
+    ):
+        raise RuntimeError("Paired ISS/VIIRS aligned-window shape mismatch.")
+
+    transform = pre_iss.window_transform(window)
+    inside = geometry_mask(
+        [geom.__geo_interface__],
+        out_shape=vp.shape,
+        transform=transform,
+        invert=True,
+    )
+
+    def unpack(arr):
+        r = np.ma.asarray(arr[0], dtype=float)
+        g = np.ma.asarray(arr[1], dtype=float)
+        b = np.ma.asarray(arr[2], dtype=float)
+        rv = np.ma.filled(r, np.nan)
+        gv = np.ma.filled(g, np.nan)
+        bv = np.ma.filled(b, np.nan)
+
+        invalid = (
+            np.ma.getmaskarray(r)
+            | np.ma.getmaskarray(g)
+            | np.ma.getmaskarray(b)
+            | ~np.isfinite(rv)
+            | ~np.isfinite(gv)
+            | ~np.isfinite(bv)
+            | (rv <= 0)
+            | (gv <= 0)
+            | (bv < 0)
+        )
+        if arr.shape[0] >= 4:
+            alpha = np.ma.asarray(arr[3], dtype=float)
+            av = np.ma.filled(alpha, 0)
+            invalid |= np.ma.getmaskarray(alpha) | (av <= 0)
+
+        with np.errstate(divide="ignore", invalid="ignore"):
+            bg = bv / gv
+            gr = gv / rv
+            rg = rv / gv
+
+        quality = (
+            np.isfinite(bg)
+            & np.isfinite(gr)
+            & np.isfinite(rg)
+            & (bg >= 0)
+            & (gr >= 0)
+            & (bg <= 1.2)
+            & (gr <= 1.2)
+            & (rg <= 6.0)
+        )
+        return bg, gr, invalid, quality
+
+    pre_bg, pre_gr, pre_invalid, pre_quality = unpack(pre)
+    post_bg, post_gr, post_invalid, post_quality = unpack(post)
+
+    vpv = np.ma.filled(vp, np.nan)
+    vqv = np.ma.filled(vq, np.nan)
+    viirs_valid = (
+        ~np.ma.getmaskarray(vp)
+        & ~np.ma.getmaskarray(vq)
+        & np.isfinite(vpv)
+        & np.isfinite(vqv)
+        & (vpv > threshold)
+        & (vqv > threshold)
+    )
+
+    common = (
+        inside
+        & viirs_valid
+        & ~pre_invalid
+        & ~post_invalid
+        & pre_quality
+        & post_quality
+    )
+
+    n = int(common.sum())
+    if n == 0:
+        return {
+            "n_common_valid_pixels": 0,
+            "pre_n_valid_pixels": 0,
+            "post_n_valid_pixels": 0,
+            "pre_bg_median": np.nan,
+            "post_bg_median": np.nan,
+            "pre_gr_median": np.nan,
+            "post_gr_median": np.nan,
+            "delta_bg_median": np.nan,
+            "delta_gr_median": np.nan,
+            "difference_of_bg_medians": np.nan,
+            "difference_of_gr_medians": np.nan,
+        }
+
+    pre_bgv = pre_bg[common]
+    post_bgv = post_bg[common]
+    pre_grv = pre_gr[common]
+    post_grv = post_gr[common]
+
+    return {
+        "n_common_valid_pixels": n,
+        "pre_n_valid_pixels": n,
+        "post_n_valid_pixels": n,
+        "pre_bg_median": float(np.median(pre_bgv)),
+        "post_bg_median": float(np.median(post_bgv)),
+        "pre_bg_mean": float(np.mean(pre_bgv)),
+        "post_bg_mean": float(np.mean(post_bgv)),
+        "pre_gr_median": float(np.median(pre_grv)),
+        "post_gr_median": float(np.median(post_grv)),
+        "pre_gr_mean": float(np.mean(pre_grv)),
+        "post_gr_mean": float(np.mean(post_grv)),
+        "delta_bg_median": float(np.median(post_bgv - pre_bgv)),
+        "delta_bg_mean": float(np.mean(post_bgv - pre_bgv)),
+        "delta_gr_median": float(np.median(post_grv - pre_grv)),
+        "delta_gr_mean": float(np.mean(post_grv - pre_grv)),
+        "difference_of_bg_medians": float(
+            np.median(post_bgv) - np.median(pre_bgv)
+        ),
+        "difference_of_gr_medians": float(
+            np.median(post_grv) - np.median(pre_grv)
+        ),
+    }
+
+
 def add_change_columns(table: pd.DataFrame) -> pd.DataFrame:
+    """Add period-difference diagnostics without replacing paired deltas."""
     table = table.copy()
     for metric in ("bg_median", "bg_mean", "gr_median", "gr_mean"):
         pre = f"pre_{metric}"
         post = f"post_{metric}"
         if pre in table and post in table:
-            table[f"delta_{metric}"] = table[post] - table[pre]
+            diff_name = f"difference_of_{metric}s"
+            if diff_name not in table:
+                table[diff_name] = table[post] - table[pre]
+            delta_name = f"delta_{metric}"
+            if delta_name not in table:
+                table[delta_name] = table[post] - table[pre]
     return table
 
 
@@ -377,62 +576,103 @@ def extract_country_and_nuts3(
             WarpedVRT(post_viirs_src, **vrt_kwargs) as post_viirs,
         ):
             for row in countries.itertuples(index=False):
-                before = ratio_stats_for_geometry(
-                    pre, pre_viirs, row.geometry, threshold
-                )
-                after = ratio_stats_for_geometry(
-                    post, post_viirs, row.geometry, threshold
-                )
                 record = {"CNTR_CODE": row.CNTR_CODE}
-                record.update({f"pre_{k}": v for k, v in before.items()})
-                record.update({f"post_{k}": v for k, v in after.items()})
+                record.update(
+                    paired_ratio_stats_for_geometry(
+                        pre,
+                        post,
+                        pre_viirs,
+                        post_viirs,
+                        row.geometry,
+                        threshold,
+                    )
+                )
                 country_rows.append(record)
                 print(
-                    f"{row.CNTR_CODE}: "
+                    f"{row.CNTR_CODE}: common pixels "
+                    f"{record['n_common_valid_pixels']}; "
                     f"B/G {record['pre_bg_median']:.4f} -> "
-                    f"{record['post_bg_median']:.4f}; "
+                    f"{record['post_bg_median']:.4f}, "
+                    f"paired median Δ={record['delta_bg_median']:.4f}; "
                     f"G/R {record['pre_gr_median']:.4f} -> "
-                    f"{record['post_gr_median']:.4f}; "
-                    f"pixels {record['pre_n_valid_pixels']}/"
-                    f"{record['post_n_valid_pixels']}"
+                    f"{record['post_gr_median']:.4f}, "
+                    f"paired median Δ={record['delta_gr_median']:.4f}"
                 )
 
             total = len(nuts)
             for i, row in enumerate(nuts.itertuples(index=False), start=1):
-                before = ratio_stats_for_geometry(
-                    pre, pre_viirs, row.geometry, threshold
-                )
-                after = ratio_stats_for_geometry(
-                    post, post_viirs, row.geometry, threshold
-                )
                 record = {
                     "NUTS_ID": row.NUTS_ID,
                     "CNTR_CODE": row.CNTR_CODE,
                 }
-                record.update({f"pre_{k}": v for k, v in before.items()})
-                record.update({f"post_{k}": v for k, v in after.items()})
+                record.update(
+                    paired_ratio_stats_for_geometry(
+                        pre,
+                        post,
+                        pre_viirs,
+                        post_viirs,
+                        row.geometry,
+                        threshold,
+                    )
+                )
                 nuts_rows.append(record)
                 if i % 100 == 0 or i == total:
-                    print(f"NUTS3 spectral extraction: {i}/{total}")
+                    print(f"NUTS3 paired spectral extraction: {i}/{total}")
 
             europe_geom = countries.geometry.union_all()
             sanity_rows = []
+
+            # Separate-support values are the closest reproducible comparison
+            # with the published Europe-wide period medians.
+            separate = {}
             for label, iss, vv in [
                 ("pre", pre, pre_viirs),
                 ("post", post, post_viirs),
             ]:
-                stats = ratio_stats_for_geometry(
+                separate[label] = ratio_stats_for_geometry(
                     iss, vv, europe_geom, threshold
                 )
+
+            paired_europe = paired_ratio_stats_for_geometry(
+                pre,
+                post,
+                pre_viirs,
+                post_viirs,
+                europe_geom,
+                threshold,
+            )
+
+            for label in ("pre", "post"):
                 expected = PUBLISHED_EUROPE_MEDIANS[label]
                 sanity_rows.append(
                     {
                         "period": label,
-                        "n_valid_pixels": stats["n_valid_pixels"],
-                        "observed_bg_median": stats["bg_median"],
+                        "separate_support_n_pixels": separate[label][
+                            "n_valid_pixels"
+                        ],
+                        "separate_support_bg_median": separate[label][
+                            "bg_median"
+                        ],
                         "published_bg_median": expected["bg"],
-                        "observed_gr_median": stats["gr_median"],
+                        "separate_support_gr_median": separate[label][
+                            "gr_median"
+                        ],
                         "published_gr_median": expected["gr"],
+                        "paired_common_n_pixels": paired_europe[
+                            "n_common_valid_pixels"
+                        ],
+                        "paired_common_bg_median": paired_europe[
+                            f"{label}_bg_median"
+                        ],
+                        "paired_common_gr_median": paired_europe[
+                            f"{label}_gr_median"
+                        ],
+                        "paired_pixel_delta_bg_median": paired_europe[
+                            "delta_bg_median"
+                        ],
+                        "paired_pixel_delta_gr_median": paired_europe[
+                            "delta_gr_median"
+                        ],
                     }
                 )
 
@@ -1018,6 +1258,11 @@ def main() -> None:
         )
 
         handle.write("EUROPE-WIDE MASK SANITY CHECK\n")
+        handle.write(
+            "Separate-support medians are compared with the paper; paired-common "
+            "medians/deltas use pixels valid in both periods and are used for "
+            "the mechanism analysis.\n"
+        )
         handle.write(sanity.to_string(index=False))
         handle.write("\n\nSPECTRAL CHANGE ~ WITHIN-COUNTRY POPULATION DENSITY\n")
         handle.write(density_models.to_string(index=False))
@@ -1027,6 +1272,8 @@ def main() -> None:
         handle.write(change_models.to_string(index=False))
         handle.write("\n\nINTERPRETATION GUIDE\n")
         handle.write(
+            "- delta_bg_median and delta_gr_median are median paired-pixel "
+            "changes on common pre/post spatial support.\n"
             "- A spectral-change x population-density effect tests whether "
             "spatially structured spectral conversion can change the observed "
             "VIIRS log-log slope.\n"
