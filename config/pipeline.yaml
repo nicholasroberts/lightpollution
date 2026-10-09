@@ -7,6 +7,7 @@ paths:
   nuts_raw: data/raw/nuts
   eurostat_raw: data/raw/eurostat
   processed: data/processed
+  habitability_raw: data/raw/habitability
   figures: figures
 
 viirs:
@@ -91,6 +92,41 @@ calibration:
     - NL
     - FR
     - ES
+
+habitability:
+  metric_name: terrain_constrained_habitable_fraction
+  metric_symbol: H
+  static_metric: true
+  dem:
+    product: Copernicus_DEM_GLO90
+    release: 2021
+    resolution_m_approx: 90
+    tile_list_url: https://copernicus-dem-90m.s3.amazonaws.com/tileList.txt
+    http_base: https://copernicus-dem-90m.s3.amazonaws.com
+  landcover:
+    product: Copernicus_Global_Land_Cover_100m_Collection3_2015
+    permanent_water:
+      filename: PROBAV_LC100_global_v3.0.1_2015-base_PermanentWater-CoverFraction-layer_EPSG-4326.tif
+      url: https://zenodo.org/records/3939038/files/PROBAV_LC100_global_v3.0.1_2015-base_PermanentWater-CoverFraction-layer_EPSG-4326.tif?download=1
+    snow_ice:
+      filename: PROBAV_LC100_global_v3.0.1_2015-base_Snow-CoverFraction-layer_EPSG-4326.tif
+      url: https://zenodo.org/records/3939038/files/PROBAV_LC100_global_v3.0.1_2015-base_Snow-CoverFraction-layer_EPSG-4326.tif?download=1
+  scenarios:
+    strict:
+      max_slope_deg: 10
+      max_elevation_m: 1500
+      max_local_elevation_sd_m: 30
+    core:
+      max_slope_deg: 15
+      max_elevation_m: 2000
+      max_local_elevation_sd_m: 50
+    permissive:
+      max_slope_deg: 20
+      max_elevation_m: 2500
+      max_local_elevation_sd_m: 75
+  min_habitable_fraction_for_adjusted_density: 0.01
+  map_extent_4326: [-25.0, 34.0, 45.0, 72.5]
+  map_dpi: 450
 
 analysis:
   first_year: 2013
@@ -236,3 +272,4 @@ outputs:
   merged: nuts3_radiance_population.parquet
   merged_socioeconomic: nuts3_radiance_population_socioeconomic.parquet
   csv_export: nuts3_radiance_population.csv
+  nuts3_habitability: nuts3_habitability.parquet
