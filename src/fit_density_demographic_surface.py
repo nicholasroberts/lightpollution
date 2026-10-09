@@ -28,7 +28,7 @@ from pathlib import Path
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
-from patsy import build_design_matrices
+from patsy import dmatrix
 from scipy.stats import chi2
 import statsmodels.formula.api as smf
 
@@ -229,8 +229,16 @@ def average_design_vector(result, fit, density, pop_change_pct):
     pred["log_density_c"] = np.log10(float(density)) - center
     pred["population_density_change_pct_per_year"] = float(pop_change_pct)
 
-    design_info = result.model.data.design_info
-    X = np.asarray(build_design_matrices([design_info], pred)[0], dtype=float)
+    # Rebuild the RHS design matrix from the fitted formula.  Some recent
+    # statsmodels/Python combinations expose model.data as PandasData without
+    # a design_info attribute, so relying on result.model.data.design_info is
+    # not portable.  Reindexing to the fitted parameter names also guarantees
+    # identical coefficient order.
+    rhs = result.model.formula.split("~", 1)[1]
+    X_df = dmatrix(rhs, pred, return_type="dataframe")
+    X_df = X_df.reindex(columns=result.params.index, fill_value=0.0)
+    X = X_df.to_numpy(dtype=float)
+
     w = combos["weight"].to_numpy(float)
     return np.average(X, axis=0, weights=w)
 
