@@ -240,6 +240,22 @@ analysis:
     density_band_labels: ["<30", "30-100", "100-300", "300-1000", ">=1000"]
     low_density_cutoff: 100
 
+  habitability_independent_factor:
+    first_year: 2013
+    last_year: 2024
+    min_repeated_years: 2
+    min_country_regions: 3
+    fixed_geography_nuts_release: 2016
+    fixed_geography_first_year: 2013
+    fixed_geography_last_year: 2020
+    headroom_baseline_years: [2013, 2014]
+    headroom_outcome_first_year: 2015
+    headroom_outcome_last_year: 2020
+    headroom_min_outcome_years: 5
+    direct_start_year: 2013
+    direct_end_year: 2020
+    direct_low_density_cutoff: 100
+
   socioeconomic_model:
     alpha: 0.05
     min_country_regions: 3
