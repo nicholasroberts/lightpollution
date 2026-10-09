@@ -30,6 +30,7 @@ STAGES = {
     "socioeconomic": PROJECT_ROOT / "src" / "fetch_eurostat_socioeconomic.py",
     "socioeconomic-merge": PROJECT_ROOT / "src" / "merge_socioeconomic.py",
     "socioeconomic-model": PROJECT_ROOT / "src" / "simplify_socioeconomic_model.py",
+    "iss-spectral-validation": PROJECT_ROOT / "src" / "validate_iss_spectral_shift.py",
     "calibration-offset-test": PROJECT_ROOT / "src" / "test_calibration_offset.py",
     "calibration-country-test": PROJECT_ROOT / "src" / "test_country_calibration_correction.py",
     "calibration-sensitivity": PROJECT_ROOT / "src" / "calibration_sensitivity.py",
