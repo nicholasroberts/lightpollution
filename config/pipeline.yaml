@@ -162,6 +162,16 @@ analysis:
     # endpoint comparison. Country forecasts use their own ISS post-period G/R.
     legacy_reference_cct_k: 2200
 
+  density_temporal_change:
+    first_year: 2013
+    last_year: 2024
+    min_repeated_years: 3
+    min_country_regions: 3
+    density_band_breaks: [30, 100, 300, 1000]
+    density_band_labels: ["<30", "30-100", "100-300", "300-1000", ">=1000"]
+    continuous_density_quantiles: [0.01, 0.99]
+    continuous_grid_points: 120
+
   socioeconomic_model:
     alpha: 0.05
     min_country_regions: 3
