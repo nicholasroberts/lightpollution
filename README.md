@@ -78,6 +78,7 @@ year × NUTS_ID
 - `data/processed/` — derived analytical datasets
 - `figures/` — generated figures
 - `docs/pipeline.md` — pipeline and methodological notes
+- `docs/lab_notebook/README.md` — chronological research lab notebook, including exploratory and negative results
 - `tests/` — automated tests
 
 Large source datasets and generated outputs are not stored in Git.
