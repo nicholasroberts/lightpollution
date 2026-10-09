@@ -115,6 +115,8 @@ analysis:
     colour_metrics: [B_over_G, G_over_R]
     nuts_release: 2016
     viirs_mask_threshold: 0.5
+    spatial_support: paired_common_pre_post
+    spectral_change_summary: median_of_paired_pixel_differences
     viirs_mask_pre_year: 2013
     viirs_mask_post_year: 2020
     endpoint_pre_year: 2013
