@@ -411,3 +411,85 @@ This stage predicts **percentage change in VIIRS-equivalent radiance**, not
 absolute future radiance. For a production future model, all historical years
 should ultimately be harmonised onto one common NUTS geography so the complete
 2013-2024 record can be used.
+
+
+## Static terrain-constrained habitability fraction H
+
+A separate physical-geography stage constructs a **temporally invariant**
+NUTS3 habitability metric before it is allowed to enter any VIIRS model.
+
+The purpose is to distinguish, for example, a genuinely developable
+low-density plain from a nominally low-density mountain region whose population
+is confined to a small fraction of the polygon.
+
+The metric deliberately excludes current settlement, built-up land, roads,
+GDP, VIIRS radiance and future population.  It therefore cannot learn the
+historical lighting result by construction.
+
+Inputs are:
+
+- Copernicus DEM GLO-90 (public 90 m global DEM, 2021 release);
+- Copernicus Global Land Cover 100 m Collection 3, 2015 base epoch,
+  **permanent-water cover fraction** only;
+- the same product's **permanent snow/ice cover fraction** only.
+
+Fetch inputs:
+
+```bash
+python src/run_pipeline.py habitability-fetch
+```
+
+Build H:
+
+```bash
+python src/run_pipeline.py habitability-build
+```
+
+At each DEM cell, elevation, slope and 3 x 3 local elevation standard deviation
+are calculated.  Three explicit terrain scenarios are retained:
+
+```text
+strict:     elevation <= 1500 m; slope <= 10 deg; local elevation SD <= 30 m
+core:       elevation <= 2000 m; slope <= 15 deg; local elevation SD <= 50 m
+permissive: elevation <= 2500 m; slope <= 20 deg; local elevation SD <= 75 m
+```
+
+Permanent-water and permanent-snow/ice fractional cover then reduce physically
+eligible cell area.  The primary metric is
+
+```text
+H_core = effective physically habitable area / total NUTS3 rasterised area
+```
+
+with corresponding strict and permissive sensitivity metrics.
+
+These thresholds are deliberately treated as **testable modelling
+assumptions**, not as universal physiological limits.  The later historical
+validation will ask whether H improves prediction of 2013-2024 radiance change
+and whether that improvement is robust across strict/core/permissive
+definitions.
+
+The same static raster is aggregated separately onto NUTS 2016, 2021 and 2024,
+so historical years can retain their correct geography while future population
+work can use NUTS 2024.
+
+The NUTS 2024 table also reports:
+
+```text
+terrain compression factor = 1 / H_core
+terrain-adjusted population density = nominal population density / H_core
+```
+
+Outputs:
+
+```text
+data/processed/nuts3_habitability.parquet
+data/processed/nuts3_habitability.csv
+data/processed/nuts3_habitability_summary.txt
+figures/habitability/nuts3_habitable_fraction_core_2024.pdf
+figures/habitability/nuts3_terrain_compression_factor_2024.pdf
+```
+
+The first map is the key independent geographic product: the proportion of each
+European NUTS3 region that is physically available for habitation under the
+core terrain definition.
