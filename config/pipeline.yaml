@@ -107,14 +107,47 @@ analysis:
   radiance_statistics:
     - weighted_mean
   iss_spectral_validation:
-    first_year: 2013
-    last_year: 2020
-    min_country_regions: 3
     raw_dir: data/raw/iss_spectral
     source_doi: 10.5281/zenodo.7677478
+    article_doi: 10.1126/sciadv.abl6891
     pre_period: "2012-2013"
     post_period: "2014-2020"
     colour_metrics: [B_over_G, G_over_R]
+    nuts_release: 2016
+    viirs_mask_threshold: 0.5
+    viirs_mask_pre_year: 2013
+    viirs_mask_post_year: 2020
+    endpoint_pre_year: 2013
+    endpoint_post_year: 2020
+    min_valid_pixels_nuts3: 20
+    reference_log10_population_density: 2.0
+    paper_countries:
+      - AL
+      - AT
+      - BE
+      - BA
+      - BG
+      - HR
+      - CZ
+      - FR
+      - DE
+      - EL
+      - HU
+      - IE
+      - IT
+      - LT
+      - LU
+      - ME
+      - NL
+      - PL
+      - PT
+      - RO
+      - RS
+      - SK
+      - SI
+      - ES
+      - CH
+      - UK
   socioeconomic_model:
     alpha: 0.05
     min_country_regions: 3
