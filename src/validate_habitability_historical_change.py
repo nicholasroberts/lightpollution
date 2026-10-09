@@ -36,10 +36,20 @@ from project_config import configured_path, load_config
 
 
 def fit_mixedlm(formula: str, data: pd.DataFrame):
+    # Subsetting a pandas Categorical retains unused levels. Patsy then creates
+    # all-zero dummy columns for those absent levels, which makes the fixed-
+    # effect design matrix singular. This matters especially for the low-density
+    # H-tertile subset, where some countries present in the full dataset are
+    # absent. Remove unused levels before every model fit.
+    fit_data = data.copy()
+    for column in fit_data.columns:
+        if isinstance(fit_data[column].dtype, pd.CategoricalDtype):
+            fit_data[column] = fit_data[column].cat.remove_unused_categories()
+
     model = smf.mixedlm(
         formula,
-        data=data,
-        groups=data["region_key"],
+        data=fit_data,
+        groups=fit_data["region_key"],
         re_formula="1",
     )
     last = None
