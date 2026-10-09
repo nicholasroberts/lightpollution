@@ -114,3 +114,46 @@ python src/fetch_eurostat_socioeconomic.py --force-download
 
 The existing `main` production outputs are not overwritten by these
 experimental stages.
+
+
+## ISS spectral-shift validation
+
+A harmonized annual country-by-country dataset of LED street-light penetration
+could not be identified at sufficient quality for 2013-2023. Rather than use a
+weak sales/trade proxy as if it were installed lighting stock, the branch uses
+an independent spectral validation based on Sánchez de Miguel et al. (2022).
+
+The published calibrated ISS mosaics compare Europe in 2012-2013 with
+2014-2020 and quantify spectral composition using B/G and G/R ratios. The
+processed RGBA mosaics are available openly from Zenodo record 7677478.
+
+Run:
+
+```bash
+python src/run_pipeline.py iss-spectral-validation
+```
+
+The stage downloads the two ~421 MB calibrated mosaics, extracts country-level
+median B/G and G/R before and after the lighting transition, and applies the
+same published colour-ratio quality limits (B/G <= 1.2, G/R <= 1.2 and
+R/G <= 6).
+
+For 2013-2020 NUTS3 observations it then fits a control mixed model:
+
+```text
+log10(corrected VIIRS radiance)
+~ log10(population density)
++ log10(GDP per capita PPS)
++ population × GDP
++ country
++ (1 | NUTS_ID)
+```
+
+Country-specific temporal slopes are estimated from the residuals. These slopes
+are then compared with the independent ISS spectral shifts. The mechanistic
+prediction is that stronger shifts toward blue/white lighting should be
+associated with more negative VIIRS-band residual trends because VIIRS DNB has
+limited sensitivity to the blue LED emission peak.
+
+This is a validation of the lighting-technology explanation, not an annual LED
+penetration covariate and not yet part of the future projection model.
