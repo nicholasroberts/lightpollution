@@ -140,6 +140,19 @@ an explicit approximation to the paper's per-image temporal matching.
 The important extension is that spectral change is now extracted at **NUTS3**,
 not only as country medians.
 
+The mechanism analysis now uses **paired common spatial support**. A pixel is
+retained only if it is valid in both ISS mosaics, exceeds the VIIRS 0.5
+nW cm-2 sr-1 threshold in both 2013 and 2020, and passes the colour-ratio
+quality filters in both periods. NUTS3 spectral change is then summarized as
+the median of the pixelwise post-minus-pre ratio changes. This prevents a
+change in the set of sampled pixels from masquerading as spectral change.
+
+For validation, the pipeline still reports separate-support Europe-wide
+pre/post medians because those are the closest reproducible comparison with
+the published period summaries. The paired-common-support medians and deltas
+are reported alongside them but are the quantities used in the slope/intercept
+mechanism tests.
+
 For each NUTS3 region the analysis records pre/post B/G and G/R and their
 changes. It then tests:
 
