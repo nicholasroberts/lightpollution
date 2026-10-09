@@ -493,3 +493,50 @@ figures/habitability/nuts3_terrain_compression_factor_2024.pdf
 The first map is the key independent geographic product: the proportion of each
 European NUTS3 region that is physically available for habitation under the
 core terrain definition.
+
+
+## Historical validation of terrain habitability H
+
+Once H has been built independently of VIIRS, the next stage tests whether it
+actually explains historical 2013-2024 radiance change.
+
+Run:
+
+```bash
+python src/run_pipeline.py habitability-historical-validation
+```
+
+The validation joins H by `NUTS_ID + nuts_release`.  Repeated-measures groups
+are keyed as `NUTS_ID::nuts_release` so that a boundary-release change is not
+silently treated as an unchanged spatial unit.
+
+The stage performs four tests:
+
+1. Refit the density-band temporal analysis with nominal density and with
+   `D_H = population_density / H` for strict, core and permissive terrain
+   definitions.
+2. Compare otherwise identical continuous cubic density x year mixed models
+   using nominal versus terrain-adjusted density on exactly the same samples.
+3. Add H to the full nominal-density temporal surface and test whether H
+   significantly modifies the temporal process beyond density alone.
+4. Within nominally sparse NUTS3 regions (<100 people km-2), divide H_core into
+   low/mid/high tertiles and test whether historical radiance trends differ.
+
+The fourth analysis is the direct **Mont-Blanc versus developable rural land**
+test.  If high-H sparse regions brighten faster than low-H sparse regions after
+controlling for nominal density and country, the static terrain metric is
+capturing real historical variation in where ALAN can expand.
+
+Outputs:
+
+```text
+data/processed/habitability_density_band_temporal_trends.csv
+data/processed/habitability_density_band_model_tests.csv
+data/processed/habitability_density_model_comparison.csv
+data/processed/habitability_temporal_modifier_test.csv
+data/processed/habitability_low_density_h_trends.csv
+data/processed/habitability_low_density_h_test.csv
+data/processed/habitability_historical_validation_summary.txt
+figures/population_relationship/habitability_validation/nominal_vs_terrain_adjusted_density_band_trends.pdf
+figures/population_relationship/habitability_validation/low_density_radiance_trend_by_habitability.pdf
+```
