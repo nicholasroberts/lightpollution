@@ -540,3 +540,42 @@ data/processed/habitability_historical_validation_summary.txt
 figures/population_relationship/habitability_validation/nominal_vs_terrain_adjusted_density_band_trends.pdf
 figures/population_relationship/habitability_validation/low_density_radiance_trend_by_habitability.pdf
 ```
+
+
+## H as an independent physical-geography factor
+
+Because replacing nominal density with `D/H` degraded the population-radiance
+model, H is next tested as a separate static geographic factor.
+
+Run:
+
+```bash
+python src/run_pipeline.py habitability-independent-factor
+```
+
+This stage includes a direct matched VIIRS check, an independent longitudinal
+H x time test controlling for country-specific temporal trends and cubic
+nominal-density x time, and a temporally separated headroom analysis using
+2013-2014 baseline radiance to predict 2015-2020 change.
+
+The direct VIIRS check uses fixed NUTS2016 geography and reports observed
+2013 and 2020 radiance, absolute and percentage change, annualised change,
+raw-VIIRS sensitivity where available, and a sensitivity result excluding the
+five calibration countries. It also plots complete 2013-2020 median VIIRS
+trajectories for low-, mid- and high-H sparse regions.
+
+Outputs:
+
+```text
+data/processed/habitability_independent_temporal_tests.csv
+data/processed/habitability_headroom_region_table.csv
+data/processed/habitability_headroom_model_comparison.csv
+data/processed/habitability_headroom_H_test.csv
+data/processed/habitability_direct_viirs_endpoint_pairs.csv
+data/processed/habitability_direct_viirs_summary.csv
+data/processed/habitability_direct_viirs_trajectory.csv
+data/processed/habitability_independent_factor_summary.txt
+figures/population_relationship/habitability_independent_factor/habitability_partial_temporal_effect.pdf
+figures/population_relationship/habitability_independent_factor/direct_viirs_radiance_by_habitability_2013_2020.pdf
+figures/population_relationship/habitability_independent_factor/direct_viirs_change_by_habitability_2013_2020.pdf
+```
