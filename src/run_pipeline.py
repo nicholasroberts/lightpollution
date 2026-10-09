@@ -34,6 +34,7 @@ STAGES = {
     "led-spectral-plateau": PROJECT_ROOT / "src" / "calculate_led_spectral_plateau.py",
     "density-temporal-change": PROJECT_ROOT / "src" / "analyze_density_temporal_change.py",
     "density-country-decomposition": PROJECT_ROOT / "src" / "decompose_country_structure.py",
+    "density-demographic-surface": PROJECT_ROOT / "src" / "fit_density_demographic_surface.py",
     "calibration-offset-test": PROJECT_ROOT / "src" / "test_calibration_offset.py",
     "calibration-country-test": PROJECT_ROOT / "src" / "test_country_calibration_correction.py",
     "calibration-sensitivity": PROJECT_ROOT / "src" / "calibration_sensitivity.py",
