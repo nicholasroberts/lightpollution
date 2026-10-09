@@ -238,3 +238,26 @@ their calibration correction is separately validated.
    - use one common logarithmic colour scale across 2013-2024
    - draw NUTS3 boundaries and stronger national outlines
    - write the common colour-scale metadata alongside the figures
+
+
+19. **socioeconomic** *(future-population-models branch)*
+   - download Eurostat NUTS3 GDP dataset `nama_10r_3gdp`
+   - retain total GDP and GDP per capita in euro and PPS
+   - use Eurostat `reg_area3` total land area to derive GDP density
+   - create log10 and descriptive year-on-year socioeconomic metrics
+   - preserve source/status fields and report annual NUTS3 coverage
+
+20. **socioeconomic-merge** *(future-population-models branch)*
+   - merge socioeconomic metrics onto the corrected radiance/population table
+   - retain the existing production table unchanged
+   - write a separate socioeconomic analysis dataset
+
+21. **socioeconomic-model** *(future-population-models branch)*
+   - start with the maximal fixed-effects model
+     `log_pop * log_gdp_pc * year_centered * C(country)`
+   - retain `(1 | NUTS_ID)` throughout
+   - simplify top-down from highest-order interactions to the minimum adequate
+     model using nested ML likelihood-ratio deletion tests
+   - preserve marginality: lower-order components of retained interactions are
+     not eligible for deletion
+   - write the complete term-by-term simplification history
