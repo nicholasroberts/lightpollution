@@ -306,3 +306,44 @@ function of log10 population density and tests whether country-specific year
 trends or country-specific density slopes are still required. A country
 density-band composition table quantifies how differently countries sample the
 rural-to-urban continuum.
+
+
+## Decomposing country-specific structure after the rural-urban temporal surface
+
+The next diagnostic quantifies how much of the original country-specific
+structure is absorbed by the common nonlinear population-density x time
+surface.
+
+Run:
+
+```bash
+python src/run_pipeline.py density-country-decomposition
+```
+
+Three country blocks are tested with the same number of country-specific
+parameters before and after adding the common nonlinear density-time surface:
+
+- country x year;
+- country x log10 population density;
+- country x log10 population density x year (country-specific rotation).
+
+For each block the stage reports the likelihood-ratio statistic and LR
+pseudo-R2 under the simple linear population x year reference and after the
+common cubic density-time surface is fitted. The diagnostic effect size is:
+
+```text
+fraction removed = 1 - residual block LR / original block LR
+```
+
+The same calculation is also reported for LR pseudo-R2. This is a descriptive
+decomposition of model structure, not a causal proportion.
+
+Outputs:
+
+```text
+data/processed/density_country_block_tests.csv
+data/processed/density_country_structure_decomposition.csv
+data/processed/density_country_model_comparison.csv
+data/processed/density_country_structure_decomposition_summary.txt
+figures/population_relationship/density_temporal_change/country_structure_explained_by_density_time_surface.pdf
+```
