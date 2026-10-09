@@ -23,6 +23,9 @@ data/raw/nuts/*
 data/raw/eurostat/*
 !data/raw/eurostat/.gitkeep
 
+data/raw/habitability/*
+!data/raw/habitability/.gitkeep
+
 # Processed data
 data/processed/*
 !data/processed/.gitkeep
