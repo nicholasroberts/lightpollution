@@ -284,3 +284,25 @@ non-spectral intercept. In a later forecasting stage an adoption variable
 `f_LED(t)` constrained to [0,1] can move each country from its anchor toward
 the selected all-LED plateau without extrapolating the spectral effect
 indefinitely.
+
+
+## Population-density dependence of temporal radiance change
+
+A dedicated `density-temporal-change` stage tests whether the rotation of the
+European population-radiance relationship is driven by faster radiance growth
+in low-density NUTS3 regions.
+
+Run:
+
+```bash
+python src/run_pipeline.py density-temporal-change
+```
+
+NUTS3 regions are assigned to fixed median-population-density bands
+(<30, 30-100, 100-300, 300-1000, >=1000 people km-2), then a mixed model tests
+`year x density_band` with country fixed intercepts and NUTS3 random
+intercepts. A second cubic continuous model estimates the temporal trend as a
+function of log10 population density and tests whether country-specific year
+trends or country-specific density slopes are still required. A country
+density-band composition table quantifies how differently countries sample the
+rural-to-urban continuum.
