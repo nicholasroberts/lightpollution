@@ -150,6 +150,18 @@ analysis:
       - ES
       - CH
       - UK
+  led_spectral_plateau:
+    # Bounded spectral endpoint scenarios, not forecasts of universal CCT.
+    led_cct_scenarios_k: [2700, 3000, 4000, 5000]
+    led_cct_labels:
+      "2700": warm_LED_2700K
+      "3000": warm_LED_3000K
+      "4000": neutral_LED_4000K
+      "5000": cool_LED_5000K
+    # Approximate HPS-like warm legacy reference for the spectral-only
+    # endpoint comparison. Country forecasts use their own ISS post-period G/R.
+    legacy_reference_cct_k: 2200
+
   socioeconomic_model:
     alpha: 0.05
     min_country_regions: 3
