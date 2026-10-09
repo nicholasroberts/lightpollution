@@ -109,8 +109,10 @@ analysis:
   socioeconomic_model:
     alpha: 0.05
     min_country_regions: 3
+    last_year: 2023
     selection_method: crawley_top_down_likelihood_ratio
-    maximal_fixed_effects: "log_pop * log_gdp_pc * year_centered * C(country)"
+    maximal_interaction_order: 3
+    maximal_fixed_effects: "all main effects + all 2-way + all 3-way interactions; no 4-way interaction"
     random_intercept: NUTS_ID
   mixed_model:
     min_country_regions: 3
