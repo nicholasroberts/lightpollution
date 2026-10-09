@@ -106,6 +106,15 @@ analysis:
     - ES
   radiance_statistics:
     - weighted_mean
+  iss_spectral_validation:
+    first_year: 2013
+    last_year: 2020
+    min_country_regions: 3
+    raw_dir: data/raw/iss_spectral
+    source_doi: 10.5281/zenodo.7677478
+    pre_period: "2012-2013"
+    post_period: "2014-2020"
+    colour_metrics: [B_over_G, G_over_R]
   socioeconomic_model:
     alpha: 0.05
     min_country_regions: 3
