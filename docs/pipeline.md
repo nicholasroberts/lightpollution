@@ -253,8 +253,13 @@ their calibration correction is separately validated.
    - write a separate socioeconomic analysis dataset
 
 21. **socioeconomic-model** *(future-population-models branch)*
-   - start with the maximal fixed-effects model
-     `log_pop * log_gdp_pc * year_centered * C(country)`
+   - start with a biologically interpretable maximal fixed-effects model
+     containing all main effects, all two-way interactions and all four
+     possible three-way interactions among population density, GDP per capita,
+     year and country
+   - do not include a four-way interaction
+   - restrict this model-selection analysis to 2013-2023 because 2024 regional
+     GDP coverage is incomplete
    - retain `(1 | NUTS_ID)` throughout
    - simplify top-down from highest-order interactions to the minimum adequate
      model using nested ML likelihood-ratio deletion tests
