@@ -66,6 +66,19 @@ population:
     - IT
     - NL
 
+socioeconomic:
+  provider: Eurostat
+  gdp_dataset: nama_10r_3gdp
+  area_dataset: reg_area3
+  frequency: A
+  model_gdp_metric: gdp_per_capita_pps
+  gdp_units:
+    gdp_total_eur_million: MIO_EUR
+    gdp_total_pps_million: MIO_PPS_EU27_2020
+    gdp_per_capita_eur: EUR_HAB
+    gdp_per_capita_pps: PPS_EU27_2020_HAB
+    gdp_per_capita_pps_index_eu27: PPS_HAB_EU27_2020
+
 calibration:
   enabled: true
   method: country_additive_dark_regions
@@ -93,6 +106,12 @@ analysis:
     - ES
   radiance_statistics:
     - weighted_mean
+  socioeconomic_model:
+    alpha: 0.05
+    min_country_regions: 3
+    selection_method: crawley_top_down_likelihood_ratio
+    maximal_fixed_effects: "log_pop * log_gdp_pc * year_centered * C(country)"
+    random_intercept: NUTS_ID
   mixed_model:
     min_country_regions: 3
     random_intercept: NUTS_ID
@@ -122,5 +141,7 @@ outputs:
   radiance_by_nuts3_calibrated: nuts3_viirs_radiance_calibrated.parquet
   calibration_offsets: viirs_country_calibration_offsets.csv
   population_by_nuts3: nuts3_population_density.parquet
+  socioeconomic_by_nuts3: nuts3_socioeconomic.parquet
   merged: nuts3_radiance_population.parquet
+  merged_socioeconomic: nuts3_radiance_population_socioeconomic.parquet
   csv_export: nuts3_radiance_population.csv
