@@ -347,3 +347,67 @@ data/processed/density_country_model_comparison.csv
 data/processed/density_country_structure_decomposition_summary.txt
 figures/population_relationship/density_temporal_change/country_structure_explained_by_density_time_surface.pdf
 ```
+
+
+## Population-density x demographic-change response surface
+
+The next forecasting-oriented analysis asks whether the strong historical
+brightening of low-density NUTS3 regions persists when population density
+itself is stable, or instead depends on demographic change.
+
+Here **population change means population-density change**. On a fixed NUTS3
+polygon the percentage change in population and percentage change in population
+density are identical, but density is retained because it is the variable used
+by the spatial model and future gridded population projections.
+
+Run:
+
+```bash
+python src/run_pipeline.py density-demographic-surface
+```
+
+The first pass uses annualised five-year changes over 2013-2018, 2014-2019 and
+2015-2020. All three windows remain on NUTS 2016 geography, so the analysis
+does not cross the NUTS 2021 or 2024 boundary changes.
+
+For each NUTS3-window pair:
+
+```text
+radiance growth =
+    [log10(R_end) - log10(R_start)] / 5
+
+population-density growth =
+    100 * [(P_end/P_start)^(1/5) - 1]
+```
+
+A polynomial response surface predicts annualised radiance change from
+baseline log10 population density, population-density change, their interaction
+and a modest curvature term, with country and start-window fixed effects.
+Cluster-robust covariance is calculated by NUTS_ID because the five-year
+windows overlap.
+
+The central output is the **zero population-density-change slice**: predicted
+radiance change as a function of starting density when demographic density is
+held exactly constant. This directly tests whether the approximately 2% yr-1
+historical low-density brightening remains when population density does not
+change.
+
+Outputs:
+
+```text
+data/processed/density_demographic_5yr_pairs.csv
+data/processed/density_demographic_surface_coefficients.csv
+data/processed/density_demographic_surface_model_test.csv
+data/processed/density_demographic_surface_grid.csv
+data/processed/density_demographic_surface_reference_scenarios.csv
+data/processed/density_demographic_zero_change_slice.csv
+data/processed/density_demographic_surface_summary.txt
+figures/population_relationship/density_demographic_surface/radiance_change_density_demographic_surface.pdf
+figures/population_relationship/density_demographic_surface/radiance_change_surface_slices.pdf
+figures/population_relationship/density_demographic_surface/zero_population_density_change_slice.pdf
+```
+
+This stage predicts **percentage change in VIIRS-equivalent radiance**, not
+absolute future radiance. For a production future model, all historical years
+should ultimately be harmonised onto one common NUTS geography so the complete
+2013-2024 record can be used.
