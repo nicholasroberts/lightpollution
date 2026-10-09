@@ -181,6 +181,20 @@ analysis:
       - country_density
       - country_rotation
 
+  density_demographic_surface:
+    horizon_years: 5
+    # First pass uses only windows wholly inside NUTS 2016 geography.
+    start_years: [2013, 2014, 2015]
+    nuts_release: 2016
+    min_country_regions: 3
+    population_change_trim_quantiles: [0.005, 0.995]
+    population_change_scenarios_pct_per_year: [-2, -1, 0, 1, 2]
+    reference_population_densities: [10, 30, 50, 100, 300, 1000, 3000]
+    surface_density_quantiles: [0.01, 0.99]
+    surface_population_change_quantiles: [0.01, 0.99]
+    surface_density_points: 80
+    surface_population_change_points: 81
+
   socioeconomic_model:
     alpha: 0.05
     min_country_regions: 3
