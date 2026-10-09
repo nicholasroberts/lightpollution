@@ -43,20 +43,35 @@ and including all three would introduce structural collinearity.
 ## Maximum model
 
 Following Crawley's model-simplification logic, the analysis starts with the
-scientifically plausible maximal fixed-effects structure rather than a sequence
-of hand-picked alternative models:
+largest fixed-effects structure that remains biologically interpretable rather
+than including an automatic four-way interaction.
+
+The maximal model contains all main effects, all six two-way interactions and
+all four possible three-way interactions among:
+
+- log10 population density;
+- log10 GDP per capita in PPS;
+- year;
+- country.
+
+The four-way interaction is deliberately omitted.
+
+Conceptually:
 
 ```text
 log10(corrected radiance)
-~ log10(population density)
-* log10(GDP per capita PPS)
-* year
-* country
+~ all main effects
++ all two-way interactions
++ all three-way interactions
 + (1 | NUTS_ID)
 ```
 
 The NUTS3 random intercept is the repeated-measures structure and is held fixed
 throughout simplification.
+
+For the model-selection analysis, the working interval is **2013-2023**.
+Socioeconomic data for 2024 remain in the downloaded/processed table, but 2024
+is excluded from this fit because regional GDP coverage is incomplete.
 
 ## Simplification procedure
 
@@ -64,8 +79,8 @@ Fixed-effect comparisons are fitted with maximum likelihood (ML). The
 simplification proceeds from highest-order interactions downwards while
 preserving marginality:
 
-1. fit the maximal model;
-2. test deletion of the highest-order currently removable term(s) by
+1. fit the maximal three-way model;
+2. test deletion of the three-way currently removable term(s) by
    likelihood-ratio tests against the current model;
 3. delete the least significant term when its removal does not cause a
    significant loss of fit (`p >= alpha`);
