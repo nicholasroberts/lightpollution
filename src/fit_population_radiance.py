@@ -44,7 +44,7 @@ def fit_one(group: pd.DataFrame) -> dict:
         }
 
     x = np.log10(fit["population_density"].to_numpy(dtype=float))
-    y = np.log10(fit["radiance_mean"].to_numpy(dtype=float))
+    y = np.log10(fit["radiance_mean_corrected"].to_numpy(dtype=float))
 
     slope, intercept = np.polyfit(x, y, 1)
     predicted = intercept + slope * x
