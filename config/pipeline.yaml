@@ -172,6 +172,15 @@ analysis:
     continuous_density_quantiles: [0.01, 0.99]
     continuous_grid_points: 120
 
+  density_country_decomposition:
+    metric: likelihood_ratio_block_reduction
+    reference_surface: linear_log_population_x_year
+    alternative_surface: cubic_log_population_with_density_dependent_year
+    country_blocks:
+      - country_year
+      - country_density
+      - country_rotation
+
   socioeconomic_model:
     alpha: 0.05
     min_country_regions: 3
