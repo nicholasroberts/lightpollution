@@ -231,6 +231,15 @@ analysis:
     surface_density_points: 80
     surface_population_change_points: 81
 
+  habitability_historical_validation:
+    first_year: 2013
+    last_year: 2024
+    min_repeated_years: 2
+    min_country_regions: 3
+    density_band_breaks: [30, 100, 300, 1000]
+    density_band_labels: ["<30", "30-100", "100-300", "300-1000", ">=1000"]
+    low_density_cutoff: 100
+
   socioeconomic_model:
     alpha: 0.05
     min_country_regions: 3
