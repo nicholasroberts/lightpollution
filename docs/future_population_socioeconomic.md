@@ -118,14 +118,10 @@ experimental stages.
 
 ## ISS spectral-shift validation
 
-A harmonized annual country-by-country dataset of LED street-light penetration
-could not be identified at sufficient quality for 2013-2023. Rather than use a
-weak sales/trade proxy as if it were installed lighting stock, the branch uses
-an independent spectral validation based on Sánchez de Miguel et al. (2022).
-
-The published calibrated ISS mosaics compare Europe in 2012-2013 with
-2014-2020 and quantify spectral composition using B/G and G/R ratios. The
-processed RGBA mosaics are available openly from Zenodo record 7677478.
+The persistent country-dependent changes in the radiance-population relationship
+may partly reflect lighting technology rather than different human demand for
+light. Sánchez de Miguel et al. (2022) provide calibrated ISS RGB mosaics for
+Europe in 2012-2013 and 2014-2020.
 
 Run:
 
@@ -133,27 +129,81 @@ Run:
 python src/run_pipeline.py iss-spectral-validation
 ```
 
-The stage downloads the two ~421 MB calibrated mosaics, extracts country-level
-median B/G and G/R before and after the lighting transition, and applies the
-same published colour-ratio quality limits (B/G <= 1.2, G/R <= 1.2 and
-R/G <= 6).
+The updated validation now follows the published image-processing logic more
+closely. It restricts the analysis to the paper's accepted countries, applies
+the published colour-ratio quality limits, and masks pixels unless VIIRS-DNB
+radiance exceeds 0.5 nW cm-2 sr-1. Because the public ISS mosaics combine many
+acquisition dates, the reproducible implementation uses the annual 2013 VIIRS
+raster as the pre mask and annual 2020 VIIRS raster as the post mask. This is
+an explicit approximation to the paper's per-image temporal matching.
 
-For 2013-2020 NUTS3 observations it then fits a control mixed model:
+The important extension is that spectral change is now extracted at **NUTS3**,
+not only as country medians.
+
+For each NUTS3 region the analysis records pre/post B/G and G/R and their
+changes. It then tests:
 
 ```text
-log10(corrected VIIRS radiance)
-~ log10(population density)
-+ log10(GDP per capita PPS)
-+ population × GDP
-+ country
-+ (1 | NUTS_ID)
+delta spectral ratio ~ country + within-country log10(population density)
 ```
 
-Country-specific temporal slopes are estimated from the residuals. These slopes
-are then compared with the independent ISS spectral shifts. The mechanistic
-prediction is that stronger shifts toward blue/white lighting should be
-associated with more negative VIIRS-band residual trends because VIIRS DNB has
-limited sensitivity to the blue LED emission peak.
+and a second model in which the population-density gradient is allowed to vary
+by country. The common within-country gradient asks whether LED/spectral
+conversion was systematically stronger in dense or sparse regions; the
+country interaction asks whether that rollout gradient itself differed among
+countries.
 
-This is a validation of the lighting-technology explanation, not an annual LED
-penetration covariate and not yet part of the future projection model.
+This distinction maps directly onto the log-log radiance relationship:
+
+- a spatially uniform spectral change can move the apparent VIIRS level
+  (intercept);
+- a spectral change that covaries with population density can change the
+  apparent VIIRS population slope.
+
+For each country the pipeline therefore also estimates the 2013 and 2020
+radiance-population log-log slopes on the same matched NUTS3 set and calculates
+their change. The country-specific spectral-change-vs-population gradient is
+then compared directly with the observed change in VIIRS slope.
+
+For a level/intercept diagnostic, country spectral change is compared with
+change in predicted log10 radiance at a common reference density of
+100 people km-2 (log10 density = 2). This is more interpretable than comparing
+raw intercepts at a population density of 1 person km-2, although raw intercept
+changes are retained in the output.
+
+Finally, a NUTS3 change model tests the mechanism directly:
+
+```text
+delta log10(VIIRS radiance)
+~ country
++ delta log10(population density)
++ [delta log10(GDP per capita)]
++ within-country baseline log10(population density)
++ within-country spectral change
++ spectral change x population density
+```
+
+A nested extension adds country-specific population-density slopes. If the
+spectral interaction is supported and that residual country-density block is
+no longer required, this is the specific result we are seeking: spectral
+conversion has explained the country-dependent movement of the log-log slope.
+
+Key outputs are:
+
+```text
+data/processed/iss_country_spectral_shift.csv
+data/processed/iss_nuts3_spectral_shift.csv
+data/processed/iss_spectral_mask_validation.csv
+data/processed/iss_nuts3_spectral_viirs_endpoints.csv
+data/processed/iss_spectral_density_models.csv
+data/processed/iss_country_spectral_density_gradients.csv
+data/processed/iss_country_loglog_change_2013_2020.csv
+data/processed/iss_spectral_vs_loglog_change_associations.csv
+data/processed/iss_nuts3_viirs_change_models.csv
+data/processed/iss_spectral_validation_summary.txt
+```
+
+The ISS data are still a historical mechanism test rather than a future
+technology trajectory. If the mechanism is supported, the next forecasting
+step is to represent spectral/LED conversion with a bounded technology-state
+variable rather than linearly extrapolating calendar-year coefficients.
