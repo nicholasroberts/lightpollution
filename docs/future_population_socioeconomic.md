@@ -220,3 +220,67 @@ The ISS data are still a historical mechanism test rather than a future
 technology trajectory. If the mechanism is supported, the next forecasting
 step is to represent spectral/LED conversion with a bounded technology-state
 variable rather than linearly extrapolating calendar-year coefficients.
+
+
+## Bounded LED spectral endpoint for future VIIRS-equivalent radiance
+
+The historical country intercept trajectories are not treated as a common
+European trend. The LED endpoint stage isolates only the spectral component of
+the VIIRS radiance level and leaves country-specific non-spectral intercept
+structure intact.
+
+Run:
+
+```bash
+python src/run_pipeline.py led-spectral-plateau
+```
+
+The first implementation deliberately uses published empirical relations rather
+than assuming that LED colour is a blackbody spectrum.
+
+Sánchez de Miguel et al. (2019; DOI 10.1016/j.rse.2019.01.035) reported the
+following DSLR synthetic-photometry relation between CCT and ISS-camera G/R
+over the valid range 0.2 <= G/R <= 1:
+
+```text
+CCT / 1e4 =
+    -3.0 (G/R)^4
+    +5.8 (G/R)^3
+    -3.2 (G/R)^2
+    +1.0 (G/R)
+    +0.06
+```
+
+The stage numerically inverts this relation for all-LED endpoint scenarios at
+2700, 3000, 4000 and 5000 K.
+
+Sánchez de Miguel et al. (2022; DOI 10.1126/sciadv.abl6891, Eq. 2) give the
+spectral relationship:
+
+```text
+G_ISS / VIIRS = 0.21 * 1.5^(G_ISS / R_ISS)
+```
+
+so at equal green-band output the corresponding VIIRS response is proportional
+to the reciprocal of this expression.
+
+Two outputs are produced:
+
+```text
+data/processed/led_spectral_plateau_scenarios.csv
+data/processed/led_country_spectral_plateaus.csv
+data/processed/led_spectral_plateau_summary.txt
+```
+
+The scenario table reports the all-LED G/R endpoint and its spectral-only VIIRS
+response relative to a warm 2200 K legacy reference. The country table instead
+uses each country's own post-period ISS G/R as its starting spectral state and
+calculates the remaining bounded correction required to reach each LED
+endpoint.
+
+This term is intended to enter the future model as a bounded additive
+log10-radiance correction. It must **not** replace the country-specific
+non-spectral intercept. In a later forecasting stage an adoption variable
+`f_LED(t)` constrained to [0,1] can move each country from its anchor toward
+the selected all-LED plateau without extrapolating the spectral effect
+indefinitely.
