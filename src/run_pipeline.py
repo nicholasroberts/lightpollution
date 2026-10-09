@@ -38,6 +38,7 @@ STAGES = {
     "habitability-fetch": PROJECT_ROOT / "src" / "fetch_habitability_inputs.py",
     "habitability-build": PROJECT_ROOT / "src" / "build_habitability_metric.py",
     "habitability-historical-validation": PROJECT_ROOT / "src" / "validate_habitability_historical_change.py",
+    "habitability-independent-factor": PROJECT_ROOT / "src" / "test_habitability_independent_factor.py",
     "calibration-offset-test": PROJECT_ROOT / "src" / "test_calibration_offset.py",
     "calibration-country-test": PROJECT_ROOT / "src" / "test_country_calibration_correction.py",
     "calibration-sensitivity": PROJECT_ROOT / "src" / "calibration_sensitivity.py",
