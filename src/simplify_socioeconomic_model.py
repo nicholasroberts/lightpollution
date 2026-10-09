@@ -6,7 +6,9 @@ adequate model logic described by Crawley. Fixed effects are simplified from
 the highest-order interactions downwards, preserving marginality.
 
 Maximal fixed-effects structure:
-    log_pop * log_gdp_pc * year_centered * C(country)
+    all main effects + all two-way interactions + all three-way interactions
+    among log_pop, log_gdp_pc, year_centered and C(country), with no four-way
+    interaction.
 
 Random-effects structure is held constant throughout:
     (1 | NUTS_ID)
@@ -50,9 +52,10 @@ def term_string(term: frozenset[str]) -> str:
     return ":".join(ordered)
 
 
-def all_hierarchical_terms() -> set[frozenset[str]]:
+def all_hierarchical_terms(max_order: int = 3) -> set[frozenset[str]]:
+    """Return the complete hierarchical fixed-effect set through max_order."""
     terms = set()
-    for size in range(1, len(TOKENS) + 1):
+    for size in range(1, max_order + 1):
         for combo in itertools.combinations(TOKENS, size):
             terms.add(frozenset(combo))
     return terms
@@ -170,6 +173,14 @@ def prepare_data(config: dict, min_country_regions: int) -> pd.DataFrame:
 
     data = data.loc[complete].copy()
 
+    last_year = int(
+        config["analysis"]["socioeconomic_model"].get(
+            "last_year",
+            config["analysis"]["last_year"],
+        )
+    )
+    data = data[data["year"] <= last_year].copy()
+
     counts = data.groupby("CNTR_CODE")["NUTS_ID"].nunique()
     keep = counts[counts >= min_country_regions].index
     data = data[data["CNTR_CODE"].isin(keep)].copy()
@@ -227,12 +238,13 @@ def main() -> None:
         f"repeated NUTS3 groups: {data['NUTS_ID'].nunique():,}"
     )
     print(
-        "Maximal model: log_pop * log_gdp_pc * year_centered * C(country) "
-        "+ (1 | NUTS_ID)"
+        "Maximal model: all main effects + all 2-way + all 3-way "
+        "interactions among log_pop, log_gdp_pc, year_centered and "
+        "C(country), with no 4-way interaction; + (1 | NUTS_ID)"
     )
     print(f"Deletion threshold alpha = {alpha:g}")
 
-    terms = all_hierarchical_terms()
+    terms = all_hierarchical_terms(max_order=3)
     formula = formula_from_terms(terms)
     current, optimizer, fit_warnings = fit_model(formula, data)
 
@@ -240,7 +252,7 @@ def main() -> None:
     deletion_step = 0
 
     # Crawley-style simplification: highest order to lowest order.
-    for order in range(len(TOKENS), 0, -1):
+    for order in range(3, 0, -1):
         while True:
             candidates = removable_terms(terms, order)
             if not candidates:
