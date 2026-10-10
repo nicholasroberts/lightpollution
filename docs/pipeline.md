@@ -176,6 +176,25 @@ local locations are defined in `config/pipeline.yaml`.
    - rank thresholds jointly by discontinuity removal and legacy agreement
 
 
+## KNOWN CALIBRATION-SCOPE WARNING
+
+The current branch historically applied the 2017 additive correction only to
+DE, IT, NL, FR and ES because those were the original comparison countries used
+to validate the diagnostic. This is now recognised as incorrect in scope: the
+2017 DNB calibration change is dataset-wide, not country-specific.
+
+Until the global correction diagnostic has been evaluated, the existing
+`radiance_mean_corrected` column should be treated as provisional for
+cross-2017 temporal analyses. Use:
+
+```bash
+python src/run_pipeline.py global-calibration-rotation-test
+```
+
+to compare raw radiance, the legacy five-country correction, a published global
+0.15 nW cm-2 sr-1 correction, and two Europe-wide empirical global offsets.
+The production calibration will be replaced only after this robustness test.
+
 ## Production radiance calibration
 
 The 2017 VIIRS discontinuity is treated as an additive zero-point shift in
