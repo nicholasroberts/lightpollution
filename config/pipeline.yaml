@@ -276,6 +276,24 @@ analysis:
     density_band_labels: ["<30", "30-100", "100-300", "300-1000", ">=1000"]
     reference_population_densities: [10, 30, 50, 100, 300, 1000, 3000]
 
+  paired_density_h_trends:
+    # First implementation deliberately stays inside one fixed NUTS geography.
+    first_year: 2013
+    last_year: 2020
+    nuts_release: 2016
+    radiance_column: radiance_mean_corrected
+    require_complete_panel: true
+    minimum_panel_years: 7
+    density_band_breaks: [30, 100, 300, 1000]
+    density_band_labels: ["<30", "30-100", "100-300", "300-1000", ">=1000"]
+    # Balanced H categories within each density band avoid tiny cells such as
+    # the earlier global-high-H / low-density group with only ~6 regions.
+    h_grouping: within_density_band_quantiles
+    h_quantile_groups: 5
+    diagnostic_min_regions: 10
+    diagnostic_abs_pct_threshold: 20
+    figure_dpi: 300
+
   socioeconomic_model:
     alpha: 0.05
     min_country_regions: 3
