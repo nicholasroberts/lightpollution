@@ -579,3 +579,71 @@ figures/population_relationship/habitability_independent_factor/habitability_par
 figures/population_relationship/habitability_independent_factor/direct_viirs_radiance_by_habitability_2013_2020.pdf
 figures/population_relationship/habitability_independent_factor/direct_viirs_change_by_habitability_2013_2020.pdf
 ```
+
+
+## Paired fixed-membership density x habitability trends
+
+The first exploratory annual-change figure used annual group means whose
+membership could change when a NUTS3 crossed a population-density threshold.
+That can create spurious year-to-year jumps, especially in small cells and
+around NUTS release changes.
+
+A cleaner descriptive stage therefore calculates annual radiance change within
+the same NUTS3 regions first and only then summarizes those paired changes.
+
+Run:
+
+```bash
+python src/run_pipeline.py paired-density-h-trends
+```
+
+The initial implementation is deliberately restricted to **2013-2020 on fixed
+NUTS2016 geography**. Each NUTS3 receives:
+
+- one fixed population-density band from its median population density over
+  2013-2020;
+- one fixed H_core category;
+- by default, H quintiles are calculated **within each population-density
+  band**, giving balanced habitability strata for within-band comparison.
+
+For each consecutive year pair and NUTS3:
+
+```text
+delta_log10_R =
+    log10(R_t) - log10(R_t-1)
+
+individual_pct_change =
+    100 * (R_t / R_t-1 - 1)
+```
+
+The primary group estimate is the back-transformed mean log change:
+
+```text
+paired_group_pct_change =
+    100 * (10^(mean(delta_log10_R)) - 1)
+```
+
+This matches the log scale used by the main temporal models while guaranteeing
+that each annual change compares a region with itself. Approximate 95% confidence
+intervals are calculated on the log-change scale and transformed back to
+percentage change. Arithmetic mean and median individual percentage changes are
+retained as diagnostics.
+
+Outputs:
+
+```text
+data/processed/paired_density_h_region_assignments.csv
+data/processed/paired_density_h_cutpoints.csv
+data/processed/paired_density_h_annual_changes.csv
+data/processed/paired_density_h_group_summary.csv
+data/processed/paired_density_h_diagnostics.csv
+data/processed/paired_density_h_trends_summary.txt
+
+figures/population_relationship/paired_density_h_trends/paired_density_h_trends_2013_2020.png
+figures/population_relationship/paired_density_h_trends/paired_density_h_trends_2013_2020.pdf
+```
+
+The figure facets population-density bands and uses colour, point shape and line
+type to distinguish H categories. Because the current branch still contains the
+provisional five-country post-2017 calibration correction, this stage must be
+rerun once the production dataset-wide 2017 VIIRS correction is implemented.
