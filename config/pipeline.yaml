@@ -81,6 +81,11 @@ socioeconomic:
     gdp_per_capita_pps_index_eu27: PPS_HAB_EU27_2020
 
 calibration:
+  # IMPORTANT: the five-country production correction below is now known to
+  # be provisional/incorrect in scope. The 2017 VIIRS DNB calibration change
+  # is dataset-wide. Do not treat radiance_mean_corrected as final until the
+  # global-calibration-rotation-test has been evaluated and production
+  # calibration has been replaced.
   enabled: true
   method: country_additive_dark_regions
   dark_fraction: 0.20
@@ -255,6 +260,21 @@ analysis:
     direct_start_year: 2013
     direct_end_year: 2020
     direct_low_density_cutoff: 100
+
+  global_calibration_rotation_test:
+    first_year: 2013
+    last_year: 2024
+    min_repeated_years: 3
+    min_country_regions: 3
+    dark_fraction: 0.20
+    min_country_matched_regions: 10
+    published_global_offset: 0.15
+    fixed_geography_nuts_release: 2016
+    fixed_geography_first_year: 2013
+    fixed_geography_last_year: 2020
+    density_band_breaks: [30, 100, 300, 1000]
+    density_band_labels: ["<30", "30-100", "100-300", "300-1000", ">=1000"]
+    reference_population_densities: [10, 30, 50, 100, 300, 1000, 3000]
 
   socioeconomic_model:
     alpha: 0.05
