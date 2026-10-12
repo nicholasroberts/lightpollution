@@ -64,13 +64,16 @@ Eurostat-aligned release are flagged and omitted rather than imputed.
    - write the unmodified raw radiance table
 
 5. **calibration**
-   - preserve extracted radiance as `radiance_mean_raw`
-   - estimate country-specific additive offsets from the darkest 20% of
-     matched 2015-2018 NUTS3 regions
-   - apply the offset from 2017 onward for DE, IT, NL, FR and ES
-   - retain offset, method, threshold and application flag for every row
-   - store the result as `radiance_mean_corrected`
-   - retain non-positive corrected values without clipping or pseudocounts
+   - preserve extracted NUTS3 radiance as `radiance_mean_raw`
+   - from 2017 onward apply one 0.235 nW cm^-2 sr^-1 additive correction to
+     every positive Annual VNL V2.2 pixel across all analysis countries
+   - clip corrected positive pixels at zero; raw zero/background pixels remain zero
+   - perform the transformation on-the-fly through an exactextract RasterSource,
+     so no duplicate corrected global GeoTIFF is stored
+   - calculate the corrected NUTS3 mean with the same exact polygon overlap and
+     spherical physical-area weighting used by the raw extraction
+   - retain raw-positive area fraction, clipped area fraction, effective
+     NUTS3-level offset, method/version and full correction provenance
 
 6. **population**
    - retrieve Eurostat `DEMO_R_D3DENS`
@@ -197,26 +200,45 @@ The production calibration will be replaced only after this robustness test.
 
 ## Production radiance calibration
 
-The 2017 VIIRS discontinuity is treated as an additive zero-point shift in
-linear radiance. Sensitivity analysis using the darkest 10-30% of matched
-NUTS3 regions found the 20% threshold gave the smallest residual 2016-2017
-slope/intercept discontinuity and the best agreement with the archived
-2016-2019 analysis that had an upstream zero-point correction.
+The production correction was revised on 2026-10-12 after direct tests of the
+Annual VNL V2.2 `average_masked` rasters established that the 2016-to-2017
+discontinuity remains in pixels that are positive throughout the calibration
+interval. The discontinuity therefore cannot be explained by EOG background
+zeroing alone.
 
-The production estimator uses matched 2015-2018 regions within each configured
-country. The darkest 20% are selected by 2016 radiance. The expected natural
-2016-2017 change is estimated from the mean of the median 2015-2016 and
-2017-2018 changes, and the excess is treated as the additive calibration
-offset.
+Independent-brightness and segmented 2013-2019 diagnostics showed that the
+effect is predominantly additive rather than multiplicative in the
+dim-to-moderate radiance range that is most sensitive to the zero-point change.
+A pixel offset of **0.235 nW cm-2 sr-1** was selected: this is the rounded
+0.23478 pass-2 estimate and gave the best residual performance through
+independent baseline radiance <=10 nW in the pass-3 candidate comparison.
 
-The correction is applied from 2017 onward. Raw and corrected radiance are
-both retained. Corrected values are never clipped or replaced with a
-pseudocount; non-positive values remain in the linear dataset and are excluded
-only from logarithmic fitting.
+For every 2017+ raster pixel:
 
-The production correction is currently validated for DE, IT, NL, FR and ES.
-Countries outside that configured set retain their raw radiance unchanged until
-their calibration correction is separately validated.
+```text
+raw <= 0 : corrected = raw
+raw > 0  : corrected = max(raw - 0.235, 0)
+```
+
+This is applied to all NUTS3 countries and territories in the analysis. It is
+not country-specific and it is not a subtraction from the NUTS3 mean.
+
+The correction is generated on-the-fly by a custom exactextract RasterSource.
+The raw EOG raster is never modified and no duplicate corrected global raster
+is stored. The transformed pixels are aggregated using exactly the same
+polygon-overlap and spherical physical-area weighting as the raw production
+mean.
+
+For each NUTS3/year the calibrated table retains the raw mean, corrected mean,
+raw-positive area fraction, area fraction clipped to zero, effective NUTS3
+offset, effective percentage correction and calibration provenance. The stage
+also re-extracts the unmodified raw mean through the same RasterSource path and
+fails if it does not reproduce the existing production raw zonal mean within
+numerical tolerance.
+
+The former DE/IT/NL/FR/ES darkest-20% correction remains represented only in
+legacy diagnostic configuration so the earlier calibration experiments are
+reproducible. It is no longer the production correction.
 
 
 16. **country-facets**
