@@ -41,6 +41,7 @@ STAGES = {
     "future-radiance-history-validation": PROJECT_ROOT / "src" / "validate_future_radiance_history.py",
     "future-radiance-exclude-2013": PROJECT_ROOT / "src" / "test_exclude_2013_density_trends.py",
     "future-radiance-fixed-2014-2024": PROJECT_ROOT / "src" / "validate_fixed_nuts2016_2014_2024.py",
+    "future-radiance-2021-diagnostic": PROJECT_ROOT / "src" / "diagnose_fixed_nuts2016_2021.py",
     "habitability-fetch": PROJECT_ROOT / "src" / "fetch_habitability_inputs.py",
     "habitability-build": PROJECT_ROOT / "src" / "build_habitability_metric.py",
     "habitability-historical-validation": PROJECT_ROOT / "src" / "validate_habitability_historical_change.py",
