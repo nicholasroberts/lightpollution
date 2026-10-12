@@ -651,3 +651,103 @@ figures/population_relationship/spectral_validation/led_switch_annual_slopes/
 The spectral-adjusted residual must not be interpreted as true lamp-output
 change: equal-green normalization is not constant lumens, power, or biological
 light exposure.
+
+
+## Canonical historical response for future calibrated VIIRS DNB radiance
+
+The first forecasting stage is intentionally small and model-selective. It
+asks whether future radiance prediction needs only population density, or
+whether the annual rate of population-density change adds reproducible
+predictive information.
+
+Run the complete historical-response pipeline with:
+
+```bash
+python src/run_pipeline.py future-radiance-historical
+```
+
+This composite stage runs, in order:
+
+```text
+density-temporal-change
+density-demographic-surface
+future-radiance-response
+```
+
+The first stage supplies the definitive 2013-2024 Europe-wide density-class
+trends and the continuous longitudinal population-density response. The second
+is retained as a transparent historical demographic-change diagnostic. The
+third makes the forecasting decision.
+
+### Production-data validation
+
+Before model selection, the current merged production table is checked against
+the configured calibration metadata. The stage fails if the dataset does not
+carry the Europe-wide pixel-level calibration version, method, scope and
+0.235 nW cm-2 sr-1 pixel offset; if post-2017 rows are not flagged as
+calibrated; if pre-2017 radiance differs from raw radiance; if corrected
+radiance exceeds raw radiance after 2017; if NUTS release/year mappings are
+inconsistent; or if duplicate year x NUTS3 x release records are present.
+
+### Candidate models
+
+The forecast response is the annual change in calibrated VIIRS DNB radiance,
+represented internally as annual change in log10 radiance.
+
+Only three candidate models are considered:
+
+```text
+M0: density only
+M1: density + annual population-density change
+M2: density + annual population-density change + density x change
+```
+
+All include country fixed effects and a cubic function of baseline log10
+population density. The five-year fitting windows are 2013-2018, 2014-2019 and
+2015-2020 on fixed NUTS2016 geography. Repeated overlapping intervals are
+handled using NUTS3-clustered covariance.
+
+### Predictive validation and stopping rule
+
+A genuinely non-overlapping temporal holdout is used in addition to clustered
+inference. With the default three-year horizon, 2013-2016 is training and
+2017-2020 is testing. No calendar year is shared.
+
+Demographic complexity is retained only when the added block is significant
+at the configured alpha and the model improves held-out RMSE by at least the
+configured minimum. The interaction model must additionally improve on the
+additive demographic model. Otherwise the simpler model is selected.
+
+This is the explicit stopping rule against over-parameterisation.
+
+If density-only is selected, the five-year-pair density-only model is **not**
+used as the final forecasting surface. Instead the canonical continuous
+response is taken from the full 2013-2024 longitudinal mixed model produced by
+`density-temporal-change`. The five-year pair analysis then serves only to
+test whether the annual rate of population-density change needs to be added.
+
+If a demographic-change model is selected, the validated fixed-NUTS2016
+five-year model is used because the change predictor is defined over intervals.
+
+### Canonical outputs
+
+```text
+data/processed/future_radiance_historical_5yr_pairs.csv
+data/processed/future_radiance_candidate_models.csv
+data/processed/future_radiance_temporal_holdout.csv
+data/processed/future_radiance_model_decision.json
+data/processed/future_radiance_canonical_response.csv
+data/processed/future_radiance_headline_density_classes.csv
+data/processed/future_radiance_response_summary.txt
+
+figures/population_relationship/future_radiance_response/
+    canonical_future_radiance_response.pdf
+```
+
+The five density-class values remain the definitive descriptive historical
+result. The selected continuous response is used only as the transfer function
+for future population projections. Terrain-constrained habitability is not
+added as another historical radiance predictor here; it enters later as a
+spatial constraint on where future population and associated radiance change
+can plausibly occur. ISS spectral change likewise remains a separate mechanism
+and biological-sensitivity analysis.
