@@ -20,10 +20,13 @@ NUTS3 coding represented by the current `DEMO_R_D3DENS` series:
 - 2023-2024: NUTS 2024
 
 VIIRS radiance is extracted using exact polygon overlap with spherical physical
-cell-area weighting. A validated additive zero-point correction is applied from
-2017 onward for the currently calibrated countries, while raw radiance is
-retained for provenance. Population-density gaps are recovered only for
-validated countries and only where published Eurostat density is absent.
+cell-area weighting. From 2017 onward, the production calibration applies a
+Europe-wide **pixel-level** additive correction of 0.235 nW cm^-2 sr^-1 to
+positive Annual VNL V2.2 pixels, clipping corrected positive pixels at zero,
+before calculating the NUTS3 mean. Background-zero pixels remain zero and the
+raw radiance is retained for provenance. Population-density gaps are recovered
+only for validated countries and only where published Eurostat density is
+absent.
 
 The pipeline now includes annual country fits, longitudinal mixed-effects
 models with NUTS3 random intercepts, all-year country facets, and publication
