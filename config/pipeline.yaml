@@ -337,6 +337,14 @@ analysis:
     map_absolute_quantile: 0.98
     figure_dpi: 350
 
+  fixed_nuts2016_2021_diagnostic:
+    # Diagnostic stage that reuses the locked fixed-NUTS2016 2014-2024
+    # extraction and cohort. It does not re-extract rasters or redefine bands.
+    fixed_radiance_file: fixed_nuts2016_viirs_2014_2024.parquet
+    population_reference_file: fixed_nuts2016_population_density_reference.csv
+    expected_n_nuts3: 1514
+    figure_dpi: 350
+
   habitability_historical_validation:
     first_year: 2013
     last_year: 2024
