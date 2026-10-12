@@ -751,3 +751,51 @@ added as another historical radiance predictor here; it enters later as a
 spatial constraint on where future population and associated radiance change
 can plausibly occur. ISS spectral change likewise remains a separate mechanism
 and biological-sensitivity analysis.
+
+
+## Historical spatial validation of the canonical density response
+
+Before using the canonical population-density response for future projection,
+validate that its sign and spatial structure are present in the real historical
+data.
+
+Run:
+
+```bash
+python src/run_pipeline.py future-radiance-history-validation
+```
+
+The validation uses a complete annual panel on fixed NUTS2016 geography from
+2013-2020. This avoids mixing observations across the 2021 and 2024 NUTS
+boundary changes.
+
+For each NUTS3 region, the observed annual trend is the OLS slope of log10
+production-calibrated VIIRS DNB radiance against year, converted to percent
+change per year. The canonical prediction is evaluated at that region's median
+2013-2020 population density.
+
+The stage writes three complementary figures:
+
+```text
+historical_real_vs_canonical_trajectories.pdf
+    Real complete-panel annual trajectories by fixed density class,
+    normalized to 2013 = 100, with the canonical class trend overlaid.
+
+historical_nuts3_slope_distributions.pdf
+    Distribution of actual region-level 2013-2020 VIIRS slopes in each
+    density class, with the definitive 2013-2024 class estimate overlaid.
+
+historical_observed_predicted_residual_maps.pdf
+    Europe maps of:
+      1. observed NUTS3 historical slope;
+      2. canonical density-response prediction for the same NUTS3 regions;
+      3. observed minus predicted residual.
+```
+
+This explicitly tests whether the negative dense-region signal is visible in
+the historical data and where across Europe the canonical response succeeds or
+fails.
+
+The interpretation is regional: a negative trend for a dense NUTS3 region is a
+decline in its mean calibrated VIIRS DNB radiance. It is not a claim that the
+brightest city-centre pixels themselves dim at that same rate.
