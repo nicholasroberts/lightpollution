@@ -62,6 +62,7 @@ from scipy.stats import chi2
 import statsmodels.formula.api as smf
 
 from project_config import configured_path, load_config
+from production_validation import validate_production_merged
 
 
 MODEL_FORMULAS = {
@@ -83,68 +84,11 @@ MODEL_FORMULAS = {
 }
 
 
-def validate_production_calibration(data: pd.DataFrame, config: dict) -> None:
-    cal = config["calibration"]
-    required = [
-        "radiance_mean_raw",
-        "radiance_mean_corrected",
-        "calibration_method",
-        "calibration_version",
-        "calibration_correction_applied",
-    ]
-    missing = [c for c in required if c not in data.columns]
-    if missing:
-        raise RuntimeError(
-            "Merged production table lacks calibration provenance columns: "
-            + ", ".join(missing)
-        )
-
-    if cal["method"] != "global_pixel_additive_offset_clipped_zero":
-        raise RuntimeError(
-            "This stage requires the production Europe-wide pixel correction; "
-            f"configured method is {cal['method']!r}."
-        )
-
-    start = int(cal["apply_from_year"])
-    expected_version = str(cal["version"])
-
-    post = data[data["year"] >= start].copy()
-    if post.empty:
-        raise RuntimeError("No post-calibration observations found.")
-
-    versions = set(post["calibration_version"].dropna().astype(str).unique())
-    if versions != {expected_version}:
-        raise RuntimeError(
-            "Merged table calibration version does not match config. "
-            f"Expected {expected_version!r}; found {sorted(versions)}. "
-            "Rerun calibration and merge."
-        )
-
-    methods = set(post["calibration_method"].dropna().astype(str).unique())
-    if methods != {cal["method"]}:
-        raise RuntimeError(
-            "Merged table calibration method does not match config. "
-            f"Expected {cal['method']!r}; found {sorted(methods)}."
-        )
-
-    applied = post["calibration_correction_applied"].fillna(False).astype(bool)
-    if not applied.all():
-        raise RuntimeError(
-            "At least one post-2017 merged row is not flagged as production "
-            "calibrated. Rerun calibration and merge."
-        )
-
-    if (post["radiance_mean_corrected"] > post["radiance_mean_raw"] + 1e-10).any():
-        raise RuntimeError(
-            "Production correction increased at least one post-2017 NUTS3 mean."
-        )
-
-
 def load_base_data(config: dict) -> pd.DataFrame:
     processed = configured_path(config, "processed")
     path = processed / config["outputs"]["merged"]
     data = pd.read_parquet(path).copy()
-    validate_production_calibration(data, config)
+    validate_production_merged(data, config)
 
     needed = [
         "year",
