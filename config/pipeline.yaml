@@ -277,6 +277,39 @@ analysis:
     surface_density_points: 80
     surface_population_change_points: 81
 
+  future_radiance_response:
+    # Historical-response model selection for future calibrated VIIRS DNB
+    # radiance projections. Keep the candidate set deliberately small.
+    nuts_release: 2016
+    min_country_regions: 3
+
+    # Primary five-year interval fit. These windows are wholly within NUTS2016.
+    five_year_horizon_years: 5
+    five_year_start_years: [2013, 2014, 2015]
+
+    # Population-density change is lightly trimmed for model fitting only.
+    # The raw paired table is always retained unchanged for audit.
+    population_change_trim_quantiles: [0.005, 0.995]
+
+    # Non-overlapping temporal holdout. Training years are 2013-2016 and test
+    # years are 2017-2020 when horizon=3; no calendar year is shared.
+    temporal_holdout_horizon_years: 3
+    temporal_holdout_train_start: 2013
+    temporal_holdout_test_start: 2017
+
+    # Conservative model-selection rule: demographic complexity is retained
+    # only when it passes clustered inference AND improves held-out RMSE.
+    selection_alpha: 0.05
+    min_holdout_rmse_improvement_pct: 2.0
+    min_interaction_rmse_improvement_pct: 1.0
+
+    # Continuous projection support. If density-only wins, the canonical
+    # response is taken from the full 2013-2024 longitudinal mixed model.
+    projection_density_quantiles: [0.01, 0.99]
+    projection_density_grid_points: 120
+    projection_population_change_scenarios: [-2, -1, 0, 1, 2]
+    figure_dpi: 300
+
   habitability_historical_validation:
     first_year: 2013
     last_year: 2024
