@@ -527,3 +527,61 @@ If the same simple correction form wins this longer-window test, the next step
 is a diagnostic 2017-2024 raster correction followed by full NUTS3 re-extraction
 and re-running the population-density rotation analysis before replacing the
 production calibration.
+
+
+## ISS colour ratios and the dense-area LED-switch hypothesis
+
+With the current Europe-wide pixel calibration, the long-term VIIRS trend is
+positive below 100 people km-2, near zero at 100-300, and negative above 300.
+A plausible mechanism is that denser landscapes have more mature illuminated
+extent while conversion from legacy lamps to whiter LEDs reduces the VIIRS DNB
+response.
+
+Run:
+
+```bash
+python src/run_pipeline.py iss-led-switch-density-test
+```
+
+This stage reuses the paired-common-support ISS spectral table from
+`iss-spectral-validation` and the current production-calibrated 2013 and 2020
+NUTS3 VIIRS values.
+
+The primary mechanistic conversion uses paired Δ(G/R). From Sánchez de Miguel
+et al. (2022):
+
+```text
+G_ISS / VIIRS = 0.21 * 1.5^(G_ISS / R_ISS)
+```
+
+so, at equal green-band output:
+
+```text
+predicted spectral Δlog10(VIIRS)
+    = -log10(1.5) * Δ(G/R)
+```
+
+Positive Δ(G/R), i.e. spectral whitening, therefore predicts a negative VIIRS
+component.
+
+The analysis asks whether whitening increases with population density, whether
+the predicted spectral component tracks the observed calibrated VIIRS endpoint
+change, and whether removing that component reduces the dense-versus-sparse
+contrast.
+
+The ISS post mosaic is a 2014-2020 composite, so this remains an endpoint
+mechanism test rather than a year-resolved LED adoption model. Equal-green
+normalization is not equivalent to constant lumens, electrical power, or
+biological exposure.
+
+Outputs:
+
+```text
+data/processed/iss_led_switch_density_nuts3.csv
+data/processed/iss_led_switch_density_band_summary.csv
+data/processed/iss_led_switch_density_models.csv
+data/processed/iss_led_switch_density_summary.txt
+
+figures/population_relationship/spectral_validation/led_switch_density/
+    density_band_led_switch_decomposition.png
+```
