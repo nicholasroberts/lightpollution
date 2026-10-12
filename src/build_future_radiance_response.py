@@ -654,6 +654,10 @@ def build_transfer_table(
         est = np.asarray(mid_interp(clipped_x), dtype=float)
         lo = np.asarray(low_interp(clipped_x), dtype=float)
         hi = np.asarray(high_interp(clipped_x), dtype=float)
+        # Numerical/shape interpolation of the two confidence limits is done
+        # independently. Enforce ordering defensively at every grid point.
+        ci_low = np.minimum(lo, hi)
+        ci_high = np.maximum(lo, hi)
 
         out = pd.DataFrame(
             {
@@ -666,16 +670,16 @@ def build_transfer_table(
                 "population_density_change_pct_per_year": np.nan,
                 "annual_log10_calibrated_viirs_change": est,
                 "annual_log10_change_se": np.nan,
-                "annual_log10_change_ci_low": lo,
-                "annual_log10_change_ci_high": hi,
+                "annual_log10_change_ci_low": ci_low,
+                "annual_log10_change_ci_high": ci_high,
                 "calibrated_viirs_change_pct_per_year": (
                     100.0 * (10.0**est - 1.0)
                 ),
                 "calibrated_viirs_change_pct_per_year_ci_low": (
-                    100.0 * (10.0**lo - 1.0)
+                    100.0 * (10.0**ci_low - 1.0)
                 ),
                 "calibrated_viirs_change_pct_per_year_ci_high": (
-                    100.0 * (10.0**hi - 1.0)
+                    100.0 * (10.0**ci_high - 1.0)
                 ),
             }
         )
@@ -792,8 +796,35 @@ def load_headline_density_trends(
     # receives one reference density equal to its median observed population
     # density, then bands are defined on that fixed reference.
     cfg = config["analysis"]["density_temporal_change"]
+    anchor_data = data[
+        data["year"].between(
+            int(cfg["first_year"]),
+            int(cfg["last_year"]),
+        )
+    ].copy()
+    repeated = anchor_data.groupby("NUTS_ID").size()
+    anchor_data = anchor_data[
+        anchor_data["NUTS_ID"].isin(
+            repeated[
+                repeated >= int(cfg["min_repeated_years"])
+            ].index
+        )
+    ].copy()
+    country_counts = anchor_data.groupby("CNTR_CODE")[
+        "NUTS_ID"
+    ].nunique()
+    anchor_data = anchor_data[
+        anchor_data["CNTR_CODE"].isin(
+            country_counts[
+                country_counts >= int(cfg["min_country_regions"])
+            ].index
+        )
+    ].copy()
+
     reference = (
-        data.groupby("NUTS_ID", as_index=False)["population_density"]
+        anchor_data.groupby("NUTS_ID", as_index=False)[
+            "population_density"
+        ]
         .median()
         .rename(
             columns={
