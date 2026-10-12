@@ -310,6 +310,18 @@ analysis:
     projection_population_change_scenarios: [-2, -1, 0, 1, 2]
     figure_dpi: 300
 
+  future_radiance_historical_validation:
+    # Historical map/trajectory validation of the canonical density response.
+    # Fixed NUTS2016 geography avoids artificial trends from boundary changes.
+    first_year: 2013
+    last_year: 2020
+    nuts_release: 2016
+    require_complete_panel: true
+    minimum_panel_years: 7
+    min_country_regions: 3
+    map_absolute_quantile: 0.98
+    figure_dpi: 350
+
   habitability_historical_validation:
     first_year: 2013
     last_year: 2024
