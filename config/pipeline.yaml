@@ -261,6 +261,32 @@ analysis:
     direct_end_year: 2020
     direct_low_density_cutoff: 100
 
+  annual_vnl_2017_pixel_test:
+    years: [2015, 2016, 2017, 2018]
+    nuts_release: 2016
+    # Require enough persistent-lit pixels for a NUTS3 to contribute to the
+    # country-level retained-pixel radiance diagnostic.
+    min_region_persistent_pixels: 50
+    min_country_regions: 3
+    # Fixed 2016 radiance strata for testing whether the absolute 2017 step
+    # depends on brightness. -inf and +inf are added by the script.
+    brightness_bin_edges: [0.25, 0.5, 1, 2, 5, 10, 25, 50, 100]
+    brightness_bin_labels:
+      - "<0.25"
+      - "0.25-0.5"
+      - "0.5-1"
+      - "1-2"
+      - "2-5"
+      - "5-10"
+      - "10-25"
+      - "25-50"
+      - "50-100"
+      - ">=100"
+    min_region_bin_pixels: 20
+    min_country_bin_regions: 3
+    min_europe_bin_countries: 5
+    figure_dpi: 300
+
   global_calibration_rotation_test:
     first_year: 2013
     last_year: 2024
