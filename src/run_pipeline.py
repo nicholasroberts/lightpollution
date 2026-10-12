@@ -37,6 +37,7 @@ STAGES = {
     "density-temporal-change": PROJECT_ROOT / "src" / "analyze_density_temporal_change.py",
     "density-country-decomposition": PROJECT_ROOT / "src" / "decompose_country_structure.py",
     "density-demographic-surface": PROJECT_ROOT / "src" / "fit_density_demographic_surface.py",
+    "future-radiance-response": PROJECT_ROOT / "src" / "build_future_radiance_response.py",
     "habitability-fetch": PROJECT_ROOT / "src" / "fetch_habitability_inputs.py",
     "habitability-build": PROJECT_ROOT / "src" / "build_habitability_metric.py",
     "habitability-historical-validation": PROJECT_ROOT / "src" / "validate_habitability_historical_change.py",
@@ -51,6 +52,14 @@ STAGES = {
     "calibration-sensitivity": PROJECT_ROOT / "src" / "calibration_sensitivity.py",
 }
 
+COMPOSITE_STAGES = {
+    "future-radiance-historical": [
+        "density-temporal-change",
+        "density-demographic-surface",
+        "future-radiance-response",
+    ],
+}
+
 
 def run_script(script: Path, config: str) -> None:
     command = [sys.executable, str(script), "--config", config]
@@ -60,11 +69,13 @@ def run_script(script: Path, config: str) -> None:
 
 def main() -> None:
     parser = argparse.ArgumentParser()
-    parser.add_argument("stage", choices=[*STAGES, "all"])
+    parser.add_argument("stage", choices=[*STAGES, *COMPOSITE_STAGES, "all"])
     parser.add_argument("--config", default="config/pipeline.yaml")
     args = parser.parse_args()
 
-    if args.stage == "all":
+    if args.stage in COMPOSITE_STAGES:
+        order = COMPOSITE_STAGES[args.stage]
+    elif args.stage == "all":
         order = [
             "nuts",
             "validate",
