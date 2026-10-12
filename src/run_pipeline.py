@@ -32,6 +32,7 @@ STAGES = {
     "socioeconomic-model": PROJECT_ROOT / "src" / "simplify_socioeconomic_model.py",
     "iss-spectral-validation": PROJECT_ROOT / "src" / "validate_iss_spectral_shift.py",
     "iss-led-switch-density-test": PROJECT_ROOT / "src" / "test_iss_led_switch_density.py",
+    "iss-led-switch-annual-slopes": PROJECT_ROOT / "src" / "test_iss_led_switch_annual_slopes.py",
     "led-spectral-plateau": PROJECT_ROOT / "src" / "calculate_led_spectral_plateau.py",
     "density-temporal-change": PROJECT_ROOT / "src" / "analyze_density_temporal_change.py",
     "density-country-decomposition": PROJECT_ROOT / "src" / "decompose_country_structure.py",
