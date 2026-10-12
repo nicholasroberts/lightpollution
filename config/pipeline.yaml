@@ -287,6 +287,39 @@ analysis:
     min_europe_bin_countries: 5
     figure_dpi: 300
 
+  annual_vnl_2017_correction_pass2:
+    # Independent pre-event brightness reference removes the coupling created
+    # by binning on 2016 while also using 2016 in adjacent differences.
+    years: [2013, 2014, 2015, 2016, 2017, 2018]
+    brightness_reference_years: [2013, 2014]
+    nuts_release: 2016
+    min_region_persistent_pixels: 50
+    min_country_regions: 3
+    brightness_bin_edges: [0.25, 0.5, 1, 2, 5, 10, 25, 50, 100]
+    brightness_bin_labels:
+      - "<0.25"
+      - "0.25-0.5"
+      - "0.5-1"
+      - "1-2"
+      - "2-5"
+      - "5-10"
+      - "10-25"
+      - "25-50"
+      - "50-100"
+      - ">=100"
+    min_region_bin_pixels: 20
+    min_country_bin_regions: 3
+    min_europe_bin_countries: 5
+    # Dim-to-moderate retained pixels are used for one empirical candidate
+    # because the calibration step should be easiest to identify there.
+    candidate_brightness_max: 10.0
+    # Both values appear in published approaches to the Jan-2017 DNB step.
+    # They are treated as sensitivity candidates, not assumed truths for V2.2.
+    literature_pixel_offsets:
+      literature_0p125: 0.125
+      literature_0p15: 0.15
+    figure_dpi: 300
+
   global_calibration_rotation_test:
     first_year: 2013
     last_year: 2024
