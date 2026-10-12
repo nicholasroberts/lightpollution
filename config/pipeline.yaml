@@ -320,6 +320,37 @@ analysis:
       literature_0p15: 0.15
     figure_dpi: 300
 
+  annual_vnl_2017_correction_pass3:
+    # Segmented time-series estimate of the Jan-2017 step. Primary interval
+    # ends in 2019 so the COVID-era 2020 year cannot influence calibration.
+    first_year: 2013
+    last_year: 2019
+    brightness_reference_years: [2013, 2014]
+    nuts_release: 2016
+    brightness_bin_edges: [0.25, 0.5, 1, 2, 5, 10, 25, 50, 100]
+    brightness_bin_labels:
+      - "<0.25"
+      - "0.25-0.5"
+      - "0.5-1"
+      - "1-2"
+      - "2-5"
+      - "5-10"
+      - "10-25"
+      - "25-50"
+      - "50-100"
+      - ">=100"
+    min_region_bin_pixels: 20
+    min_country_bin_regions: 3
+    min_europe_bin_countries: 5
+    # Pass 2 was almost perfectly flat below 5 nW; estimate the pass-3
+    # country-balanced additive step over the same range.
+    empirical_max_baseline: 5.0
+    # Candidate taper: full correction through 5 nW, linearly zero by 10 nW.
+    taper_start: 5.0
+    taper_end: 10.0
+    pass2_reference_offset: 0.23478
+    figure_dpi: 300
+
   global_calibration_rotation_test:
     first_year: 2013
     last_year: 2024
