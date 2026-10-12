@@ -585,3 +585,69 @@ data/processed/iss_led_switch_density_summary.txt
 figures/population_relationship/spectral_validation/led_switch_density/
     density_band_led_switch_decomposition.png
 ```
+
+
+## ISS LED-switch mechanism test using annual NUTS3 VIIRS slopes
+
+The endpoint ISS/VIIRS analysis showed strong density-dependent whitening but
+only weak direct endpoint regression support. The annual-slope stage aligns the
+response directly with the historical density-rotation result:
+
+```bash
+python src/run_pipeline.py iss-led-switch-annual-slopes
+```
+
+For each NUTS3 on fixed NUTS2016 geography, the stage fits:
+
+```text
+log10(production-calibrated VIIRS) ~ year
+log10(population density) ~ year
+```
+
+for two complete-panel windows:
+
+- 2013-2019: cleaner pre-COVID sensitivity;
+- 2013-2020: closer temporal alignment with the ISS post composite.
+
+The paired ISS spectral term is converted using:
+
+```text
+predicted spectral delta log10(VIIRS)
+    = -log10(1.5) * delta(G/R)
+```
+
+and divided by seven years to give an endpoint-equivalent annualized spectral
+proxy. This annualization is a normalization only; it does not assume linear
+LED adoption through time.
+
+The formal models test:
+
+1. the within-country population-density gradient in ISS whitening;
+2. added explanatory power of the spectral term for annual VIIRS slope after
+   country, baseline density and population-change slope;
+3. density x spectral interaction;
+4. attenuation of the population-density coefficient after subtracting the
+   theoretical spectral component;
+5. attenuation of the dense-versus-sparse slope contrast;
+6. the spectral association specifically within density >=300 people km-2.
+
+Outputs:
+
+```text
+data/processed/iss_led_switch_annual_nuts3_slopes.csv
+data/processed/iss_led_switch_annual_density_bands.csv
+data/processed/iss_led_switch_annual_models.csv
+data/processed/iss_led_switch_annual_tests.csv
+data/processed/iss_led_switch_annual_attenuation.csv
+data/processed/iss_led_switch_annual_summary.txt
+
+figures/population_relationship/spectral_validation/led_switch_annual_slopes/
+    2013-2019_density_decomposition.png
+    2013-2019_spectral_vs_viirs_slope.png
+    2013-2020_density_decomposition.png
+    2013-2020_spectral_vs_viirs_slope.png
+```
+
+The spectral-adjusted residual must not be interpreted as true lamp-output
+change: equal-green normalization is not constant lumens, power, or biological
+light exposure.
