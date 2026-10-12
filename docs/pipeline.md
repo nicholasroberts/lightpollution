@@ -799,3 +799,43 @@ fails.
 The interpretation is regional: a negative trend for a dense NUTS3 region is a
 decline in its mean calibrated VIIRS DNB radiance. It is not a claim that the
 brightest city-centre pixels themselves dim at that same rate.
+
+
+## Sensitivity of density-dependent VIIRS trends to excluding 2013
+
+The fixed-NUTS2016 historical trajectories show an obvious 2013-to-2014
+discontinuity in several population-density classes. To isolate the leverage of
+the 2013 endpoint, run:
+
+```bash
+python src/run_pipeline.py future-radiance-exclude-2013
+```
+
+The test uses the **same complete-panel NUTS2016 regions and the same fixed
+population-density class assignments** for both analyses. The only change is
+the temporal window:
+
+```text
+2013-2020
+2014-2020
+```
+
+For each window it fits the same country-adjusted mixed model used in the
+density-band temporal analysis and reports annual change in calibrated VIIRS
+DNB radiance for the five density classes.
+
+It also writes:
+
+```text
+data/processed/future_radiance_no2013_density_band_comparison.csv
+data/processed/future_radiance_no2013_region_slopes.csv
+data/processed/future_radiance_no2013_sensitivity_summary.txt
+
+figures/population_relationship/future_radiance_historical_validation/exclude_2013/
+    density_trends_2013_2020_vs_2014_2020.pdf
+    real_trajectories_2014_2020.pdf
+    observed_maps_2013_2020_vs_2014_2020.pdf
+```
+
+The map comparison shows the observed regional trend with and without 2013,
+plus the change in fitted trend caused by excluding 2013.
