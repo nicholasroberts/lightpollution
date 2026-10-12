@@ -438,9 +438,9 @@ def plot_slope_distributions(
     ]
 
     fig, ax = plt.subplots(figsize=(9.5, 5.8))
-    bp = ax.boxplot(
+    ax.boxplot(
         values,
-        labels=labels,
+        tick_labels=labels,
         showfliers=False,
         widths=0.62,
         patch_artist=False,
