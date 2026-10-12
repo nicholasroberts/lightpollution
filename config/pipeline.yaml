@@ -212,6 +212,26 @@ analysis:
     high_density_cutoff: 300
     figure_dpi: 300
 
+  iss_led_switch_annual_slopes:
+    nuts_release: 2016
+    windows:
+      - label: "2013-2019"
+        first_year: 2013
+        last_year: 2019
+      - label: "2013-2020"
+        first_year: 2013
+        last_year: 2020
+    require_complete_panel: true
+    minimum_panel_years: 6
+    min_valid_iss_pixels: 20
+    min_country_regions: 3
+    minimum_dense_rows: 20
+    spectral_annualization_years: 7
+    density_band_breaks: [30, 100, 300, 1000]
+    density_band_labels: ["<30", "30-100", "100-300", "300-1000", ">=1000"]
+    high_density_cutoff: 300
+    figure_dpi: 300
+
   led_spectral_plateau:
     # Bounded spectral endpoint scenarios, not forecasts of universal CCT.
     led_cct_scenarios_k: [2700, 3000, 4000, 5000]
