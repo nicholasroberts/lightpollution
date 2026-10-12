@@ -40,6 +40,7 @@ STAGES = {
     "habitability-historical-validation": PROJECT_ROOT / "src" / "validate_habitability_historical_change.py",
     "habitability-independent-factor": PROJECT_ROOT / "src" / "test_habitability_independent_factor.py",
     "global-calibration-rotation-test": PROJECT_ROOT / "src" / "test_global_calibration_rotation.py",
+    "annual-vnl-2017-pixel-test": PROJECT_ROOT / "src" / "test_annual_vnl_2017_pixel_discontinuity.py",
     "paired-density-h-trends": PROJECT_ROOT / "src" / "plot_paired_density_h_trends.py",
     "calibration-offset-test": PROJECT_ROOT / "src" / "test_calibration_offset.py",
     "calibration-country-test": PROJECT_ROOT / "src" / "test_country_calibration_correction.py",
