@@ -81,15 +81,25 @@ socioeconomic:
     gdp_per_capita_pps_index_eu27: PPS_HAB_EU27_2020
 
 calibration:
-  # IMPORTANT: the five-country production correction below is now known to
-  # be provisional/incorrect in scope. The 2017 VIIRS DNB calibration change
-  # is dataset-wide. Do not treat radiance_mean_corrected as final until the
-  # global-calibration-rotation-test has been evaluated and production
-  # calibration has been replaced.
+  # Production correction selected 2026-10-12 after direct retained-lit-pixel,
+  # independent-brightness and segmented 2013-2019 diagnostics.
+  #
+  # IMPORTANT: this is a PIXEL-level correction applied on-the-fly before the
+  # exact-overlap NUTS3 mean is calculated. It is not subtracted from a NUTS3
+  # mean. Raw Annual VNL V2.2 rasters remain unchanged.
   enabled: true
-  method: country_additive_dark_regions
-  dark_fraction: 0.20
+  method: global_pixel_additive_offset_clipped_zero
+  scope: all_analysis_nuts3_countries_and_territories
   apply_from_year: 2017
+  pixel_offset_nW_cm2_sr: 0.235
+  pixel_rule: "raw <= 0 unchanged; raw > 0 becomes max(raw - 0.235, 0)"
+  version: "2026-10-12_global_pixel_0p235"
+  selection_note: "Rounded from pass-2 0.23478 nW candidate; best residual performance through independent baseline <=10 nW in pass 3."
+  evidence: "Annual VNL V2.2 retained-lit-pixel diagnostics; 28/31 countries positive in pass 1; independent-brightness pass 2; segmented 2013-2019 pass 3."
+
+  # Legacy diagnostic settings retained only so the historical calibration
+  # sensitivity scripts remain reproducible. They are NOT used in production.
+  dark_fraction: 0.20
   estimation_years: [2015, 2016, 2017, 2018]
   countries:
     - DE
@@ -419,7 +429,7 @@ analysis:
 outputs:
   radiance_by_nuts3: nuts3_viirs_radiance.parquet
   radiance_by_nuts3_calibrated: nuts3_viirs_radiance_calibrated.parquet
-  calibration_offsets: viirs_country_calibration_offsets.csv
+  calibration_offsets: viirs_global_pixel_calibration.csv
   population_by_nuts3: nuts3_population_density.parquet
   socioeconomic_by_nuts3: nuts3_socioeconomic.parquet
   merged: nuts3_radiance_population.parquet
