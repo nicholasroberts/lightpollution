@@ -8,12 +8,12 @@ radiance table.
 
 The EOG annual VIIRS series has a known 2017 calibration discontinuity that is
 not country-specific. The current production branch historically corrected only
-five comparison countries; this stage explicitly tests the consequences.
+five comparison countries; production now uses the Europe-wide pixel-level correction.
 
 Five radiance scenarios are compared on identical population data:
 
 1. raw_uncorrected
-2. legacy_five_country (the current historical production column)
+2. production_global_pixel (the current Europe-wide pixel-level production column)
 3. published_global_0p15: subtract 0.15 nW cm-2 sr-1 from every NUTS3 mean
    from 2017 onward
 4. empirical_global_dark20: one Europe-wide offset estimated from the darkest
@@ -201,7 +201,7 @@ def estimate_global_offsets(config: dict):
 def add_scenarios(merged: pd.DataFrame, offsets: pd.DataFrame, config: dict):
     d = merged.copy()
     d["rad_raw_uncorrected"] = d["radiance_mean_raw"].astype(float)
-    d["rad_legacy_five_country"] = d["radiance_mean_corrected"].astype(float)
+    d["rad_production_global_pixel"] = d["radiance_mean_corrected"].astype(float)
 
     off = dict(zip(offsets["scenario"], offsets["offset_nW_cm2_sr"]))
     post = d["year"] >= int(config["calibration"]["apply_from_year"])
@@ -457,7 +457,7 @@ def main():
 
     scenario_cols = {
         "raw_uncorrected": "rad_raw_uncorrected",
-        "legacy_five_country": "rad_legacy_five_country",
+        "production_global_pixel": "rad_production_global_pixel",
         "published_global_0p15": "rad_published_global_0p15",
         "empirical_global_dark20": "rad_empirical_global_dark20",
         "empirical_country_median_dark20":
