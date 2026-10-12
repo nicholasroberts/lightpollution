@@ -322,6 +322,21 @@ analysis:
     map_absolute_quantile: 0.98
     figure_dpi: 350
 
+  fixed_nuts2016_2014_2024:
+    # Decisive historical validation: same NUTS2016 polygons for every VIIRS
+    # year, excludes the influential 2013 endpoint, and extends through 2024.
+    first_year: 2014
+    comparison_last_year: 2020
+    last_year: 2024
+    nuts_release: 2016
+    population_reference_first_year: 2014
+    population_reference_last_year: 2020
+    require_complete_panel: true
+    minimum_panel_years: 10
+    min_country_regions: 3
+    map_absolute_quantile: 0.98
+    figure_dpi: 350
+
   habitability_historical_validation:
     first_year: 2013
     last_year: 2024
