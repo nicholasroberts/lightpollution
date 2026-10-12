@@ -58,6 +58,7 @@ from pathlib import Path
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
+from scipy.interpolate import PchipInterpolator
 from scipy.stats import chi2
 import statsmodels.formula.api as smf
 
@@ -519,6 +520,15 @@ def choose_model(
         f"{min_vs_base:g}%; interaction must additionally improve over M1 by "
         f"{min_interaction:g}%."
     )
+    if np.isfinite(holdout["predictive_r2"]).all() and (
+        holdout["predictive_r2"] < 0
+    ).all():
+        reasons.append(
+            "All interval models have negative temporal-holdout predictive R2. "
+            "Therefore the interval models are used only to decide whether "
+            "population-density change adds transportable information; none is "
+            "adopted as the canonical future response."
+        )
     return selected, reasons
 
 
@@ -564,70 +574,117 @@ def build_transfer_table(
     model,
     fit: pd.DataFrame,
     selected: str,
+    headline: pd.DataFrame,
     config: dict,
 ) -> pd.DataFrame:
-    """Build the canonical transfer function used by future projections.
+    """Build the canonical transfer used for future projections.
 
-    If demographic change is not retained, use the full 2013-2024 longitudinal
-    mixed-model response from density-temporal-change rather than the shorter
-    five-year-pair density-only fit. The five-year pair analysis then serves
-    only as the model-selection test for whether g_D is needed.
+    When population-density change is not retained, the five definitive
+    2013-2024 density-class estimates are the empirical anchors. A
+    shape-preserving PCHIP interpolation through their observed class-median
+    population densities provides a smooth mapping for future gridded data.
 
-    If demographic change is retained, use the validated five-year pair model
-    because g_D is defined from interval change.
+    This avoids using the cubic continuous mixed model as an extrapolating
+    forecast surface at the sparse and dense extremes, where it can depart
+    strongly from the directly estimated class trends.
+
+    Below the sparsest anchor and above the densest anchor, the response is
+    clamped to the respective end-class estimate rather than extrapolated.
     """
-    processed = configured_path(config, "processed")
+    cfg = config["analysis"]["future_radiance_response"]
 
     if selected == "density_only":
-        path = processed / "continuous_density_temporal_trend.csv"
-        if not path.exists():
-            raise FileNotFoundError(
-                f"Missing {path}. Run density-temporal-change first."
-            )
-        src = pd.read_csv(path)
         required = [
-            "population_density",
+            "reference_population_density_median",
             "log10_radiance_trend_per_year",
-            "trend_se",
-            "trend_ci_low",
-            "trend_ci_high",
-            "pct_radiance_change_per_year",
+            "pct_change_per_year_ci_low",
+            "pct_change_per_year_ci_high",
         ]
-        missing = [x for x in required if x not in src.columns]
+        missing = [x for x in required if x not in headline.columns]
         if missing:
             raise KeyError(
-                "Continuous density temporal trend is missing columns: "
+                "Headline density table lacks interpolation anchors: "
                 f"{missing}"
             )
+
+        h = headline.sort_values(
+            "reference_population_density_median"
+        ).copy()
+        anchor_density = h[
+            "reference_population_density_median"
+        ].to_numpy(dtype=float)
+        anchor_log = h[
+            "log10_radiance_trend_per_year"
+        ].to_numpy(dtype=float)
+
+        # Convert percentage confidence limits back to log10 change so all
+        # interpolation occurs on the model's native additive scale.
+        low_log = np.log10(
+            1.0 + h["pct_change_per_year_ci_low"].to_numpy(dtype=float) / 100.0
+        )
+        high_log = np.log10(
+            1.0 + h["pct_change_per_year_ci_high"].to_numpy(dtype=float) / 100.0
+        )
+
+        if not np.all(np.diff(anchor_density) > 0):
+            raise ValueError(
+                "Density-class median anchors are not strictly increasing."
+            )
+
+        x = np.log10(anchor_density)
+        mid_interp = PchipInterpolator(x, anchor_log, extrapolate=False)
+        low_interp = PchipInterpolator(x, low_log, extrapolate=False)
+        high_interp = PchipInterpolator(x, high_log, extrapolate=False)
+
+        all_density = fit["population_density_start"].astype(float)
+        qlo, qhi = [
+            float(x)
+            for x in cfg["projection_density_quantiles"]
+        ]
+        grid_lo = float(all_density.quantile(qlo))
+        grid_hi = float(all_density.quantile(qhi))
+        densities = np.geomspace(
+            grid_lo,
+            grid_hi,
+            int(cfg["projection_density_grid_points"]),
+        )
+
+        log_d = np.log10(densities)
+        clipped_x = np.clip(log_d, x[0], x[-1])
+        est = np.asarray(mid_interp(clipped_x), dtype=float)
+        lo = np.asarray(low_interp(clipped_x), dtype=float)
+        hi = np.asarray(high_interp(clipped_x), dtype=float)
 
         out = pd.DataFrame(
             {
                 "selected_model": "density_only",
                 "response_source": (
-                    "full_2013_2024_longitudinal_mixed_model"
+                    "five_2013_2024_density_class_estimates_"
+                    "shape_preserving_interpolation"
                 ),
-                "population_density": src["population_density"].astype(float),
+                "population_density": densities,
                 "population_density_change_pct_per_year": np.nan,
-                "annual_log10_calibrated_viirs_change": src[
-                    "log10_radiance_trend_per_year"
-                ].astype(float),
-                "annual_log10_change_se": src["trend_se"].astype(float),
-                "annual_log10_change_ci_low": src["trend_ci_low"].astype(float),
-                "annual_log10_change_ci_high": src["trend_ci_high"].astype(float),
-                "calibrated_viirs_change_pct_per_year": src[
-                    "pct_radiance_change_per_year"
-                ].astype(float),
+                "annual_log10_calibrated_viirs_change": est,
+                "annual_log10_change_se": np.nan,
+                "annual_log10_change_ci_low": lo,
+                "annual_log10_change_ci_high": hi,
+                "calibrated_viirs_change_pct_per_year": (
+                    100.0 * (10.0**est - 1.0)
+                ),
+                "calibrated_viirs_change_pct_per_year_ci_low": (
+                    100.0 * (10.0**lo - 1.0)
+                ),
+                "calibrated_viirs_change_pct_per_year_ci_high": (
+                    100.0 * (10.0**hi - 1.0)
+                ),
             }
         )
-        out["calibrated_viirs_change_pct_per_year_ci_low"] = (
-            100.0 * (10.0 ** out["annual_log10_change_ci_low"] - 1.0)
+        out["outside_anchor_range_clamped"] = (
+            (densities < anchor_density[0])
+            | (densities > anchor_density[-1])
         )
-        out["calibrated_viirs_change_pct_per_year_ci_high"] = (
-            100.0 * (10.0 ** out["annual_log10_change_ci_high"] - 1.0)
-        )
-        return out.sort_values("population_density").reset_index(drop=True)
+        return out
 
-    cfg = config["analysis"]["future_radiance_response"]
     lo = float(
         fit["population_density_start"].quantile(
             float(cfg["projection_density_quantiles"][0])
@@ -672,12 +729,16 @@ def build_transfer_table(
                     "calibrated_viirs_change_pct_per_year_ci_high": (
                         100.0 * (10.0 ** (est + 1.96 * se) - 1.0)
                     ),
+                    "outside_anchor_range_clamped": False,
                 }
             )
     return pd.DataFrame(rows)
 
 
-def load_headline_density_trends(config: dict) -> pd.DataFrame:
+def load_headline_density_trends(
+    config: dict,
+    data: pd.DataFrame,
+) -> pd.DataFrame:
     processed = configured_path(config, "processed")
     path = processed / "density_band_temporal_trends.csv"
     if not path.exists():
@@ -726,6 +787,60 @@ def load_headline_density_trends(config: dict) -> pd.DataFrame:
         )
         - 1.0
     )
+
+    # Match the band definition used in density-temporal-change: each NUTS3
+    # receives one reference density equal to its median observed population
+    # density, then bands are defined on that fixed reference.
+    cfg = config["analysis"]["density_temporal_change"]
+    reference = (
+        data.groupby("NUTS_ID", as_index=False)["population_density"]
+        .median()
+        .rename(
+            columns={
+                "population_density": "reference_population_density"
+            }
+        )
+    )
+    edges = [-np.inf] + list(cfg["density_band_breaks"]) + [np.inf]
+    reference["density_band"] = pd.cut(
+        reference["reference_population_density"],
+        bins=edges,
+        labels=cfg["density_band_labels"],
+        right=False,
+        ordered=True,
+    )
+    anchors = (
+        reference.groupby("density_band", observed=True)
+        .agg(
+            reference_population_density_median=(
+                "reference_population_density",
+                "median",
+            ),
+            reference_population_density_q25=(
+                "reference_population_density",
+                lambda x: x.quantile(0.25),
+            ),
+            reference_population_density_q75=(
+                "reference_population_density",
+                lambda x: x.quantile(0.75),
+            ),
+            n_reference_nuts3=("NUTS_ID", "nunique"),
+        )
+        .reset_index()
+    )
+    anchors["density_band"] = anchors["density_band"].astype(str)
+    out["density_band"] = out["density_band"].astype(str)
+    out = out.merge(
+        anchors,
+        on="density_band",
+        how="left",
+        validate="one_to_one",
+    )
+    if out["reference_population_density_median"].isna().any():
+        raise ValueError(
+            "Failed to derive observed population-density anchor for every "
+            "headline density class."
+        )
     return out
 
 
@@ -765,17 +880,9 @@ def make_figure(
                 label=f"{growth:+g}% yr⁻¹ density change",
             )
 
-    band_x = {
-        "<30": 15.0,
-        "30-100": np.sqrt(30.0 * 100.0),
-        "100-300": np.sqrt(100.0 * 300.0),
-        "300-1000": np.sqrt(300.0 * 1000.0),
-        ">=1000": 1800.0,
-    }
-    hx = [
-        band_x.get(str(b), np.nan)
-        for b in headline["density_band"]
-    ]
+    hx = headline[
+        "reference_population_density_median"
+    ].to_numpy(dtype=float)
     ax.scatter(
         hx,
         headline["pct_radiance_change_per_year"],
@@ -831,10 +938,10 @@ def main() -> None:
         model_table, holdout, config
     )
 
+    headline = load_headline_density_trends(config, data)
     transfer = build_transfer_table(
-        models[selected], fit, selected, config
+        models[selected], fit, selected, headline, config
     )
-    headline = load_headline_density_trends(config)
 
     processed = configured_path(config, "processed")
     figures = (
@@ -865,7 +972,7 @@ def main() -> None:
         "selected_model": selected,
         "selected_formula": MODEL_FORMULAS[selected],
         "canonical_response_source": (
-            "full_2013_2024_longitudinal_mixed_model"
+            "five_2013_2024_density_class_estimates_shape_preserving_interpolation"
             if selected == "density_only"
             else "fixed_NUTS2016_five_year_interval_model"
         ),
@@ -939,7 +1046,8 @@ def main() -> None:
         h.write(
             "Canonical response source: "
             + (
-                "full 2013-2024 longitudinal mixed model"
+                "five definitive 2013-2024 density-class estimates with "
+                "shape-preserving interpolation"
                 if selected == "density_only"
                 else "fixed-NUTS2016 five-year interval model"
             )
@@ -953,6 +1061,8 @@ def main() -> None:
             headline[
                 [
                     "density_band",
+                    "reference_population_density_median",
+                    "n_reference_nuts3",
                     "pct_radiance_change_per_year",
                     "pct_change_per_year_ci_low",
                     "pct_change_per_year_ci_high",
@@ -970,8 +1080,10 @@ def main() -> None:
             "Europe-wide historical result.\n"
         )
         h.write(
-            "- The selected canonical model is used only as the continuous "
-            "transfer function for future population projections.\n"
+            "- The five density-class estimates are the canonical empirical "
+            "anchors. When density-only is selected, a shape-preserving "
+            "interpolation between observed class-median densities is used "
+            "only to avoid artificial map discontinuities.\n"
         )
         h.write(
             "- Population-density change is retained only if it passes both "
@@ -1012,6 +1124,8 @@ def main() -> None:
         headline[
             [
                 "density_band",
+                "reference_population_density_median",
+                "n_reference_nuts3",
                 "pct_radiance_change_per_year",
                 "pct_change_per_year_ci_low",
                 "pct_change_per_year_ci_high",
