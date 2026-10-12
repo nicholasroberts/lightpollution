@@ -39,6 +39,7 @@ STAGES = {
     "density-demographic-surface": PROJECT_ROOT / "src" / "fit_density_demographic_surface.py",
     "future-radiance-response": PROJECT_ROOT / "src" / "build_future_radiance_response.py",
     "future-radiance-history-validation": PROJECT_ROOT / "src" / "validate_future_radiance_history.py",
+    "future-radiance-exclude-2013": PROJECT_ROOT / "src" / "test_exclude_2013_density_trends.py",
     "habitability-fetch": PROJECT_ROOT / "src" / "fetch_habitability_inputs.py",
     "habitability-build": PROJECT_ROOT / "src" / "build_habitability_metric.py",
     "habitability-historical-validation": PROJECT_ROOT / "src" / "validate_habitability_historical_change.py",
