@@ -438,3 +438,70 @@ This stage remains diagnostic. If one constant pixel correction performs well,
 the next step is to apply it to the full 2017-2024 rasters *diagnostically* and
 re-extract NUTS3 means using the production exact-overlap spherical-area
 weighting before changing the production calibration.
+
+
+## Annual VNL V2.2 calibration pass 3: segmented 2013-2019 time series
+
+Pass 2 showed that the independent-brightness 2017 excess is remarkably flat
+at about 0.23-0.24 nW cm-2 sr-1 from the faintest retained pixels through a
+2013-2014 baseline of roughly 5 nW cm-2 sr-1, but the pattern breaks down at
+higher brightness.
+
+The third pass estimates the discontinuity from the full time series rather
+than only adjacent year differences:
+
+```bash
+python src/run_pipeline.py annual-vnl-2017-correction-pass3
+```
+
+The primary interval is 2013-2019 on fixed NUTS2016 geography. 2020 is excluded
+from the calibration estimate so the COVID-era year cannot influence the
+inferred sensor step. Pixels must be positive in every year of the interval and
+are assigned to brightness bins from the independent mean 2013-2014 radiance.
+
+Within every NUTS3 x brightness-bin series the annual median radiance is fitted
+as:
+
+```text
+R_t = a + b * (year - 2016) + delta * I(year >= 2017)
+```
+
+where `delta` is the additive step. A sensitivity model allows a separate
+post-2017 slope, and a parallel log10 model estimates the corresponding
+multiplicative percentage step. Comparing brightness dependence of the additive
+and multiplicative estimates tests which calibration form is more plausible.
+
+Candidate correction shapes are then evaluated against the segmented step:
+
+- no correction;
+- universal 0.15 nW;
+- universal 0.23478 nW from pass 2;
+- universal empirical pass-3 offset estimated from baseline <=5 nW;
+- empirical offset only for baseline <=5 nW;
+- empirical offset flat through 5 nW and tapering linearly to zero at 10 nW.
+
+The candidate ranking prioritises removal of the residual step through baseline
+<=10 nW while also penalising poor residual performance across the full
+brightness range. This remains diagnostic only.
+
+Outputs:
+
+```text
+data/processed/annual_vnl_2017_pass3_nuts3_brightness.csv
+data/processed/annual_vnl_2017_pass3_country_brightness.csv
+data/processed/annual_vnl_2017_pass3_brightness_summary.csv
+data/processed/annual_vnl_2017_pass3_empirical_country.csv
+data/processed/annual_vnl_2017_pass3_scenario_detail.csv
+data/processed/annual_vnl_2017_pass3_scenario_summary.csv
+data/processed/annual_vnl_2017_correction_pass3_summary.txt
+
+figures/annual_change/annual_vnl_2017_correction_pass3/
+    segmented_additive_step_by_brightness.png
+    additive_vs_multiplicative_step.png
+    candidate_residuals_by_brightness.png
+```
+
+If the same simple correction form wins this longer-window test, the next step
+is a diagnostic 2017-2024 raster correction followed by full NUTS3 re-extraction
+and re-running the population-density rotation analysis before replacing the
+production calibration.
