@@ -285,3 +285,79 @@ their calibration correction is separately validated.
    - preserve marginality: lower-order components of retained interactions are
      not eligible for deletion
    - write the complete term-by-term simplification history
+
+
+## Annual VNL V2.2 retained-pixel 2017 discontinuity diagnostic
+
+Before replacing the provisional production calibration, the pipeline now tests
+the Annual VNL V2.2 `average_masked` rasters directly.
+
+The key methodological question is whether EOG's zero-valued background mask
+already removes the 2017 DNB calibration discontinuity, or whether a step
+remains in the radiance of pixels that are persistently retained as lit.
+
+Run:
+
+```bash
+python src/run_pipeline.py annual-vnl-2017-pixel-test
+```
+
+This diagnostic uses fixed NUTS2016 polygons and the 2015, 2016, 2017 and 2018
+raw Annual VNL V2.2 rasters. It performs two separate checks.
+
+**Mask/support check.** Within each NUTS3 it measures the fraction of common
+valid pixels that are positive in each year and the fractions switching
+zero-to-positive or positive-to-zero across 2015-2016, 2016-2017 and
+2017-2018. An unusual 2016-2017 change here would indicate that support/masking
+contributes to the discontinuity.
+
+**Persistent-lit radiance check.** The primary analysis then keeps only pixels
+that are positive in all four years. For each such pixel:
+
+```text
+d15_16 = R2016 - R2015
+d16_17 = R2017 - R2016
+d17_18 = R2018 - R2017
+
+excess_2017 =
+    d16_17 - 0.5 * (d15_16 + d17_18)
+```
+
+Because every tested pixel is positive in every year, a positive 2017 excess
+cannot be produced merely by pixels moving from the zero/background class into
+the lit class.
+
+NUTS3 pixel statistics are summarized by country using medians of NUTS3
+statistics. This explicitly tests the previously observed fact that the
+2016-to-2017 radiance jump appeared consistently country-to-country rather than
+only in the original five comparison countries.
+
+The same retained-pixel diagnostic is stratified by 2016 pixel radiance. If the
+2017 excess is approximately constant in absolute linear radiance units across
+brightness classes, a simple additive offset remains plausible for retained
+pixels. Strong brightness dependence would argue against one universal
+additive value.
+
+Finally, the script calculates the same 2015-2018 excess contrast from the
+existing raw NUTS3 zonal means and compares it with the direct persistent-lit
+pixel contrast. This connects the new product-level diagnostic to the earlier
+country/NUTS3 discontinuity result.
+
+Outputs:
+
+```text
+data/processed/annual_vnl_2017_pixel_nuts3.csv
+data/processed/annual_vnl_2017_pixel_country.csv
+data/processed/annual_vnl_2017_pixel_nuts3_brightness.csv
+data/processed/annual_vnl_2017_pixel_country_brightness.csv
+data/processed/annual_vnl_2017_pixel_brightness_summary.csv
+data/processed/annual_vnl_2017_pixel_summary.txt
+
+figures/annual_change/annual_vnl_2017_pixel_test/country_transition_medians.png
+figures/annual_change/annual_vnl_2017_pixel_test/country_2017_excess.png
+figures/annual_change/annual_vnl_2017_pixel_test/brightness_dependence.png
+figures/annual_change/annual_vnl_2017_pixel_test/nuts3_zonal_vs_persistent_pixel_excess.png
+```
+
+This stage is diagnostic only. It does not modify
+`radiance_mean_corrected` or any production raster.
