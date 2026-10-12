@@ -361,3 +361,80 @@ figures/annual_change/annual_vnl_2017_pixel_test/nuts3_zonal_vs_persistent_pixel
 
 This stage is diagnostic only. It does not modify
 `radiance_mean_corrected` or any production raster.
+
+
+## Annual VNL V2.2 calibration pass 2: independent brightness and candidate correction
+
+The first retained-pixel test established that the 2016-to-2017 jump remains in
+pixels that are positive in all of 2015-2018, and therefore cannot be explained
+by EOG background zeroing alone. Its original brightness stratification was,
+however, mathematically coupled because 2016 radiance both defined the
+brightness bin and appeared in the adjacent transition differences.
+
+The second-pass diagnostic fixes that problem:
+
+```bash
+python src/run_pipeline.py annual-vnl-2017-correction-pass2
+```
+
+Pixels must be positive in every year from 2013 through 2018. Their independent
+brightness reference is:
+
+```text
+baseline = mean(R2013, R2014)
+```
+
+The 2017 excess remains:
+
+```text
+excess_2017 =
+    (R2017 - R2016)
+    - 0.5 * [(R2016 - R2015) + (R2018 - R2017)]
+```
+
+The stage reports country and brightness-stratified offsets without using any of
+2015-2018 to define brightness.
+
+It then evaluates candidate **pixel-level** additive corrections. A candidate
+offset is subtracted only from positive 2017 and 2018 pixels and values are
+clipped at zero for this diagnostic. Candidate values include:
+
+- no correction;
+- literature sensitivity values 0.125 and 0.15 nW cm-2 sr-1;
+- the median country retained-pixel excess;
+- a dim-to-moderate empirical value obtained by first taking each country's
+  median independent-bin excess for baseline radiance <=10 nW cm-2 sr-1, then
+  taking the median across countries.
+
+For each scenario the 2017 residual excess is recomputed after correction. The
+main comparison is the median absolute country residual, supplemented by
+country IQR, clipping fraction and residual brightness structure. An empirical
+scenario is not accepted merely because its median residual is zero by
+construction.
+
+Outputs:
+
+```text
+data/processed/annual_vnl_2017_pass2_nuts3.csv
+data/processed/annual_vnl_2017_pass2_nuts3_brightness.csv
+data/processed/annual_vnl_2017_pass2_country.csv
+data/processed/annual_vnl_2017_pass2_country_brightness.csv
+data/processed/annual_vnl_2017_pass2_brightness_summary.csv
+data/processed/annual_vnl_2017_pass2_candidate_offsets.csv
+data/processed/annual_vnl_2017_pass2_scenario_nuts3.csv
+data/processed/annual_vnl_2017_pass2_scenario_country.csv
+data/processed/annual_vnl_2017_pass2_scenario_summary.csv
+data/processed/annual_vnl_2017_pass2_scenario_country_brightness.csv
+data/processed/annual_vnl_2017_pass2_scenario_brightness.csv
+data/processed/annual_vnl_2017_correction_pass2_summary.txt
+
+figures/annual_change/annual_vnl_2017_correction_pass2/
+    independent_brightness_dependence.png
+    candidate_country_residuals.png
+    candidate_brightness_residuals.png
+```
+
+This stage remains diagnostic. If one constant pixel correction performs well,
+the next step is to apply it to the full 2017-2024 rasters *diagnostically* and
+re-extract NUTS3 means using the production exact-overlap spherical-area
+weighting before changing the production calibration.
