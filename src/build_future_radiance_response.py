@@ -622,6 +622,67 @@ def build_transfer_table(
     selected: str,
     config: dict,
 ) -> pd.DataFrame:
+    """Build the canonical transfer function used by future projections.
+
+    If demographic change is not retained, use the full 2013-2024 longitudinal
+    mixed-model response from density-temporal-change rather than the shorter
+    five-year-pair density-only fit. The five-year pair analysis then serves
+    only as the model-selection test for whether g_D is needed.
+
+    If demographic change is retained, use the validated five-year pair model
+    because g_D is defined from interval change.
+    """
+    processed = configured_path(config, "processed")
+
+    if selected == "density_only":
+        path = processed / "continuous_density_temporal_trend.csv"
+        if not path.exists():
+            raise FileNotFoundError(
+                f"Missing {path}. Run density-temporal-change first."
+            )
+        src = pd.read_csv(path)
+        required = [
+            "population_density",
+            "log10_radiance_trend_per_year",
+            "trend_se",
+            "trend_ci_low",
+            "trend_ci_high",
+            "pct_radiance_change_per_year",
+        ]
+        missing = [x for x in required if x not in src.columns]
+        if missing:
+            raise KeyError(
+                "Continuous density temporal trend is missing columns: "
+                f"{missing}"
+            )
+
+        out = pd.DataFrame(
+            {
+                "selected_model": "density_only",
+                "response_source": (
+                    "full_2013_2024_longitudinal_mixed_model"
+                ),
+                "population_density": src["population_density"].astype(float),
+                "population_density_change_pct_per_year": np.nan,
+                "annual_log10_calibrated_viirs_change": src[
+                    "log10_radiance_trend_per_year"
+                ].astype(float),
+                "annual_log10_change_se": src["trend_se"].astype(float),
+                "annual_log10_change_ci_low": src["trend_ci_low"].astype(float),
+                "annual_log10_change_ci_high": src["trend_ci_high"].astype(float),
+                "calibrated_viirs_change_pct_per_year": src[
+                    "pct_radiance_change_per_year"
+                ].astype(float),
+            }
+        )
+        out["calibrated_viirs_change_pct_per_year_ci_low"] = (
+            100.0 * (10.0 ** out["annual_log10_change_ci_low"] - 1.0)
+        )
+        out["calibrated_viirs_change_pct_per_year_ci_high"] = (
+            100.0 * (10.0 ** out["annual_log10_change_ci_high"] - 1.0)
+        )
+        return out.sort_values("population_density").reset_index(drop=True)
+
     cfg = config["analysis"]["future_radiance_response"]
     lo = float(
         fit["population_density_start"].quantile(
@@ -636,13 +697,9 @@ def build_transfer_table(
     densities = np.geomspace(
         lo, hi, int(cfg["projection_density_grid_points"])
     )
-
-    if selected == "density_only":
-        growth_values = [0.0]
-    else:
-        growth_values = [
-            float(x) for x in cfg["projection_population_change_scenarios"]
-        ]
+    growth_values = [
+        float(x) for x in cfg["projection_population_change_scenarios"]
+    ]
 
     rows = []
     for growth in growth_values:
@@ -653,10 +710,11 @@ def build_transfer_table(
             rows.append(
                 {
                     "selected_model": selected,
-                    "population_density": float(density),
-                    "population_density_change_pct_per_year": (
-                        np.nan if selected == "density_only" else growth
+                    "response_source": (
+                        "fixed_NUTS2016_five_year_interval_model"
                     ),
+                    "population_density": float(density),
+                    "population_density_change_pct_per_year": growth,
                     "annual_log10_calibrated_viirs_change": est,
                     "annual_log10_change_se": se,
                     "annual_log10_change_ci_low": est - 1.96 * se,
@@ -862,6 +920,11 @@ def main() -> None:
     decision = {
         "selected_model": selected,
         "selected_formula": MODEL_FORMULAS[selected],
+        "canonical_response_source": (
+            "full_2013_2024_longitudinal_mixed_model"
+            if selected == "density_only"
+            else "fixed_NUTS2016_five_year_interval_model"
+        ),
         "calibration_version": config["calibration"]["version"],
         "calibration_method": config["calibration"]["method"],
         "nuts_release_for_model_selection": int(cfg["nuts_release"]),
@@ -929,6 +992,15 @@ def main() -> None:
         )
         h.write("\n\nMODEL DECISION\n")
         h.write(f"Selected model: {selected}\n")
+        h.write(
+            "Canonical response source: "
+            + (
+                "full 2013-2024 longitudinal mixed model"
+                if selected == "density_only"
+                else "fixed-NUTS2016 five-year interval model"
+            )
+            + "\n"
+        )
         for reason in reasons:
             h.write(f"- {reason}\n")
 
