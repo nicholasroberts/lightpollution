@@ -839,3 +839,67 @@ figures/population_relationship/future_radiance_historical_validation/exclude_20
 
 The map comparison shows the observed regional trend with and without 2013,
 plus the change in fitted trend caused by excluding 2013.
+
+
+## Fixed NUTS2016 validation from 2014 to 2024
+
+The decisive historical validation removes both known sources of concern in the
+earlier future-response analysis: the influential 2013 endpoint and the change
+from NUTS2016 to later NUTS releases after 2020.
+
+Run:
+
+```bash
+python src/run_pipeline.py future-radiance-fixed-2014-2024
+```
+
+The stage re-extracts every Annual VNL V2.2 raster from 2014 through 2024 onto
+the **same NUTS2016 Level-3 polygons**. For 2017 onward it applies the current
+production pixel correction before zonal aggregation:
+
+```text
+raw <= 0: unchanged
+raw > 0: max(raw - 0.235, 0)
+```
+
+All NUTS3 means use the same exact polygon-overlap and spherical physical-area
+weighting as the main production extraction.
+
+### Internal validation
+
+For 2014-2020, the fixed extraction must reproduce the existing production
+NUTS2016 corrected-radiance values within numerical tolerance. The stage stops
+if that cross-check fails.
+
+Population-density classes are fixed once using each NUTS2016 region's median
+Eurostat population density over 2014-2020. The same polygons and the same
+class membership are then used for both:
+
+```text
+2014-2020
+2014-2024
+```
+
+The comparison therefore isolates the effect of adding the 2021-2024 VIIRS
+observations. Differences cannot be caused by a change in NUTS geography or by
+regions moving between density classes.
+
+### Outputs
+
+```text
+data/processed/fixed_nuts2016_viirs_2014_2024.parquet
+data/processed/fixed_nuts2016_viirs_2014_2024.csv
+data/processed/fixed_nuts2016_2014_2020_production_validation.csv
+data/processed/fixed_nuts2016_population_density_reference.csv
+data/processed/fixed_nuts2016_density_trends_2014_2020_vs_2014_2024.csv
+data/processed/fixed_nuts2016_density_trajectories_2014_2024.csv
+data/processed/fixed_nuts2016_region_slopes_2014_2024.csv
+data/processed/fixed_nuts2016_2014_2024_summary.txt
+
+figures/population_relationship/fixed_nuts2016_2014_2024/
+    density_trends_2014_2020_vs_2014_2024.pdf
+    real_trajectories_2014_2024.pdf
+    maps_2014_2020_vs_2014_2024.pdf
+```
+
+This stage should be completed before the future radiance response is frozen.
