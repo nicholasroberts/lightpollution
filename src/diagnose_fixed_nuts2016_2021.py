@@ -25,9 +25,16 @@ On this scale:
 - a 2021 level step is a one-year pulse for the transition ending in 2021;
 - a post-2021 slope change is a persistent change in annual delta from 2022 on.
 
-Mixed models retain the existing pipeline convention of a NUTS_ID random
-intercept and country fixed effects. Likelihood-ratio tests are used for
-nested fixed-effect blocks with ML fits, matching the rest of the pipeline.
+Because the response is first-differenced, the time-invariant NUTS3 intercept
+has already been removed algebraically. Re-fitting a NUTS_ID random intercept
+to these differences is therefore unnecessary and can put its variance on the
+boundary. The diagnostic models use OLS with country fixed effects and
+NUTS_ID-cluster-robust covariance, which accounts for repeated annual changes
+within each region without re-introducing a redundant region intercept.
+
+Pre-specified coefficient blocks are tested with cluster-robust Wald tests.
+AIC/BIC are retained only as descriptive likelihood summaries, not as the
+basis for inference.
 """
 
 from __future__ import annotations
@@ -38,8 +45,8 @@ from pathlib import Path
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
+import statsmodels.formula.api as smf
 
-from analyze_density_temporal_change import contrast, fit_mixedlm, lrt
 from project_config import configured_path, load_config
 from validate_fixed_nuts2016_2014_2024 import prepare_analysis_panel
 
@@ -210,11 +217,89 @@ def country_balanced_summary(country: pd.DataFrame) -> pd.DataFrame:
     return pd.DataFrame(rows).sort_values("end_year")
 
 
-def fit_diagnostic_models(diff: pd.DataFrame):
-    """Fit a small, pre-specified nested model sequence."""
-    base_formula = (
-        "delta_log10 ~ C(country) + C(density_band)"
+def fit_cluster_ols(formula: str, data: pd.DataFrame):
+    """OLS point estimates with covariance clustered by fixed NUTS3 region."""
+    model = smf.ols(formula, data=data)
+    return model.fit(
+        cov_type="cluster",
+        cov_kwds={"groups": data["NUTS_ID"], "use_correction": True},
     )
+
+
+def robust_wald(result, restrictions: list[dict[str, float]]):
+    """Joint cluster-robust Wald chi-square test of linear restrictions."""
+    names = list(result.params.index)
+    rows = []
+    for weights in restrictions:
+        row = np.zeros(len(names), dtype=float)
+        for term, value in weights.items():
+            if term not in names:
+                raise RuntimeError(
+                    f"Restriction term {term!r} not found in fitted model."
+                )
+            row[names.index(term)] = float(value)
+        rows.append(row)
+    R = np.vstack(rows)
+    test = result.wald_test(R, use_f=False, scalar=True)
+    return float(test.statistic), int(R.shape[0]), float(test.pvalue)
+
+
+def cluster_contrast(result, weights: dict[str, float]):
+    """Estimate one linear contrast using the cluster-robust covariance."""
+    names = list(result.params.index)
+    L = np.zeros(len(names), dtype=float)
+    for term, value in weights.items():
+        if term not in names:
+            raise RuntimeError(f"Contrast term {term!r} not found in model.")
+        L[names.index(term)] = float(value)
+    beta = result.params.to_numpy(float)
+    cov = result.cov_params().loc[names, names].to_numpy(float)
+    est = float(L @ beta)
+    se = float(np.sqrt(max(0.0, L @ cov @ L)))
+    z = est / se if se > 0 else np.nan
+    from scipy.stats import norm
+    p = float(2.0 * norm.sf(abs(z))) if np.isfinite(z) else np.nan
+    return est, se, p
+
+
+def _interaction_terms(result, variable: str, factor: str) -> list[str]:
+    names = list(result.params.index)
+    return [
+        name
+        for name in names
+        if variable in name and f"C({factor})" in name and ":" in name
+    ]
+
+
+def _categorical_piecewise_restrictions(result, diff: pd.DataFrame):
+    """Restrictions implied by a constant/pulse/post-2021 delta model."""
+    years = sorted(diff["end_year"].astype(int).unique().tolist())
+    reference = years[0]
+    if reference != 2015 or 2021 not in years or 2022 not in years:
+        raise RuntimeError(
+            f"Unexpected transition years for 2021 diagnostic: {years}"
+        )
+
+    restrictions = []
+    # Before the 2021 pulse, every transition must equal the 2015 reference.
+    for year in [y for y in years if reference < y < 2021]:
+        restrictions.append({f"C(end_year)[T.{year}]": 1.0})
+
+    # Post-2021 transitions are all constrained to the same shifted mean.
+    post_reference = "C(end_year)[T.2022]"
+    for year in [y for y in years if y > 2022]:
+        restrictions.append(
+            {
+                f"C(end_year)[T.{year}]": 1.0,
+                post_reference: -1.0,
+            }
+        )
+    return restrictions
+
+
+def fit_diagnostic_models(diff: pd.DataFrame):
+    """Fit the pre-specified first-difference models with clustered covariance."""
+    base_formula = "delta_log10 ~ C(country) + C(density_band)"
     pulse_formula = base_formula + " + jump_2021"
     piecewise_formula = pulse_formula + " + post_2021"
     density_formula = (
@@ -231,75 +316,102 @@ def fit_diagnostic_models(diff: pd.DataFrame):
         "delta_log10 ~ C(country) + C(density_band) + C(end_year)"
     )
 
-    models = {}
-    optimizers = {}
-    for name, formula in [
-        ("constant_change", base_formula),
-        ("plus_2021_pulse", pulse_formula),
-        ("plus_post_2021_change", piecewise_formula),
-        ("plus_density_specific_breaks", density_formula),
-        ("plus_country_specific_breaks", country_formula),
-        ("categorical_transition_year", categorical_formula),
-    ]:
-        result, optimizer = fit_mixedlm(formula, diff)
-        models[name] = result
-        optimizers[name] = optimizer
+    formulas = {
+        "constant_change": base_formula,
+        "plus_2021_pulse": pulse_formula,
+        "plus_post_2021_change": piecewise_formula,
+        "plus_density_specific_breaks": density_formula,
+        "plus_country_specific_breaks": country_formula,
+        "categorical_transition_year": categorical_formula,
+    }
+    models = {
+        name: fit_cluster_ols(formula, diff)
+        for name, formula in formulas.items()
+    }
 
-    tests = []
-    for label, reduced, full in [
+    test_specs = [
         (
             "2021 pulse beyond constant annual change",
             "constant_change",
             "plus_2021_pulse",
+            [{"jump_2021": 1.0}],
         ),
         (
             "persistent post-2021 change beyond one-year pulse",
             "plus_2021_pulse",
             "plus_post_2021_change",
+            [{"post_2021": 1.0}],
         ),
+    ]
+
+    density_model = models["plus_density_specific_breaks"]
+    density_terms = (
+        _interaction_terms(density_model, "jump_2021", "density_band")
+        + _interaction_terms(density_model, "post_2021", "density_band")
+    )
+    test_specs.append(
         (
             "density-specific 2021/post-2021 behaviour",
             "plus_post_2021_change",
             "plus_density_specific_breaks",
-        ),
+            [{term: 1.0} for term in density_terms],
+        )
+    )
+
+    country_model = models["plus_country_specific_breaks"]
+    country_terms = (
+        _interaction_terms(country_model, "jump_2021", "country")
+        + _interaction_terms(country_model, "post_2021", "country")
+    )
+    test_specs.append(
         (
             "country-specific 2021/post-2021 behaviour",
             "plus_density_specific_breaks",
             "plus_country_specific_breaks",
-        ),
+            [{term: 1.0} for term in country_terms],
+        )
+    )
+
+    categorical_model = models["categorical_transition_year"]
+    test_specs.append(
         (
             "remaining year-to-year structure beyond simple 2021 piecewise model",
             "plus_post_2021_change",
             "categorical_transition_year",
-        ),
-    ]:
-        lr, df_lr, p = lrt(models[reduced], models[full])
+            _categorical_piecewise_restrictions(categorical_model, diff),
+        )
+    )
+
+    tests = []
+    for label, reduced, full, restrictions in test_specs:
+        stat, df_wald, p = robust_wald(models[full], restrictions)
         tests.append(
             {
                 "test": label,
                 "reduced_model": reduced,
                 "full_model": full,
-                "lr": lr,
-                "df": df_lr,
+                "wald_chi2": stat,
+                "df": df_wald,
                 "p": p,
                 "reduced_aic": float(models[reduced].aic),
                 "full_aic": float(models[full].aic),
-                "reduced_optimizer": optimizers[reduced],
-                "full_optimizer": optimizers[full],
             }
         )
 
     model_info = []
+    n_clusters = int(diff["NUTS_ID"].nunique())
     for name, model in models.items():
         model_info.append(
             {
                 "model": name,
+                "estimator": "OLS with NUTS_ID-cluster-robust covariance",
                 "n_obs": int(model.nobs),
-                "n_fixed_effects": int(len(model.fe_params)),
+                "n_clusters": n_clusters,
+                "n_fixed_effects": int(len(model.params)),
                 "log_likelihood": float(model.llf),
                 "aic": float(model.aic),
                 "bic": float(model.bic),
-                "optimizer": optimizers[name],
+                "covariance": str(model.cov_type),
             }
         )
 
@@ -316,8 +428,8 @@ def coefficient_table(models: dict) -> pd.DataFrame:
     ]
     for model_name in keep_models:
         model = models[model_name]
-        fe = model.fe_params
-        se = model.bse_fe
+        fe = model.params
+        se = model.bse
         for term in fe.index:
             if (
                 term == "Intercept"
@@ -357,7 +469,7 @@ def density_break_contrasts(model, labels: list[str]) -> pd.DataFrame:
                     f"C(density_band)[T.{band}]:{base}",
                 ]
                 found = next(
-                    (x for x in candidates if x in model.fe_params.index),
+                    (x for x in candidates if x in model.params.index),
                     None,
                 )
                 if found is None:
@@ -366,17 +478,17 @@ def density_break_contrasts(model, labels: list[str]) -> pd.DataFrame:
                     )
                 weights[found] = 1.0
 
-        jump, jump_se, jump_p = contrast(model, jump_weights)
-        post, post_se, post_p = contrast(model, post_weights)
+        jump, jump_se, jump_p = cluster_contrast(model, jump_weights)
+        post, post_se, post_p = cluster_contrast(model, post_weights)
         rows.append(
             {
                 "density_band": band,
                 "reference_band": ref,
-                "model": "plus_country_specific_breaks",
-                "estimated_2021_pulse_log10_for_reference_country": jump,
+                "model": "plus_density_specific_breaks",
+                "estimated_2021_pulse_log10": jump,
                 "pulse_se": jump_se,
                 "pulse_p": jump_p,
-                "estimated_post_2021_delta_shift_log10_for_reference_country": post,
+                "estimated_post_2021_delta_shift_log10": post,
                 "post_shift_se": post_se,
                 "post_shift_p": post_p,
             }
@@ -484,7 +596,7 @@ def main():
     models, tests, model_info = fit_diagnostic_models(diff)
     coefficients = coefficient_table(models)
     density_contrasts = density_break_contrasts(
-        models["plus_country_specific_breaks"], labels
+        models["plus_density_specific_breaks"], labels
     )
 
     processed = configured_path(config, "processed")
@@ -575,7 +687,7 @@ def main():
                 index=False, float_format=lambda x: f"{x:.6g}"
             )
         )
-        h.write("\n\nNESTED MIXED-MODEL TESTS\n")
+        h.write("\n\nCLUSTER-ROBUST WALD TESTS\n")
         h.write(
             tests.to_string(
                 index=False, float_format=lambda x: f"{x:.6g}"
@@ -638,10 +750,10 @@ def main():
             index=False, float_format=lambda x: f"{x:.6g}"
         )
     )
-    print("\nLIKELIHOOD-RATIO TESTS")
+    print("\nCLUSTER-ROBUST WALD TESTS")
     print(
         tests[
-            ["test", "lr", "df", "p", "reduced_aic", "full_aic"]
+            ["test", "wald_chi2", "df", "p", "reduced_aic", "full_aic"]
         ].to_string(
             index=False, float_format=lambda x: f"{x:.6g}"
         )
