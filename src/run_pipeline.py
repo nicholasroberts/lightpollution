@@ -50,6 +50,7 @@ STAGES = {
     "future-radiance-2021-pixel-support": PROJECT_ROOT / "src" / "diagnose_fixed_nuts2016_2021_pixel_support.py",
     "future-radiance-july-vcm-vcmsl-pilot": PROJECT_ROOT / "src" / "diagnose_fixed_nuts2016_july_vcm_vcmsl.py",
     "future-radiance-download-monthly-2021": PROJECT_ROOT / "src" / "fetch_eog_monthly_vcmslcfg_2021.py",
+    "future-radiance-monthly-2021-localization": PROJECT_ROOT / "src" / "diagnose_fixed_nuts2016_monthly_2021_localization.py",
     "habitability-fetch": PROJECT_ROOT / "src" / "fetch_habitability_inputs.py",
     "habitability-build": PROJECT_ROOT / "src" / "build_habitability_metric.py",
     "habitability-historical-validation": PROJECT_ROOT / "src" / "validate_habitability_historical_change.py",
