@@ -146,11 +146,19 @@ def ensure_snow_geotiff(hdf: Path, cache_dir: Path, expected_crs: str) -> Path:
         tmp.unlink()
 
     print(f"Converting MOD10CM snow layer: {hdf.name}", flush=True)
+    # MOD10CM is a regular 0.05-degree longitude/latitude CMG.  The HDF-EOS
+    # driver exposes its legacy GCTP geographic grid as an "unknown datum based
+    # on Clarke 1866" CRS even though the product coordinates themselves are
+    # the global lon/lat grid (-180..180, -90..90).  Assign EPSG:4326 to the
+    # cached GeoTIFF without resampling so that the grid can be overlaid with
+    # the project's NUTS geometries.  Bounds/shape are validated immediately
+    # below, so this cannot silently accept a non-CMG raster.
     subprocess.run(
         [
             gdal_translate,
             "-q",
             "-of", "GTiff",
+            "-a_srs", expected_crs,
             "-co", "COMPRESS=DEFLATE",
             "-co", "TILED=YES",
             "-co", "BIGTIFF=IF_SAFER",
