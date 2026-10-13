@@ -43,6 +43,7 @@ STAGES = {
     "future-radiance-fixed-2014-2024": PROJECT_ROOT / "src" / "validate_fixed_nuts2016_2014_2024.py",
     "future-radiance-2021-diagnostic": PROJECT_ROOT / "src" / "diagnose_fixed_nuts2016_2021.py",
     "future-radiance-2021-reversal": PROJECT_ROOT / "src" / "diagnose_fixed_nuts2016_2021_reversal.py",
+    "future-radiance-product-layer-audit": PROJECT_ROOT / "src" / "diagnose_viirs_annual_product_layers.py",
     "habitability-fetch": PROJECT_ROOT / "src" / "fetch_habitability_inputs.py",
     "habitability-build": PROJECT_ROOT / "src" / "build_habitability_metric.py",
     "habitability-historical-validation": PROJECT_ROOT / "src" / "validate_habitability_historical_change.py",
