@@ -101,6 +101,39 @@ def expected_companion_name(avg_name: str, layer: str) -> str:
     return avg_name[: -len(suffix)] + f".{layer}.dat.tif"
 
 
+def _fallback_companion_matches(
+    root: Path,
+    year: int,
+    layer: str,
+) -> list[Path]:
+    """Find a decompressed companion despite harmless filename variations.
+
+    Browser downloads and EOG re-packaging can preserve the scientific layer
+    while changing the creation timestamp or adding a duplicate-download
+    suffix. The observation year and layer token are therefore the scientific
+    identifiers used for the fallback search. Exact expected filenames remain
+    preferred.
+    """
+    year_token = f"_{year}_global_"
+    layer_tokens = {
+        f".{layer}.",
+        f".{layer.replace('_', '-')}.",
+    }
+    matches = []
+    for path in root.rglob("*"):
+        if not path.is_file():
+            continue
+        name = path.name
+        if not name.lower().endswith((".tif", ".tiff")):
+            continue
+        if year_token not in name:
+            continue
+        if not any(token in name for token in layer_tokens):
+            continue
+        matches.append(path)
+    return sorted(matches)
+
+
 def locate_companions(panel: pd.DataFrame, config: dict) -> pd.DataFrame:
     root = configured_path(config, "viirs_raw")
     rows = []
@@ -115,22 +148,43 @@ def locate_companions(panel: pd.DataFrame, config: dict) -> pd.DataFrame:
         avg_name = avg_names[0]
         for layer in LAYERS:
             expected = expected_companion_name(avg_name, layer)
-            matches = list(root.rglob(expected))
+            exact_matches = list(root.rglob(expected))
+            match_mode = "exact"
+
+            if len(exact_matches) > 1:
+                raise RuntimeError(
+                    f"Multiple exact files match {expected}: "
+                    + ", ".join(str(p) for p in exact_matches)
+                )
+
+            if exact_matches:
+                matches = exact_matches
+            else:
+                matches = _fallback_companion_matches(root, year, layer)
+                match_mode = "year_layer_fallback"
+
             if len(matches) > 1:
                 raise RuntimeError(
-                    f"Multiple files match {expected}: "
-                    + ", ".join(str(p) for p in matches)
+                    f"Multiple decompressed candidate files found for "
+                    f"{year} {layer}. Keep or rename the intended file so the "
+                    "choice is unambiguous:\n  "
+                    + "\n  ".join(str(p) for p in matches)
                 )
+
             if not matches:
                 missing.append(expected)
                 path = None
+                match_mode = "missing"
             else:
                 path = matches[0]
+
             rows.append(
                 {
                     "year": year,
                     "layer": layer,
                     "expected_filename": expected,
+                    "actual_filename": path.name if path is not None else "",
+                    "match_mode": match_mode,
                     "found": path is not None,
                     "relative_path": (
                         str(path.relative_to(root)) if path is not None else ""
@@ -147,8 +201,10 @@ def locate_companions(panel: pd.DataFrame, config: dict) -> pd.DataFrame:
         raise FileNotFoundError(
             "Missing required annual VNL companion rasters under "
             f"{root}:\n{needed}\n"
-            "Download the browser-authenticated EOG files, place them in "
-            "data/raw/viirs/, and decompress any .gz files before rerunning."
+            "No unique decompressed file with the same observation year and "
+            "layer token was found either. Check the local filenames with:\n"
+            "  find data/raw/viirs -maxdepth 2 -type f "
+            "\\( -iname '*median*' -o -iname '*cf*cvg*' \\) -printf '%f\\n'\n"
         )
     return manifest
 
