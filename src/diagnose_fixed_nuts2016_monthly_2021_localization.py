@@ -59,7 +59,7 @@ def discover_files(cfg: dict) -> dict[int, dict[int, dict[str, Path]]]:
         if not root.exists():
             raise FileNotFoundError(f"Missing monthly directory: {root}")
         months: dict[int, dict[str, Path]] = {}
-        for avg in sorted(root.glob("*.avg_rade9h.tif")):
+        for avg in sorted(root.rglob("*.avg_rade9h.tif")):
             m = AVG_RE.match(avg.name)
             if not m:
                 continue
