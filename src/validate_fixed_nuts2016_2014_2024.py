@@ -10,7 +10,7 @@ The year-specific production pipeline changes NUTS release after 2020. The
 removes both issues by:
 
 1. excluding 2013;
-2. re-extracting every Annual VNL V2.2 raster from 2014 through 2024 onto the
+2. re-extracting every Annual VNL V2-family raster from 2014 through 2024 onto the
    SAME NUTS2016 polygons;
 3. applying the production 0.235 nW cm-2 sr-1 pixel correction from 2017
    onward before polygon aggregation;
