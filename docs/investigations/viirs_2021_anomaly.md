@@ -277,6 +277,53 @@ latitude rho:
 
 ---
 
+## Paper-facing evidence artifacts and narrative role
+
+The anomaly investigation is likely to generate several supplementary figures.
+The table below records the files that currently carry the strongest evidential
+weight, the conclusion each supports, and why that conclusion led to the next
+analysis. This is intended to prevent later manuscript drafting from selecting
+figures retrospectively without preserving the diagnostic logic.
+
+| Diagnostic step | Key figure(s) | Key dataset(s) | Conclusion supported and rationale for the next step |
+|---|---|---|---|
+| Locked 2014-2024 geometry | `figures/population_relationship/fixed_nuts2016_2014_2024/real_trajectories_2014_2024.pdf`; `figures/population_relationship/fixed_nuts2016_2014_2024/density_trends_2014_2020_vs_2014_2024.pdf` | `data/processed/fixed_nuts2016_viirs_2014_2024.parquet`; `data/processed/fixed_nuts2016_density_trajectories_2014_2024.csv`; `data/processed/fixed_nuts2016_2014_2020_production_validation.csv` | Establishes that the post-2020 feature is present on one fixed NUTS2016 cohort and that the 2014-2020 extraction exactly reproduces production. This justified treating 2021 as a product/time-series problem rather than a geography problem. |
+| First-difference 2021 diagnostic | `figures/population_relationship/fixed_nuts2016_2021_diagnostic/annual_within_region_change.pdf`; `figures/population_relationship/fixed_nuts2016_2021_diagnostic/country_change_2020_2021.pdf` | `data/processed/fixed_nuts2016_annual_change_summary_2015_2024.csv`; `data/processed/fixed_nuts2016_country_balanced_annual_change_2015_2024.csv`; `data/processed/fixed_nuts2016_2021_model_tests.csv` | Shows that 2021 is a large Europe-wide pulse rather than an ordinary point on a linear trajectory. The 2022 reversal then had to be tested explicitly. |
+| Raw pulse and 2022 reversal | `figures/population_relationship/fixed_nuts2016_2021_reversal/raw_2021_pulse_vs_2022_reversal.pdf`; `figures/population_relationship/fixed_nuts2016_2021_reversal/raw_pulse_reversal_vs_latitude.pdf`; `figures/population_relationship/fixed_nuts2016_2021_reversal/raw_net_2020_2022_by_density_band.pdf` | `data/processed/fixed_nuts2016_2021_2022_region_reversal.csv`; `data/processed/fixed_nuts2016_2021_2022_reversal_diagnostics.csv`; `data/processed/fixed_nuts2016_2021_2022_country_reversal.csv` | Demonstrates that the event exists in raw radiance, is paired with a strong 2022 reversal, and has geographic structure. This ruled out the project's 0.235 correction as the cause and motivated interrogation of the EOG product itself. |
+| Annual mean versus median product layers | `figures/population_relationship/viirs_annual_product_layer_audit/average_vs_median_masked_2020_2023.pdf`; `figures/population_relationship/viirs_annual_product_layer_audit/average_vs_median_2021_region_change.pdf`; `figures/population_relationship/viirs_annual_product_layer_audit/radiance_2021_vs_cf_cvg_change.pdf` | `data/processed/viirs_annual_product_layer_annual_summary_2021_2023.csv`; `data/processed/viirs_annual_product_layer_diagnostics_2021_2023.csv`; `data/processed/viirs_annual_product_layer_density_summary_2021_2023.csv` | The pulse survives the annual median product and is not explained by annual cloud-free count alone. This pushed the analysis from summary-statistic robustness toward support/intensity decomposition. |
+| Absolute offset test | `figures/population_relationship/fixed_nuts2016_absolute_offset_audit/annual_absolute_change_raw_vs_corrected.pdf`; `figures/population_relationship/fixed_nuts2016_absolute_offset_audit/raw_2021_absolute_change_vs_baseline_brightness.pdf` | `data/processed/fixed_nuts2016_absolute_change_annual_summary_2015_2024.csv`; `data/processed/fixed_nuts2016_absolute_change_by_brightness_2015_2024.csv`; `data/processed/fixed_nuts2016_absolute_change_brightness_slopes_2015_2024.csv` | 2021 contains an additive-like common component but the change is brightness-dependent, unlike a simple universal offset. This made a mask/support versus within-support intensity decomposition necessary. |
+| Mask occupancy | `figures/population_relationship/fixed_nuts2016_mask_occupancy_audit/annual_mask_occupancy_change_2015_2024.pdf`; `figures/population_relationship/fixed_nuts2016_mask_occupancy_audit/radiance_vs_mask_change_2021.pdf`; `figures/population_relationship/fixed_nuts2016_mask_occupancy_audit/mask_change_by_baseline_brightness.pdf` | `data/processed/fixed_nuts2016_mask_occupancy_annual_summary_2015_2024.csv`; `data/processed/fixed_nuts2016_mask_occupancy_by_brightness_2015_2024.csv`; `data/processed/fixed_nuts2016_mask_occupancy_by_density_2015_2024.csv` | Shows that more area is retained as positive in 2021, especially in dim regions. Because this did not address radiance changes on already-positive pixels, the next step was an exact decomposition. |
+| Exact mask/intensity decomposition | `figures/population_relationship/fixed_nuts2016_mask_intensity_decomposition/annual_occupancy_vs_intensity_components.pdf`; `figures/population_relationship/fixed_nuts2016_mask_intensity_decomposition/decomposition_2021_by_density.pdf`; `figures/population_relationship/fixed_nuts2016_mask_intensity_decomposition/decomposition_2021_by_brightness.pdf` | `data/processed/fixed_nuts2016_mask_intensity_decomposition_annual_2015_2024.csv`; `data/processed/fixed_nuts2016_mask_intensity_decomposition_by_density_2015_2024.csv`; `data/processed/fixed_nuts2016_mask_intensity_decomposition_by_brightness_2015_2024.csv` | Establishes the two-component nature of the event and shows that dense-region 2021 change is overwhelmingly intensity rather than occupancy. This ruled out a pure mask-artifact narrative and motivated direct pixel persistence. |
+| Pixel-support persistence | `figures/population_relationship/fixed_nuts2016_2021_pixel_support/new_2021_pixel_persistence_by_density.pdf`; `figures/population_relationship/fixed_nuts2016_2021_pixel_support/stable_pixels_2021_2022_by_density.pdf`; `figures/population_relationship/fixed_nuts2016_2021_pixel_support/pixel_components_2021_by_density.pdf` | `data/processed/fixed_nuts2016_2021_pixel_support_overall.csv`; `data/processed/fixed_nuts2016_2021_pixel_support_by_density.csv`; `data/processed/fixed_nuts2016_2021_pixel_support_by_country.csv` | This is one of the strongest likely supplementary analyses: the same pixels positive throughout 2020-2023 brighten in 2021 and reverse in 2022. It rejects the explanation that the annual pulse is mainly transient support expansion and shifts attention to seasonal/product radiometry on stable support. |
+| July VCM versus VCMSL pilot | `figures/population_relationship/fixed_nuts2016_july_vcm_vcmsl_pilot/july_vcmsl_added_coverage.pdf`; `figures/population_relationship/fixed_nuts2016_july_vcm_vcmsl_pilot/july_common_difference_vs_latitude.pdf`; `figures/population_relationship/fixed_nuts2016_july_vcm_vcmsl_pilot/july_2021_country_common_difference.pdf` | `data/processed/fixed_nuts2016_july_vcm_vcmsl_annual_summary.csv`; `data/processed/fixed_nuts2016_july_vcm_vcmsl_by_country.csv`; `data/processed/fixed_nuts2016_july_vcm_vcmsl_regional.csv` | Provides negative evidence against the simple hypothesis that the documented early-July 2021 stray-light LUT problem generated the annual northern pulse. Because July could not account for the affected northern countries, the anomaly had to be localized across the full year. |
+| Full monthly localization | `figures/population_relationship/fixed_nuts2016_monthly_2021_localization/monthly_2021_anomaly_vs_flanks.pdf`; `figures/population_relationship/fixed_nuts2016_monthly_2021_localization/monthly_matched_radiance_2020_2022.pdf`; `figures/population_relationship/fixed_nuts2016_monthly_2021_localization/monthly_anomaly_latitude_rho.pdf`; `figures/population_relationship/fixed_nuts2016_monthly_2021_localization/monthly_country_anomaly_heatmap.pdf` | `data/processed/fixed_nuts2016_monthly_2021_localization_summary.csv`; `data/processed/fixed_nuts2016_monthly_2021_localization_by_country.csv`; `data/processed/fixed_nuts2016_monthly_2021_localization_by_density.csv` | Localizes the pulse to January-February, particularly February, with a strong northern structure. This is the key rationale for moving from generic sensor diagnostics to the published snow/albedo mechanism. |
+| Snow/albedo test — **pending clean rerun** | After a valid rerun: `figures/population_relationship/fixed_nuts2016_snow_viirs_test/february_snow_vs_viirs_anomaly.pdf`; `snow_viirs_anomaly_rho_jan_feb_mar.pdf`; `levin_style_jan_july_snow_radiance_2021.pdf`; `levin_style_percent_lit_thresholds.pdf` | After a valid rerun: `data/processed/fixed_nuts2016_snow_2021_anomaly_tests.csv`; `fixed_nuts2016_snow_2021_anomaly_models.csv`; `fixed_nuts2016_snow_levin_jan_july_summary.csv`; `fixed_nuts2016_snow_levin_percent_lit_thresholds.csv` | These are **not yet paper-eligible**. The first run was invalid because categorical MOD10CM codes entered the zonal means. If the corrected February association survives the pre-specified controls while March remains null/weak, this will become the direct mechanism test tying the monthly localization to surface snow/albedo. |
+
+### Likely manuscript structure
+
+For a future paper, the diagnostic chain above naturally separates into two
+levels. The main narrative can probably remain compact: locked geography shows a
+2021/2022 excursion; raw/median/stable-support tests establish that it is real
+within the Annual VNL product rather than an artefact of the project's
+calibration or changing support alone; monthly localization identifies
+January-February; and the snow/albedo analysis tests the resulting mechanism.
+
+The intermediate product audits are particularly well suited to supplementary
+material because they document alternative explanations that were actively
+tested and rejected. The most likely high-value supplementary figures are:
+
+1. fixed-panel 2014-2024 trajectories;
+2. raw 2021 pulse versus 2022 reversal;
+3. mean-versus-median product comparison;
+4. occupancy/intensity decomposition;
+5. persistent-pixel 2021/2022 reversal;
+6. monthly January-February localization and latitude structure;
+7. the snow/anomaly mechanism figure, **only after the corrected MOD10CM rerun is validated**.
+
+The corresponding CSVs in the table should be treated as the source-of-truth
+publication tables. Final figures can be reformatted later without losing the
+evidential provenance.
+
 ## Current leading hypothesis: winter snow / surface albedo
 
 The timing and latitude pattern make winter surface state a serious candidate.
