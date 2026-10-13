@@ -143,6 +143,19 @@ habitability:
   map_extent_4326: [-25.0, 34.0, 45.0, 72.5]
   map_dpi: 450
 
+
+downloads:
+  eog_monthly_vcmslcfg_2021:
+    # Official EOG monthly VNL V1 repository. Authentication is attempted
+    # directly first, then via EOG OAuth/OpenID programmatic credentials.
+    base_url: https://eogdata.mines.edu/nighttime_light/monthly/v10
+    year: 2021
+    months: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]
+    tile: 75N060W
+    layers: [avg_rade9h, cf_cvg, cvg]
+    output_dir: data/raw/viirs/monthly_vcmslcfg_2021
+    keep_archives: false
+
 analysis:
   first_year: 2013
   last_year: 2024
