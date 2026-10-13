@@ -345,6 +345,15 @@ analysis:
     expected_n_nuts3: 1514
     figure_dpi: 350
 
+  fixed_nuts2016_july_vcm_vcmsl_pilot:
+    # Targeted monthly pilot for the 2021 anomaly. Primary contrasts are
+    # within-year VCMSLCFG vs VCMCFG on identical date ranges; 2022 ends
+    # 26 July and is not treated as temporally identical to 31-day Julys.
+    raw_dir: data/raw/viirs/monthly_july_pilot
+    years: [2020, 2021, 2022]
+    min_common_area_fraction: 0.01
+    figure_dpi: 350
+
   habitability_historical_validation:
     first_year: 2013
     last_year: 2024
