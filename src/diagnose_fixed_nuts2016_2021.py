@@ -75,6 +75,26 @@ def load_panel(config: dict) -> pd.DataFrame:
     reference = pd.read_csv(reference_path).copy()
 
     panel = prepare_analysis_panel(fixed, reference, config)
+
+    # The population reference is stored as CSV, so pandas reads density_band
+    # back as plain strings and loses the ordered categorical metadata created
+    # by pd.cut(). Restore the configured scientific order explicitly. Without
+    # this, Patsy chooses the alphabetically first label ("100-300") as the
+    # model reference category, while downstream contrasts assume "<30".
+    density_labels = list(
+        config["analysis"]["density_temporal_change"]["density_band_labels"]
+    )
+    panel["density_band"] = pd.Categorical(
+        panel["density_band"],
+        categories=density_labels,
+        ordered=True,
+    )
+    if panel["density_band"].isna().any():
+        raise RuntimeError(
+            "At least one density-band value is not in the configured "
+            f"ordered labels: {density_labels}"
+        )
+
     panel = panel.sort_values(["NUTS_ID", "year"]).reset_index(drop=True)
 
     first_year = int(cfg["first_year"])
@@ -138,7 +158,12 @@ def make_first_differences(panel: pd.DataFrame) -> pd.DataFrame:
     d["jump_2021"] = (d["end_year"] == 2021).astype(int)
     d["post_2021"] = (d["end_year"] >= 2022).astype(int)
     d["country"] = d["CNTR_CODE"].astype("category")
-    d["density_band"] = d["density_band"].astype("category")
+    # Preserve the already-restored ordered density categories from load_panel.
+    if not isinstance(d["density_band"].dtype, pd.CategoricalDtype):
+        raise RuntimeError(
+            "density_band lost its configured categorical ordering before "
+            "model fitting."
+        )
     return d
 
 
