@@ -66,7 +66,7 @@ LEVIN_MONTHS = (1, 7)
 AUX_VIIRS_MONTHS = (1, 2, 3, 7)
 MONTH_NAMES = ("Jan", "Feb", "Mar", "Apr", "May", "Jun",
                "Jul", "Aug", "Sep", "Oct", "Nov", "Dec")
-LIT_THRESHOLDS = (2, 5, 10, 25, 50, 100, 250)
+LIT_THRESHOLDS = (2, 5, 10, 25, 50, 100, 250)\nSNOW_CLEANING_VERSION = "mod10cm_mask_special_gt100_v2"
 
 HDF_RE = re.compile(r"^MOD10CM\.A(?P<year>\d{4})(?P<doy>\d{3})\.061\..*\.hdf$")
 VIIRS_RE = re.compile(
@@ -112,7 +112,11 @@ def ensure_snow_geotiff(hdf: Path, cache_dir: Path, expected_crs: str) -> Path:
     cache_dir.mkdir(parents=True, exist_ok=True)
     out = cache_dir / f"{hdf.stem}.Snow_Cover_Monthly_CMG.tif"
     meta_path = out.with_suffix(".json")
-    signature = {"source": hdf.name, "size_bytes": int(hdf.stat().st_size)}
+    signature = {
+        "source": hdf.name,
+        "size_bytes": int(hdf.stat().st_size),
+        "cleaning_version": SNOW_CLEANING_VERSION,
+    }
 
     if out.exists() and meta_path.exists():
         try:
@@ -167,6 +171,21 @@ def ensure_snow_geotiff(hdf: Path, cache_dir: Path, expected_crs: str) -> Path:
         ],
         check=True,
     )
+    # IMPORTANT: MOD10CM is uint8 but values above 100 are categorical
+    # codes (211 night, 250 cloud, 253 no decision, 254 water, 255 fill),
+    # not snow percentages.  Burn every >100 code to a real raster nodata
+    # value before exactextract.  This is deliberately physical rather than
+    # relying on a Python masked-array subclass, because exactextract/GDAL
+    # must see the nodata mask at the raster-source level.
+    with rasterio.open(tmp, "r+") as ds:
+        ds.nodata = 255
+        for _, window in ds.block_windows(1):
+            arr = ds.read(1, window=window)
+            bad = arr > 100
+            if np.any(bad):
+                arr[bad] = 255
+                ds.write(arr, 1, window=window)
+
     tmp.replace(out)
 
     with rasterio.open(out) as ds:
@@ -181,12 +200,22 @@ def ensure_snow_geotiff(hdf: Path, cache_dir: Path, expected_crs: str) -> Path:
                 f"Unexpected MOD10CM grid {(ds.width, ds.height)}; "
                 "expected (7200, 3600)."
             )
+        if ds.nodata != 255:
+            raise RuntimeError(f"MOD10CM cleaned GeoTIFF has nodata={ds.nodata}, expected 255.")
         b = ds.bounds
         if not (
             abs(b.left + 180) < 0.1 and abs(b.right - 180) < 0.1
             and abs(b.bottom + 90) < 0.1 and abs(b.top - 90) < 0.1
         ):
             raise RuntimeError(f"Unexpected MOD10CM bounds: {b}")
+
+        # Hard invariant: every non-nodata snow value must be a percentage.
+        arr = ds.read(1, masked=True)
+        if arr.count() and (float(arr.min()) < 0 or float(arr.max()) > 100):
+            raise RuntimeError(
+                f"MOD10CM cleaning failed for {out.name}: valid range "
+                f"{float(arr.min())}..{float(arr.max())}"
+            )
 
     meta_path.write_text(json.dumps(signature, indent=2), encoding="utf-8")
     return out
@@ -377,7 +406,7 @@ def extract_snow_month(
     id_field = config["nuts"]["id_field"]
     cache_dir.mkdir(parents=True, exist_ok=True)
     cache = cache_dir / f"nuts2016_mod10cm_{year}_{month:02d}.parquet"
-    sig = f"{tif.name}:{tif.stat().st_size}"
+    sig = f"{SNOW_CLEANING_VERSION}:{tif.name}:{tif.stat().st_size}"
 
     if cache.exists():
         d = pd.read_parquet(cache)
@@ -1104,6 +1133,21 @@ def main() -> None:
         })
 
     snow = pd.concat(snow_frames, ignore_index=True)
+    # Product invariant: monthly mean snow cover is a percentage.  Any value
+    # outside 0..100 means categorical MOD10CM codes have leaked into a mean.
+    finite_snow = snow.loc[
+        snow["snow_mean_pct"].notna(), "snow_mean_pct"
+    ].astype(float)
+    if ((finite_snow < 0) | (finite_snow > 100)).any():
+        bad = snow.loc[
+            snow["snow_mean_pct"].notna()
+            & ((snow["snow_mean_pct"] < 0) | (snow["snow_mean_pct"] > 100)),
+            ["NUTS_ID", "year", "month", "snow_mean_pct", "snow_valid_area_fraction"],
+        ].head(10)
+        raise RuntimeError(
+            "MOD10CM invariant failed: snow_mean_pct outside 0..100. "
+            f"First offending rows:\n{bad.to_string(index=False)}"
+        )
     manifest = pd.DataFrame(manifest_rows)
 
     viirs = load_viirs_monthly_regional(config)
