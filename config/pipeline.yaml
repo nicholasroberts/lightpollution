@@ -367,6 +367,16 @@ analysis:
     min_common_area_fraction: 0.01
     figure_dpi: 350
 
+  fixed_nuts2016_monthly_2021_localization:
+    # Canonical monthly localization of the 2021 anomaly. Each calendar month
+    # is compared across 2020/2021/2022 on pixels observed (cf_cvg > 0) in all
+    # three years for that month. Actual monthly date ranges are retained.
+    raw_dir_template: data/raw/viirs/monthly_vcmslcfg_{year}/tif
+    tile: 75N060W
+    min_common_area_fraction: 0.01
+    min_country_regions: 3
+    figure_dpi: 350
+
   habitability_historical_validation:
     first_year: 2013
     last_year: 2024
