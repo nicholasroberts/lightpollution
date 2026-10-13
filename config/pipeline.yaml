@@ -377,6 +377,17 @@ analysis:
     min_country_regions: 3
     figure_dpi: 350
 
+  fixed_nuts2016_snow_viirs_test:
+    # Literature-led snow test for the Jan/Feb 2021 VIIRS pulse.
+    # February is primary, January supportive, March negative control.
+    mod10cm_raw_dir: data/raw/modis/MOD10CM_061
+    viirs_tile: 75N060W
+    continental_europe_bounds_4326: [-25.0, 34.0, 45.0, 72.5]
+    min_snow_valid_area_fraction: 0.50
+    min_viirs_common_area_fraction: 0.50
+    min_seasonal_months: 18
+    figure_dpi: 350
+
   habitability_historical_validation:
     first_year: 2013
     last_year: 2024
