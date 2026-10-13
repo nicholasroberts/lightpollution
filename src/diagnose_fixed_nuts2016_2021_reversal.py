@@ -365,13 +365,24 @@ def source_manifest(panel: pd.DataFrame, config: dict) -> pd.DataFrame:
                 f"Expected one source VIIRS filename for {year}; found {files}"
             )
         filename = files[0]
-        path = raw_dir / filename
+        matches = list(raw_dir.rglob(filename))
+        if len(matches) > 1:
+            raise RuntimeError(
+                f"Multiple local files match source filename {filename}: "
+                + ", ".join(str(x) for x in matches)
+            )
+        path = matches[0] if matches else None
         rows.append(
             {
                 "year": int(year),
                 "viirs_file": filename,
-                "local_file_exists_at_raw_root": bool(path.exists()),
-                "local_size_bytes": int(path.stat().st_size) if path.exists() else np.nan,
+                "local_file_found": path is not None,
+                "local_relative_path": (
+                    str(path.relative_to(raw_dir)) if path is not None else ""
+                ),
+                "local_size_bytes": (
+                    int(path.stat().st_size) if path is not None else np.nan
+                ),
             }
         )
     return pd.DataFrame(rows).sort_values("year")
