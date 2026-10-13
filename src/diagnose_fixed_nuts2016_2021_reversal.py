@@ -31,6 +31,7 @@ import numpy as np
 import pandas as pd
 from scipy.stats import linregress, spearmanr
 
+from extract_nuts3_radiance import raster_year
 from project_config import configured_path, load_config
 from validate_fixed_nuts2016_2014_2024 import (
     load_fixed_nuts,
@@ -394,9 +395,11 @@ def raw_directory_inventory(config: dict) -> pd.DataFrame:
     for path in sorted(root.rglob("*")):
         if not path.is_file():
             continue
-        if any(str(y) in path.name for y in [2020, 2021, 2022, 2023]):
+        year = raster_year(path)
+        if year in [2020, 2021, 2022, 2023]:
             rows.append(
                 {
+                    "year": int(year),
                     "relative_path": str(path.relative_to(root)),
                     "size_bytes": int(path.stat().st_size),
                     "suffix": path.suffix.lower(),
