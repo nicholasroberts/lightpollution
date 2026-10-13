@@ -45,8 +45,9 @@ YEARS = (2020, 2021, 2022)
 MONTH_NAMES = ("Jan", "Feb", "Mar", "Apr", "May", "Jun",
                "Jul", "Aug", "Sep", "Oct", "Nov", "Dec")
 AVG_RE = re.compile(
-    r"^SVDNB_npp_(?P<start>\d{8})-(?P<end>\d{8})_"
-    r"(?P<tile>[^_]+)_vcmslcfg_v10_.*\.avg_rade9h\.tif$"
+    r"^SVDNB_(?P<satellite>npp|j01)_(?P<start>\d{8})-(?P<end>\d{8})_"
+    r"(?P<tile>[^_]+)_vcmslcfg_v10_.*\.avg_rade9h\.tif$",
+    re.IGNORECASE,
 )
 
 
@@ -87,6 +88,13 @@ def parse_dates(path: Path) -> tuple[str, str, int]:
     start = pd.Timestamp(m.group("start"))
     end = pd.Timestamp(m.group("end"))
     return start.date().isoformat(), end.date().isoformat(), int((end - start).days + 1)
+
+
+def parse_satellite(path: Path) -> str:
+    m = AVG_RE.match(path.name)
+    if not m:
+        raise RuntimeError(f"Cannot parse monthly filename: {path.name}")
+    return m.group("satellite").lower()
 
 
 def validate_alignment(files, expected_crs: str) -> pd.DataFrame:
@@ -370,6 +378,10 @@ def date_table(files) -> pd.DataFrame:
             row[f"start_date_{year}"] = start
             row[f"end_date_{year}"] = end
             row[f"n_calendar_days_{year}"] = days
+            row[f"satellite_{year}"] = parse_satellite(files[year][month]["avg"])
+        row["same_satellite_all_years"] = len(
+            {row[f"satellite_{y}"] for y in YEARS}
+        ) == 1
         row["day_count_range"] = (
             max(row[f"n_calendar_days_{y}"] for y in YEARS)
             - min(row[f"n_calendar_days_{y}"] for y in YEARS)
@@ -471,10 +483,13 @@ def month_summary(d, countries, dates, min_common):
     out = pd.DataFrame(rows).merge(
         dates, on=["month", "month_name"], how="left", validate="one_to_one"
     )
-    out["abs_country_balanced_anomaly_rank"] = (
-        out["country_balanced_anomaly_2021_vs_flanks_nw"]
+    out["abs_country_balanced_anomaly_rank"] = np.nan
+    primary = out["same_satellite_all_years"].fillna(False)
+    out.loc[primary, "abs_country_balanced_anomaly_rank"] = (
+        out.loc[primary, "country_balanced_anomaly_2021_vs_flanks_nw"]
         .abs().rank(method="min", ascending=False)
     )
+    out["primary_same_satellite_comparison"] = primary
     return out.sort_values("month").reset_index(drop=True)
 
 
@@ -681,7 +696,9 @@ def main():
 
     make_plots(monthly, countries, density, figures, int(cfg["figure_dpi"]))
 
-    ranked = monthly.sort_values("abs_country_balanced_anomaly_rank")
+    ranked = monthly[
+        monthly["primary_same_satellite_comparison"]
+    ].sort_values("abs_country_balanced_anomaly_rank")
     with outputs["summary"].open("w", encoding="utf-8") as h:
         h.write("FIXED NUTS2016 MONTHLY LOCALIZATION OF THE 2021 VCMSLCFG ANOMALY\n")
         h.write("=" * 80 + "\n\n")
@@ -700,8 +717,14 @@ def main():
             f"NUTS3 regions; {len(excluded)} are excluded at the tile edge/outside.\n"
         )
         h.write(
-            "Actual monthly start/end dates and day counts are retained because "
-            "some EOG composites do not span the full calendar month.\n\n"
+            "Actual monthly start/end dates, day counts and source satellite "
+            "are retained because some EOG composites do not span the full "
+            "calendar month and EOG may substitute NOAA-20/J01.\n"
+        )
+        h.write(
+            "Primary monthly anomaly ranking is restricted to months using the "
+            "same satellite in 2020, 2021 and 2022. Mixed-satellite months are "
+            "retained only as explicitly flagged sensitivity results.\n\n"
         )
         h.write("MONTHLY SUMMARY\n")
         h.write(monthly.to_string(index=False, float_format=lambda x: f"{x:.6g}"))
@@ -733,8 +756,13 @@ def main():
             "toward broader compositing or calibration behaviour.\n"
         )
         h.write(
-            "- Different monthly date ranges remain an explicit sampling caveat; "
-            "this localization stage does not define an annual correction.\n"
+            "- Different monthly date ranges remain an explicit sampling caveat. "
+            "Mixed-satellite months (notably August 2022 J01/NOAA-20) are excluded "
+            "from the primary anomaly ranking because a platform difference could "
+            "mimic a temporal anomaly.\n"
+        )
+        h.write(
+            "- This localization stage does not define an annual correction.\n"
         )
 
     print("\nFIXED NUTS2016 MONTHLY 2021 LOCALIZATION")
