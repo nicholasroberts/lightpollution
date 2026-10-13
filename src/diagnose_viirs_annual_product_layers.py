@@ -255,9 +255,46 @@ def extract_layer(
                 f"Expected 'mean' or {mean_col} from exactextract; "
                 f"found {list(result.columns)}"
             )
+    result[id_field] = result[id_field].astype(str)
     result = result[result[id_field].isin(keep_ids)][[id_field, mean_col]].copy()
+    if result[id_field].duplicated().any():
+        raise RuntimeError(f"Duplicate {id_field} rows in {year} {layer} extraction.")
+    observed_ids = set(result[id_field])
+    if observed_ids != keep_ids:
+        missing_ids = sorted(keep_ids - observed_ids)
+        extra_ids = sorted(observed_ids - keep_ids)
+        raise RuntimeError(
+            f"{year} {layer} extraction does not match the locked cohort: "
+            f"missing={len(missing_ids)}, extra={len(extra_ids)}."
+        )
     result.insert(0, "year", year)
     return result
+
+
+def _validate_cached_layer(
+    cached: pd.DataFrame,
+    year: int,
+    layer: str,
+    keep_ids: set[str],
+) -> pd.DataFrame:
+    mean_col = f"{layer}_mean"
+    required = {"year", "NUTS_ID", mean_col}
+    missing_cols = required - set(cached.columns)
+    if missing_cols:
+        raise RuntimeError(
+            f"Cached {year} {layer} is missing columns {sorted(missing_cols)}."
+        )
+    out = cached[["year", "NUTS_ID", mean_col]].copy()
+    out["NUTS_ID"] = out["NUTS_ID"].astype(str)
+    if set(out["year"].astype(int)) != {int(year)}:
+        raise RuntimeError(f"Cached {layer} file contains the wrong year.")
+    if out["NUTS_ID"].duplicated().any():
+        raise RuntimeError(f"Cached {year} {layer} has duplicate NUTS_ID rows.")
+    if set(out["NUTS_ID"]) != keep_ids:
+        raise RuntimeError(
+            f"Cached {year} {layer} does not match the locked NUTS3 cohort."
+        )
+    return out
 
 
 def extract_all(
@@ -270,12 +307,24 @@ def extract_all(
     keep_ids = set(panel["NUTS_ID"].astype(str))
     paths = companion_paths(manifest, config)
 
+    # Cache every expensive year-layer extraction immediately. Downstream
+    # diagnostics are cheap; a later coding error must never force the user to
+    # repeat all eight global-raster extractions.
+    cache_dir = configured_path(config, "processed") / "viirs_product_layer_cache"
+    cache_dir.mkdir(parents=True, exist_ok=True)
+
     pieces = []
     for year in YEARS:
         year_parts = []
         for layer in LAYERS:
-            year_parts.append(
-                extract_layer(
+            cache_path = cache_dir / f"nuts2016_{year}_{layer}.parquet"
+            if cache_path.exists():
+                print(f"Using cached {year} {layer}: {cache_path}", flush=True)
+                part = _validate_cached_layer(
+                    pd.read_parquet(cache_path), year, layer, keep_ids
+                )
+            else:
+                part = extract_layer(
                     paths[(year, layer)],
                     layer,
                     year,
@@ -283,14 +332,29 @@ def extract_all(
                     keep_ids,
                     config,
                 )
-            )
+                part.to_parquet(cache_path, index=False)
+                print(f"Cached {year} {layer}: {cache_path}", flush=True)
+            year_parts.append(part)
+
         merged = year_parts[0]
         for part in year_parts[1:]:
             merged = merged.merge(
                 part, on=["year", "NUTS_ID"], how="inner", validate="one_to_one"
             )
+        if len(merged) != len(keep_ids):
+            raise RuntimeError(
+                f"Merged companion extraction for {year} has {len(merged)} "
+                f"rows; expected {len(keep_ids)}."
+            )
         pieces.append(merged)
-    return pd.concat(pieces, ignore_index=True)
+
+    out = pd.concat(pieces, ignore_index=True)
+    expected_rows = len(keep_ids) * len(YEARS)
+    if len(out) != expected_rows:
+        raise RuntimeError(
+            f"Companion table has {len(out)} rows; expected {expected_rows}."
+        )
+    return out
 
 
 def build_analysis(panel: pd.DataFrame, companions: pd.DataFrame) -> pd.DataFrame:
@@ -339,8 +403,10 @@ def make_transition_table(d: pd.DataFrame) -> pd.DataFrame:
 
     x["prev_cf_cvg"] = x.groupby("NUTS_ID")["cf_cvg_mean"].shift(1)
     x["delta_cf_cvg"] = x["cf_cvg_mean"] - x["prev_cf_cvg"]
-    x["pct_change_cf_cvg"] = 100.0 * (
-        x["cf_cvg_mean"] / x["prev_cf_cvg"] - 1.0
+    x["pct_change_cf_cvg"] = np.nan
+    valid_cf = x["prev_cf_cvg"] > 0
+    x.loc[valid_cf, "pct_change_cf_cvg"] = 100.0 * (
+        x.loc[valid_cf, "cf_cvg_mean"] / x.loc[valid_cf, "prev_cf_cvg"] - 1.0
     )
     x["previous_year"] = x.groupby("NUTS_ID")["year"].shift(1)
     return x[x["previous_year"].notna()].copy()
@@ -435,15 +501,51 @@ def diagnostic_table(trans: pd.DataFrame) -> pd.DataFrame:
 
 
 def net_2020_2022(d: pd.DataFrame) -> pd.DataFrame:
-    wide = d[d["year"].isin([2020, 2022])].pivot(
+    """Two-year endpoint change without mixing single- and multi-level columns."""
+    meta = (
+        d[["NUTS_ID", "density_band", "CNTR_CODE"]]
+        .drop_duplicates("NUTS_ID")
+        .copy()
+    )
+    if meta["NUTS_ID"].duplicated().any():
+        raise RuntimeError("Duplicate NUTS_ID metadata rows.")
+
+    subset = d[d["year"].isin([2020, 2022])][
+        ["NUTS_ID", "year", "radiance_mean_raw", "median_masked_mean"]
+    ].copy()
+    if subset.duplicated(["NUTS_ID", "year"]).any():
+        raise RuntimeError("Duplicate NUTS_ID-year rows in 2020/2022 endpoints.")
+
+    wide = subset.pivot(
         index="NUTS_ID",
         columns="year",
         values=["radiance_mean_raw", "median_masked_mean"],
     )
-    meta = d[
-        ["NUTS_ID", "density_band", "CNTR_CODE"]
-    ].drop_duplicates("NUTS_ID").set_index("NUTS_ID")
-    wide = meta.join(wide)
+    expected_pairs = [
+        ("radiance_mean_raw", 2020),
+        ("radiance_mean_raw", 2022),
+        ("median_masked_mean", 2020),
+        ("median_masked_mean", 2022),
+    ]
+    missing_pairs = [pair for pair in expected_pairs if pair not in wide.columns]
+    if missing_pairs:
+        raise RuntimeError(
+            f"Missing 2020/2022 endpoint columns: {missing_pairs}"
+        )
+
+    # Flatten the pivoted MultiIndex before combining it with ordinary
+    # metadata columns. Pandas 3 correctly rejects a direct one-level/two-level
+    # join, which was the source of the previous failure.
+    wide.columns = [
+        f"{metric}_{int(year)}" for metric, year in wide.columns
+    ]
+    wide = wide.reset_index().merge(
+        meta,
+        on="NUTS_ID",
+        how="left",
+        validate="one_to_one",
+    )
+
     rows = []
     for band, g in wide.groupby("density_band", observed=True):
         row = {"density_band": str(band), "n_nuts3": int(len(g))}
@@ -451,9 +553,13 @@ def net_2020_2022(d: pd.DataFrame) -> pd.DataFrame:
             ("average_masked", "radiance_mean_raw"),
             ("median_masked", "median_masked_mean"),
         ]:
-            a = g[(metric, 2020)]
-            b = g[(metric, 2022)]
+            a = g[f"{metric}_2020"]
+            b = g[f"{metric}_2022"]
             ok = (a > 0) & (b > 0) & np.isfinite(a) & np.isfinite(b)
+            if not ok.any():
+                raise RuntimeError(
+                    f"No valid 2020/2022 {label} endpoints for density band {band}."
+                )
             delta = np.log10(b[ok] / a[ok])
             row[f"net_2020_2022_geometric_pct_{label}"] = float(
                 100.0 * (10.0 ** delta.mean() - 1.0)
@@ -461,6 +567,66 @@ def net_2020_2022(d: pd.DataFrame) -> pd.DataFrame:
             row[f"n_valid_{label}"] = int(ok.sum())
         rows.append(row)
     return pd.DataFrame(rows)
+
+
+def downstream_self_test() -> None:
+    """Cheap synthetic smoke test for every post-extraction transformation.
+
+    This runs before any global raster extraction. It is designed to catch
+    pandas reshaping/join mistakes and schema drift before expensive work.
+    """
+    rows = []
+    specs = [
+        ("A", "AA", "<30", 10.0, 45.0),
+        ("B", "AA", "30-100", 60.0, 48.0),
+        ("C", "BB", "100-300", 150.0, 52.0),
+        ("D", "BB", ">=1000", 1500.0, 58.0),
+    ]
+    multipliers = {
+        2020: 1.00,
+        2021: 1.10,
+        2022: 1.02,
+        2023: 1.03,
+    }
+    for nuts_id, country, band, density, latitude in specs:
+        base = 1.0 + density / 1000.0
+        for year in YEARS:
+            mult = multipliers[year]
+            rows.append(
+                {
+                    "NUTS_ID": nuts_id,
+                    "CNTR_CODE": country,
+                    "density_band": band,
+                    "reference_population_density": density,
+                    "centroid_latitude": latitude,
+                    "year": year,
+                    "radiance_mean_raw": base * mult,
+                    "median_masked_mean": base * mult * 0.98,
+                    "cf_cvg_mean": 40.0 + (year - 2020),
+                }
+            )
+    synthetic = pd.DataFrame(rows)
+    trans = make_transition_table(synthetic)
+    annual = annual_summary(trans)
+    density = density_summary(trans)
+    diagnostics = diagnostic_table(trans)
+    net = net_2020_2022(synthetic)
+
+    if list(annual["end_year"]) != [2021, 2022, 2023]:
+        raise RuntimeError("Self-test failed: unexpected annual transition years.")
+    if len(diagnostics) != 3:
+        raise RuntimeError("Self-test failed: diagnostics row count.")
+    if len(net) != 4:
+        raise RuntimeError("Self-test failed: net density row count.")
+    if density.empty:
+        raise RuntimeError("Self-test failed: density summary is empty.")
+    required_net = {
+        "net_2020_2022_geometric_pct_average_masked",
+        "net_2020_2022_geometric_pct_median_masked",
+    }
+    if not required_net.issubset(net.columns):
+        raise RuntimeError("Self-test failed: net endpoint columns missing.")
+    print("Downstream synthetic self-test: PASS", flush=True)
 
 
 def make_plots(
@@ -552,8 +718,12 @@ def main() -> None:
 
     config = load_config(args.config)
     diag_cfg = config["analysis"]["fixed_nuts2016_2021_diagnostic"]
-    panel = add_latitude(load_locked_panel(config), config)
 
+    # Do not start eight expensive global-raster extractions until every
+    # downstream pandas transformation has passed a synthetic smoke test.
+    downstream_self_test()
+
+    panel = add_latitude(load_locked_panel(config), config)
     manifest = locate_companions(panel, config)
     companions = extract_all(panel, manifest, config)
     analysis = build_analysis(panel, companions)
