@@ -242,10 +242,19 @@ def extract_layer(
             progress=True,
         )
     mean_col = f"{layer}_mean"
+    # exactextract prefixes statistics with the RasterSource name only when
+    # multiple raster sources are supplied in the same call. This diagnostic
+    # intentionally extracts one companion layer at a time, for which the
+    # returned statistic is simply named "mean". Normalize that single-source
+    # output to an explicit layer-specific column here.
     if mean_col not in result.columns:
-        raise RuntimeError(
-            f"Expected {mean_col} from exactextract; found {list(result.columns)}"
-        )
+        if "mean" in result.columns:
+            result = result.rename(columns={"mean": mean_col})
+        else:
+            raise RuntimeError(
+                f"Expected 'mean' or {mean_col} from exactextract; "
+                f"found {list(result.columns)}"
+            )
     result = result[result[id_field].isin(keep_ids)][[id_field, mean_col]].copy()
     result.insert(0, "year", year)
     return result
