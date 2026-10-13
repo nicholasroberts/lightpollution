@@ -903,3 +903,19 @@ figures/population_relationship/fixed_nuts2016_2014_2024/
 ```
 
 This stage should be completed before the future radiance response is frozen.
+
+## Persistent investigation records
+
+Long-running diagnostic questions are summarized separately from the stage-by-stage
+pipeline description so that evidence, rejected explanations and current open
+questions remain visible as the code evolves:
+
+- `docs/investigations/viirs_2017_calibration.md` — evidence supporting the
+  production 0.235 nW cm^-2 sr^-1 positive-pixel correction from 2017.
+- `docs/investigations/viirs_2021_anomaly.md` — fixed-panel evidence chain for
+  the 2021 Annual VNL pulse, 2022 reversal, monthly localization and current
+  snow/albedo test.
+
+The exact command needed to resume the active investigation is maintained in
+`docs/CURRENT_STATE.md`.
+
