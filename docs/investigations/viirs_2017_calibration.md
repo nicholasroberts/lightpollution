@@ -130,6 +130,36 @@ The current production calibration is:
 
 This result is considered settled enough for production use unless contradictory direct pixel evidence emerges.
 
+## Paper-facing evidence artifacts
+
+The following outputs are the key evidence trail for the calibration decision and
+should be retained when the paper and supplementary material are assembled. The
+purpose here is not to pre-assign final figure numbers, but to record which
+artifacts support each inference and why the next diagnostic step was required.
+
+| Inference / narrative role | Key figure(s) | Key dataset(s) | Why it matters / rationale for next step |
+|---|---|---|---|
+| The 2017 discontinuity remains on pixels already classified as lit, so it is not simply an EOG background-mask transition. | `figures/annual_change/annual_vnl_2017_pixel_test/country_2017_excess.png`; `figures/annual_change/annual_vnl_2017_pixel_test/nuts3_zonal_vs_persistent_pixel_excess.png` | `data/processed/annual_vnl_2017_pixel_country.csv`; `data/processed/annual_vnl_2017_pixel_nuts3.csv` | This is the first essential calibration-control figure for a supplement. Once the step survived persistent-pixel support, the next question became its dependence on brightness and the appropriate correction form. |
+| The retained-pixel excess is approximately constant through the dim-to-moderate range when brightness is defined independently of the transition years. | `figures/annual_change/annual_vnl_2017_correction_pass2/independent_brightness_dependence.png` | `data/processed/annual_vnl_2017_pass2_brightness_summary.csv`; `data/processed/annual_vnl_2017_pass2_country_brightness.csv` | This removes the circularity of binning by 2016 brightness and provides the empirical basis for an additive correction near 0.235 nW cm^-2 sr^-1. It motivated testing candidate corrections rather than accepting one fitted value by construction. |
+| The ~0.235 nW candidate reduces the residual discontinuity across countries and brightness classes. | `figures/annual_change/annual_vnl_2017_correction_pass2/candidate_country_residuals.png`; `figures/annual_change/annual_vnl_2017_correction_pass2/candidate_brightness_residuals.png` | `data/processed/annual_vnl_2017_pass2_candidate_offsets.csv`; `data/processed/annual_vnl_2017_pass2_scenario_summary.csv`; `data/processed/annual_vnl_2017_pass2_scenario_brightness.csv` | This is the model-selection evidence that the correction is not retained merely because its median residual is zero by construction. The next step was a longer segmented time-series test. |
+| A segmented 2013-2019 analysis supports a predominantly additive step in the range most relevant to the zero-point problem and tests whether the result depends on adjacent-year differencing. | `figures/annual_change/annual_vnl_2017_correction_pass3/segmented_additive_step_by_brightness.png`; `figures/annual_change/annual_vnl_2017_correction_pass3/additive_vs_multiplicative_step.png`; `figures/annual_change/annual_vnl_2017_correction_pass3/candidate_residuals_by_brightness.png` | `data/processed/annual_vnl_2017_pass3_brightness_summary.csv`; `data/processed/annual_vnl_2017_pass3_scenario_summary.csv`; `data/processed/annual_vnl_2017_pass3_scenario_detail.csv` | This is the strongest supplementary calibration set because it shows both the inferred step and the competing correction forms over a longer interval. Agreement with pass 2 justified promoting the rounded 0.235 value to production. |
+
+### Likely paper / supplement use
+
+The calibration itself is a methodological prerequisite rather than the biological
+headline. A compact methods statement in the main paper can cite the adopted
+pixel-level correction, while the persistent-pixel, independent-brightness and
+segmented-series panels are strong candidates for a **supplementary calibration
+figure**. The CSVs above should be retained as the source tables from which any
+final publication figure is regenerated.
+
+The reason the investigation stopped after pass 3 was not that the high-brightness
+behaviour became perfectly additive; it did not. It stopped because three
+increasingly stringent diagnostics converged on the same practical correction in
+the radiance range where the zero-point discontinuity is identifiable. Any later
+revision of the calibration should therefore be required to outperform these same
+artifacts rather than restart from an unconstrained alternative.
+
 ## Key commits
 
 ```text
