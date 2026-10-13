@@ -341,6 +341,21 @@ def integration_self_test() -> None:
         support_mem.close()
         cf_mem.close()
 
+    # Guard against pandas label-alignment errors in the year-pivot pattern
+    # used by the anomaly construction.
+    toy = pd.DataFrame({
+        "NUTS_ID": ["A", "A", "A", "B", "B", "B"],
+        "year": [2020, 2021, 2022, 2020, 2021, 2022],
+        "snow": [10.0, 30.0, 20.0, 40.0, 50.0, 60.0],
+    })
+    p = toy.pivot(index="NUTS_ID", columns="year", values="snow")
+    wide = p.index.to_frame(index=False, name="NUTS_ID")
+    for year in YEARS:
+        wide[f"snow_{year}"] = p[year].to_numpy()
+    expected = np.array([10.0, 40.0])
+    if not np.allclose(wide["snow_2020"].to_numpy(), expected):
+        raise RuntimeError("Self-test year-pivot alignment failed.")
+
     print("Snow/VIIRS literature-method integration self-test: PASS", flush=True)
 
 
@@ -585,11 +600,20 @@ def build_primary_anomaly(
             index="NUTS_ID", columns="year",
             values=["snow_mean_pct", "snow_valid_area_fraction"]
         )
-        ids = snow_p.index
-        out = pd.DataFrame({"NUTS_ID": ids})
+        missing_years = set(YEARS) - set(snow_p.columns.get_level_values(1))
+        if missing_years:
+            raise RuntimeError(
+                f"Month {month}: snow pivot is missing years {sorted(missing_years)}."
+            )
+        # Preserve NUTS_ID as a normal column and assign pivoted values by
+        # position.  Assigning the Series directly would align its NUTS_ID
+        # index against the DataFrame's RangeIndex and silently create NaNs.
+        out = snow_p.index.to_frame(index=False, name="NUTS_ID")
         for year in YEARS:
-            out[f"snow_{year}_pct"] = snow_p["snow_mean_pct"].get(year)
-            out[f"snow_valid_{year}"] = snow_p["snow_valid_area_fraction"].get(year)
+            out[f"snow_{year}_pct"] = snow_p["snow_mean_pct"][year].to_numpy()
+            out[f"snow_valid_{year}"] = (
+                snow_p["snow_valid_area_fraction"][year].to_numpy()
+            )
 
         out["snow_anomaly_2021_vs_flanks_pp"] = (
             out["snow_2021_pct"]
@@ -609,9 +633,15 @@ def build_primary_anomaly(
 
         a = aux[aux["month"] == month]
         cf = a.pivot(index="NUTS_ID", columns="year", values="cf_cvg_mean_common")
-        cfout = pd.DataFrame({"NUTS_ID": cf.index})
+        missing_cf_years = set(YEARS) - set(cf.columns)
+        if missing_cf_years:
+            raise RuntimeError(
+                f"Month {month}: cf_cvg pivot is missing years "
+                f"{sorted(missing_cf_years)}."
+            )
+        cfout = cf.index.to_frame(index=False, name="NUTS_ID")
         for year in YEARS:
-            cfout[f"cf_cvg_{year}"] = cf.get(year)
+            cfout[f"cf_cvg_{year}"] = cf[year].to_numpy()
         cfout["cf_cvg_anomaly_2021_vs_flanks"] = (
             cfout["cf_cvg_2021"]
             - (cfout["cf_cvg_2020"] + cfout["cf_cvg_2022"]) / 2.0
@@ -640,6 +670,17 @@ def primary_tests(anomaly: pd.DataFrame) -> tuple[pd.DataFrame, pd.DataFrame]:
         g = anomaly[
             (anomaly["month"] == month) & anomaly["eligible_primary"]
         ].copy()
+        if g.empty:
+            diag = anomaly[anomaly["month"] == month]
+            raise RuntimeError(
+                f"Month {month}: zero eligible regions after primary filters. "
+                f"Rows={len(diag)}, "
+                f"snow_complete={int(diag['snow_anomaly_2021_vs_flanks_pp'].notna().sum())}, "
+                f"viirs_complete={int(diag['anomaly_2021_vs_flanks_nw'].notna().sum())}, "
+                f"cf_complete={int(diag['cf_cvg_anomaly_2021_vs_flanks'].notna().sum())}, "
+                f"snow_valid={int((diag['min_snow_valid_fraction'] >= 0.5).sum())}, "
+                f"viirs_support={int((diag['common_support_area_fraction'] >= 0.5).sum())}."
+            )
 
         rho, p, n = spearman_clean(
             g["snow_anomaly_2021_vs_flanks_pp"],
