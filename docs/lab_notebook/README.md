@@ -11,6 +11,10 @@ changes of direction.
 ## Entries
 
 - [2026-10-09 — Density-dependent radiance change, demographic change and terrain habitability H](2026-10-09.md)
+- [2026-10-12 — VIIRS calibration, future-response validation and emergence of the 2021 discontinuity](2026-10-12.md)
+- [2026-10-13 — 2021 anomaly localization, pixel-support diagnostics and snow/albedo test setup](2026-10-13.md)
+
+The current restart point is also mirrored in [`docs/CURRENT_STATE.md`](../CURRENT_STATE.md) so a new session does not have to reconstruct the last terminal state from chat history.
 
 ## Convention
 
