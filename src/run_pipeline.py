@@ -49,6 +49,7 @@ STAGES = {
     "future-radiance-mask-intensity-decomposition": PROJECT_ROOT / "src" / "decompose_fixed_nuts2016_mask_intensity.py",
     "future-radiance-2021-pixel-support": PROJECT_ROOT / "src" / "diagnose_fixed_nuts2016_2021_pixel_support.py",
     "future-radiance-july-vcm-vcmsl-pilot": PROJECT_ROOT / "src" / "diagnose_fixed_nuts2016_july_vcm_vcmsl.py",
+    "future-radiance-download-monthly-2021": PROJECT_ROOT / "src" / "fetch_eog_monthly_vcmslcfg_2021.py",
     "habitability-fetch": PROJECT_ROOT / "src" / "fetch_habitability_inputs.py",
     "habitability-build": PROJECT_ROOT / "src" / "build_habitability_metric.py",
     "habitability-historical-validation": PROJECT_ROOT / "src" / "validate_habitability_historical_change.py",
