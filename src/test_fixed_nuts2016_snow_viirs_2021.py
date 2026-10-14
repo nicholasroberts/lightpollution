@@ -68,6 +68,7 @@ MONTH_NAMES = ("Jan", "Feb", "Mar", "Apr", "May", "Jun",
                "Jul", "Aug", "Sep", "Oct", "Nov", "Dec")
 LIT_THRESHOLDS = (2, 5, 10, 25, 50, 100, 250)
 SNOW_CLEANING_VERSION = "mod10cm_mask_special_gt100_v2"
+SNOW_NUMERIC_TOL = 1e-8
 
 HDF_RE = re.compile(r"^MOD10CM\.A(?P<year>\d{4})(?P<doy>\d{3})\.061\..*\.hdf$")
 VIIRS_RE = re.compile(
@@ -389,6 +390,54 @@ def integration_self_test() -> None:
     print("Snow/VIIRS literature-method integration self-test: PASS", flush=True)
 
 
+def normalize_snow_extract(d: pd.DataFrame) -> pd.DataFrame:
+    """Enforce physical ranges while allowing only roundoff-scale overshoot.
+
+    exactextract's spherical-area weighted mean can return values a few ULPs
+    outside the closed source range (e.g. 100.00000000000001 for a polygon
+    whose valid MOD10CM cells are all 100).  That is numerical roundoff, not a
+    product-code leak.  Anything beyond SNOW_NUMERIC_TOL remains a hard error.
+    """
+    out = d.copy()
+
+    snow = pd.to_numeric(out["snow_mean_pct"], errors="coerce")
+    finite = snow.notna()
+    bad = finite & ((snow < -SNOW_NUMERIC_TOL) | (snow > 100.0 + SNOW_NUMERIC_TOL))
+    if bad.any():
+        rows = out.loc[
+            bad,
+            ["NUTS_ID", "year", "month", "snow_mean_pct", "snow_valid_area_fraction"],
+        ].head(10)
+        vals = [repr(float(v)) for v in snow.loc[bad].head(10)]
+        raise RuntimeError(
+            "MOD10CM extraction contains snow means outside 0..100 by more "
+            f"than numerical tolerance {SNOW_NUMERIC_TOL:g}. "
+            f"Raw offending values={vals}. Rows:\n{rows.to_string(index=False)}"
+        )
+    out.loc[finite, "snow_mean_pct"] = snow.loc[finite].clip(0.0, 100.0)
+
+    valid = pd.to_numeric(out["snow_valid_area_fraction"], errors="coerce")
+    finite_valid = valid.notna()
+    bad_valid = finite_valid & (
+        (valid < -SNOW_NUMERIC_TOL) | (valid > 1.0 + SNOW_NUMERIC_TOL)
+    )
+    if bad_valid.any():
+        rows = out.loc[
+            bad_valid,
+            ["NUTS_ID", "year", "month", "snow_mean_pct", "snow_valid_area_fraction"],
+        ].head(10)
+        vals = [repr(float(v)) for v in valid.loc[bad_valid].head(10)]
+        raise RuntimeError(
+            "MOD10CM extraction contains valid-area fractions outside 0..1 "
+            f"by more than numerical tolerance {SNOW_NUMERIC_TOL:g}. "
+            f"Raw offending values={vals}. Rows:\n{rows.to_string(index=False)}"
+        )
+    out.loc[finite_valid, "snow_valid_area_fraction"] = (
+        valid.loc[finite_valid].clip(0.0, 1.0)
+    )
+    return out
+
+
 def fixed_nuts(config: dict) -> gpd.GeoDataFrame:
     release = int(config["analysis"]["fixed_nuts2016_2014_2024"]["nuts_release"])
     nuts = load_fixed_nuts(config, release)
@@ -420,6 +469,10 @@ def extract_snow_month(
                 d["source_signature"].dropna().astype(str).unique().tolist() == [sig]
                 and set(d[id_field].astype(str)) == set(nuts[id_field].astype(str))
             ):
+                d = normalize_snow_extract(d)
+                # Persist roundoff-normalized boundary values so downstream
+                # outputs themselves obey the physical 0..100 / 0..1 ranges.
+                d.to_parquet(cache, index=False)
                 return d
 
     with rasterio.open(tif) as ds:
@@ -447,6 +500,7 @@ def extract_snow_month(
     d.insert(0, "month", int(month))
     d.insert(0, "year", int(year))
     d["source_signature"] = sig
+    d = normalize_snow_extract(d)
     d.to_parquet(cache, index=False)
     return d
 
@@ -1133,21 +1187,21 @@ def main() -> None:
             "hdf_size_bytes": int(hdf.stat().st_size),
         })
 
-    snow = pd.concat(snow_frames, ignore_index=True)
-    # Product invariant: monthly mean snow cover is a percentage.  Any value
-    # outside 0..100 means categorical MOD10CM codes have leaked into a mean.
+    snow = normalize_snow_extract(pd.concat(snow_frames, ignore_index=True))
+    # Product invariant after roundoff normalization: every stored snow mean
+    # must be a physical percentage and every stored valid-area fraction a
+    # physical fraction.  Product-code leakage therefore remains a hard stop.
     finite_snow = snow.loc[
         snow["snow_mean_pct"].notna(), "snow_mean_pct"
     ].astype(float)
+    finite_valid = snow.loc[
+        snow["snow_valid_area_fraction"].notna(), "snow_valid_area_fraction"
+    ].astype(float)
     if ((finite_snow < 0) | (finite_snow > 100)).any():
-        bad = snow.loc[
-            snow["snow_mean_pct"].notna()
-            & ((snow["snow_mean_pct"] < 0) | (snow["snow_mean_pct"] > 100)),
-            ["NUTS_ID", "year", "month", "snow_mean_pct", "snow_valid_area_fraction"],
-        ].head(10)
+        raise RuntimeError("Internal error: normalized snow_mean_pct outside 0..100.")
+    if ((finite_valid < 0) | (finite_valid > 1)).any():
         raise RuntimeError(
-            "MOD10CM invariant failed: snow_mean_pct outside 0..100. "
-            f"First offending rows:\n{bad.to_string(index=False)}"
+            "Internal error: normalized snow_valid_area_fraction outside 0..1."
         )
     manifest = pd.DataFrame(manifest_rows)
 
