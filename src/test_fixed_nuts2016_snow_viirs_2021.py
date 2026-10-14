@@ -66,7 +66,8 @@ LEVIN_MONTHS = (1, 7)
 AUX_VIIRS_MONTHS = (1, 2, 3, 7)
 MONTH_NAMES = ("Jan", "Feb", "Mar", "Apr", "May", "Jun",
                "Jul", "Aug", "Sep", "Oct", "Nov", "Dec")
-LIT_THRESHOLDS = (2, 5, 10, 25, 50, 100, 250)\nSNOW_CLEANING_VERSION = "mod10cm_mask_special_gt100_v2"
+LIT_THRESHOLDS = (2, 5, 10, 25, 50, 100, 250)
+SNOW_CLEANING_VERSION = "mod10cm_mask_special_gt100_v2"
 
 HDF_RE = re.compile(r"^MOD10CM\.A(?P<year>\d{4})(?P<doy>\d{3})\.061\..*\.hdf$")
 VIIRS_RE = re.compile(
