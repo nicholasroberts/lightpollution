@@ -297,7 +297,7 @@ figures retrospectively without preserving the diagnostic logic.
 | Pixel-support persistence | `figures/population_relationship/fixed_nuts2016_2021_pixel_support/new_2021_pixel_persistence_by_density.pdf`; `figures/population_relationship/fixed_nuts2016_2021_pixel_support/stable_pixels_2021_2022_by_density.pdf`; `figures/population_relationship/fixed_nuts2016_2021_pixel_support/pixel_components_2021_by_density.pdf` | `data/processed/fixed_nuts2016_2021_pixel_support_overall.csv`; `data/processed/fixed_nuts2016_2021_pixel_support_by_density.csv`; `data/processed/fixed_nuts2016_2021_pixel_support_by_country.csv` | This is one of the strongest likely supplementary analyses: the same pixels positive throughout 2020-2023 brighten in 2021 and reverse in 2022. It rejects the explanation that the annual pulse is mainly transient support expansion and shifts attention to seasonal/product radiometry on stable support. |
 | July VCM versus VCMSL pilot | `figures/population_relationship/fixed_nuts2016_july_vcm_vcmsl_pilot/july_vcmsl_added_coverage.pdf`; `figures/population_relationship/fixed_nuts2016_july_vcm_vcmsl_pilot/july_common_difference_vs_latitude.pdf`; `figures/population_relationship/fixed_nuts2016_july_vcm_vcmsl_pilot/july_2021_country_common_difference.pdf` | `data/processed/fixed_nuts2016_july_vcm_vcmsl_annual_summary.csv`; `data/processed/fixed_nuts2016_july_vcm_vcmsl_by_country.csv`; `data/processed/fixed_nuts2016_july_vcm_vcmsl_regional.csv` | Provides negative evidence against the simple hypothesis that the documented early-July 2021 stray-light LUT problem generated the annual northern pulse. Because July could not account for the affected northern countries, the anomaly had to be localized across the full year. |
 | Full monthly localization | `figures/population_relationship/fixed_nuts2016_monthly_2021_localization/monthly_2021_anomaly_vs_flanks.pdf`; `figures/population_relationship/fixed_nuts2016_monthly_2021_localization/monthly_matched_radiance_2020_2022.pdf`; `figures/population_relationship/fixed_nuts2016_monthly_2021_localization/monthly_anomaly_latitude_rho.pdf`; `figures/population_relationship/fixed_nuts2016_monthly_2021_localization/monthly_country_anomaly_heatmap.pdf` | `data/processed/fixed_nuts2016_monthly_2021_localization_summary.csv`; `data/processed/fixed_nuts2016_monthly_2021_localization_by_country.csv`; `data/processed/fixed_nuts2016_monthly_2021_localization_by_density.csv` | Localizes the pulse to January-February, particularly February, with a strong northern structure. This is the key rationale for moving from generic sensor diagnostics to the published snow/albedo mechanism. |
-| Snow/albedo test — **pending clean rerun** | After a valid rerun: `figures/population_relationship/fixed_nuts2016_snow_viirs_test/february_snow_vs_viirs_anomaly.pdf`; `snow_viirs_anomaly_rho_jan_feb_mar.pdf`; `levin_style_jan_july_snow_radiance_2021.pdf`; `levin_style_percent_lit_thresholds.pdf` | After a valid rerun: `data/processed/fixed_nuts2016_snow_2021_anomaly_tests.csv`; `fixed_nuts2016_snow_2021_anomaly_models.csv`; `fixed_nuts2016_snow_levin_jan_july_summary.csv`; `fixed_nuts2016_snow_levin_percent_lit_thresholds.csv` | These are **not yet paper-eligible**. The first run was invalid because categorical MOD10CM codes entered the zonal means. If the corrected February association survives the pre-specified controls while March remains null/weak, this will become the direct mechanism test tying the monthly localization to surface snow/albedo. |
+| Snow/albedo test — **clean rerun validated 2026-10-14** | `figures/population_relationship/fixed_nuts2016_snow_viirs_test/february_snow_vs_viirs_anomaly.pdf`; `snow_viirs_anomaly_rho_jan_feb_mar.pdf`; `levin_style_jan_july_snow_radiance_2021.pdf`; `levin_style_percent_lit_thresholds.pdf` | `data/processed/fixed_nuts2016_snow_2021_anomaly_tests.csv`; `fixed_nuts2016_snow_2021_anomaly_models.csv`; `fixed_nuts2016_snow_levin_jan_july_summary.csv`; `fixed_nuts2016_snow_levin_percent_lit_thresholds.csv`; `fixed_nuts2016_mod10cm_snow_monthly_2020_2022.csv` | The corrected MOD10CM extraction obeys the physical 0-100% snow range. February shows a strong snow-radiance anomaly association at region and country scales, survives country/latitude/baseline-brightness/cloud-free-coverage adjustment, and has a strong positive snow x brightness interaction; March is essentially null. This moves snow/surface reflectance from an open hypothesis to a strongly supported explanation for a major component of the February 2021 pulse. The next step is to test the mechanism more directly with MODIS albedo and NDVI rather than treating snow cover itself as the final causal variable. |
 
 ### Likely manuscript structure
 
@@ -318,7 +318,7 @@ tested and rejected. The most likely high-value supplementary figures are:
 4. occupancy/intensity decomposition;
 5. persistent-pixel 2021/2022 reversal;
 6. monthly January-February localization and latitude structure;
-7. the snow/anomaly mechanism figure, **only after the corrected MOD10CM rerun is validated**.
+7. the validated snow/anomaly mechanism figure and January/February/March control comparison.
 
 The corresponding CSVs in the table should be treated as the source-of-truth
 publication tables. Final figures can be reformatted later without losing the
@@ -371,6 +371,179 @@ The invalid preliminary numbers are preserved only as debugging history and must
 
 Commit `2d79e1da` changes the cached raster construction so every source value >100 is physically written as nodata before `exactextract` sees it. A hard 0-100 invariant now stops the pipeline if any categorical code leaks through.
 
+## Clean corrected snow result — 2026-10-14
+
+The corrected rerun completed successfully after two further implementation fixes:
+`e5abd14` corrected an accidental literal newline in the source, and
+`7674701` distinguished true range violations from roundoff-scale values such
+as 100.00000000000001. The stored snow product now obeys the physical ranges:
+
+```text
+snow_mean_pct:              0 to 100
+snow_valid_area_fraction:   0 to 1
+MOD10CM inventory:          12 months 2020, 12 months 2021, 11 months 2022
+structural missing month:   October 2022
+```
+
+The pre-specified anomaly was:
+
+```text
+2021 - mean(2020, 2022)
+```
+
+with February primary, January supportive and March the negative control.
+
+### Primary February result
+
+```text
+region-level Spearman rho = +0.6653
+p = 2.17e-192
+n = 1500 NUTS3
+
+country-median Spearman rho = +0.7383
+p = 2.13e-06
+n = 31 countries
+
+median snow anomaly = +5.865 percentage points
+median VIIRS anomaly = +0.615 nW cm^-2 sr^-1
+```
+
+In the pre-specified adjusted model controlling for country, latitude, baseline
+brightness and cloud-free-coverage anomaly:
+
+```text
+base R2 = 0.3021
+full R2 = 0.4979
+partial R2 of snow block = 0.2805
+
+snow coefficient at mean log-baseline brightness
+    +0.08359 nW per snow percentage point
+    95% CI +0.05814 to +0.10904
+    p = 1.21e-10
+
+snow x baseline-brightness interaction
+    coefficient +0.23077
+    p = 1.94e-13
+
+joint snow block
+    p = 2.48e-14
+
+cloud-free-coverage anomaly
+    p = 0.314
+```
+
+**KEEP:** the February 2021 radiance anomaly is strongly associated with
+anomalous snow cover, the relationship is not removed by country, latitude,
+baseline brightness or cloud-free coverage, and the positive interaction
+supports the physical prediction that the absolute snow-reflection effect is
+larger where more artificial light is available.
+
+### January supportive result
+
+```text
+region rho = +0.4875
+country-median rho = +0.5407
+adjusted snow coefficient = +0.01976 nW per snow percentage point
+snow-block partial R2 = 0.1344
+joint snow-block p = 9.35e-08
+snow x brightness p = 9.00e-05
+```
+
+**KEEP:** January independently supports the same winter-surface mechanism,
+although less strongly than February.
+
+### March negative control
+
+```text
+region rho = -0.0222, p = 0.391
+country-median rho = +0.2040, p = 0.271
+snow-block partial R2 = 0.00173
+snow coefficient p = 0.346
+snow x brightness p = 0.558
+```
+
+The robust joint Wald p-value for the two snow terms is borderline
+(`p = 0.049`), but the individual snow terms are non-significant and the
+incremental explanatory power is only ~0.17% of residual variance.
+
+**KEEP:** March is a practically null negative control. The February result is
+therefore not simply a generic latitude/snow association that appears whenever
+snow is included in a model.
+
+### Levin-style January-minus-July replication
+
+The January-minus-July relationship between snow change and radiance change is:
+
+```text
+2020 region rho +0.0795; country rho +0.0470
+2021 region rho +0.4644; country rho +0.5000
+2022 region rho +0.1679; country rho +0.3983
+```
+
+The 2021 relationship is substantially stronger than the flanking years.
+
+The published percent-lit-area concept also shows a strong 2021 response,
+especially at low-to-moderate radiance thresholds:
+
+```text
+2021 snow change vs percent-lit change:
+    >2 nW    rho +0.5519
+    >5 nW    rho +0.5708
+    >10 nW   rho +0.5372
+    >25 nW   rho +0.4508
+    >50 nW   rho +0.3147
+    >100 nW  rho +0.1791
+    >250 nW  rho +0.0552
+```
+
+**KEEP:** the event is not confined to the mean-radiance statistic. In 2021,
+greater winter snow is also associated with a larger fraction of area crossing
+the published low-to-moderate VIIRS brightness thresholds.
+
+### Important limit on generalization
+
+Across all available paired months in 2020-2022, the median within-region
+snow-radiance Spearman correlation is `-0.1751`, with only 27.8% of regions
+positive.
+
+This does **not** overturn the February anomaly result. It does mean that the
+project should not claim a universal rule that more snow always makes every
+European NUTS3 brighter in VIIRS. The evidence is strongest for a specific
+winter 2021 anomaly and for January-vs-July contrast in that year. This is
+consistent with using the Levin framework as a mechanism test while recognizing
+that the present NUTS3 sample is much broader than selected urban areas.
+
+### Revised causal interpretation
+
+Snow cover itself is best treated as an indicator of a changed reflecting
+surface, not as the final mechanism. The next analysis should therefore test
+whether the 2021 snow anomaly produces a corresponding **surface-albedo anomaly**
+and whether that albedo anomaly explains/attenuates the snow-radiance
+association. NDVI should be added as the complementary vegetation/seasonal
+surface control used in the published literature.
+
+The next stage should preserve the same pre-specification:
+
+```text
+February = primary
+January  = supportive
+March    = negative control
+2021 - mean(2020, 2022) for every surface variable
+country + latitude + baseline brightness + cf_cvg controls
+surface-state x baseline-brightness interaction
+```
+
+A sequential model comparison should then ask:
+
+1. does albedo anomaly predict VIIRS anomaly?
+2. does the snow coefficient attenuate when albedo enters?
+3. does albedo x baseline brightness show the predicted stronger effect in brighter regions?
+4. does NDVI explain additional seasonal structure?
+5. does March remain a negative control?
+
+This should be described as a **mechanistic attenuation test**, not formal causal
+mediation, because all variables are observational.
+
 ---
 
 ## Current KEEP / REJECT / OPEN table
@@ -389,30 +562,31 @@ Commit `2d79e1da` changes the cached raster construction so every source value >
 | REJECT | The 0.235 calibration creates the event. |
 | REJECT | It is mainly transient new positive pixels. |
 | REJECT | The first MOD10CM snow-run statistics are valid evidence. |
-| OPEN | Correctly masked snow explains February 2021. |
-| OPEN | Snow effect survives country/latitude/brightness/cf_cvg controls. |
-| OPEN | Snow x brightness is positive as reflection physics predicts. |
-| OPEN | Residual signal after snow requires additional compositing/calibration explanation. |
-| OPEN | NDVI and albedo should be added after the clean snow result. |
+| KEEP | Correctly masked MOD10CM snow anomaly strongly predicts the February 2021 VIIRS anomaly. |
+| KEEP | The February snow association survives country, latitude, baseline brightness and cf_cvg controls. |
+| KEEP | The positive snow x brightness interaction supports a reflection mechanism. |
+| KEEP | January independently supports the winter-surface mechanism; March is a practically null negative control. |
+| KEEP | Levin-style January-minus-July and percent-lit analyses show an unusually strong 2021 snow-linked response. |
+| KEEP | The full 2020-2022 within-region seasonal correlation is not generally positive, so the conclusion is event-specific rather than universal. |
+| OPEN | How much of the snow association is explained specifically by surface albedo? |
+| OPEN | Does NDVI account for additional seasonal surface-state variation? |
+| OPEN | How much residual 2021 signal remains after snow/albedo/NDVI, for possible compositing/calibration mechanisms? |
 
 ---
 
-## Restart instructions
+## Current next step
 
-From repository root on EcoVis:
+The snow hypothesis has now passed the clean pre-specified test. Do **not**
+repeat the snow stage unless code/data change.
 
-```bash
-git pull
-python src/run_pipeline.py future-radiance-snow-2021-test
-```
+Next: acquire MODIS surface albedo and NDVI for the same 2020-2022 period and
+build a surface-state mechanism stage. Preferred primary albedo variable is a
+visible-band broadband MODIS BRDF/albedo measure on a CMG grid; both white-sky
+and black-sky albedo should be retained, with one pre-specified as primary and
+the other as sensitivity. NDVI should use a monthly CMG product to match the
+published Levin framework.
 
-Do not interpret snow until:
-
-1. the integration self-test passes;
-2. the stage finishes with all snow means in 0-100;
-3. the corrected February/January/March results are inspected.
-
-Files to return after the clean run:
+Key validated snow outputs to preserve:
 
 ```text
 data/processed/fixed_nuts2016_snow_viirs_test_summary.txt
@@ -420,6 +594,8 @@ data/processed/fixed_nuts2016_snow_2021_anomaly_tests.csv
 data/processed/fixed_nuts2016_snow_2021_anomaly_models.csv
 data/processed/fixed_nuts2016_snow_levin_jan_july_summary.csv
 data/processed/fixed_nuts2016_snow_levin_percent_lit_thresholds.csv
+data/processed/fixed_nuts2016_snow_levin_seasonal_correlations.csv
+data/processed/fixed_nuts2016_mod10cm_snow_monthly_2020_2022.csv
 
 figures/population_relationship/fixed_nuts2016_snow_viirs_test/february_snow_vs_viirs_anomaly.pdf
 figures/population_relationship/fixed_nuts2016_snow_viirs_test/snow_viirs_anomaly_rho_jan_feb_mar.pdf
@@ -444,4 +620,6 @@ f87ec39c  Add monthly localization of 2021 VIIRS anomaly
 ee794d6f  Normalize MOD10CM CMG CRS to EPSG:4326 without resampling
 f07c53f8  Fix NUTS ID alignment in snow anomaly pivots
 2d79e1da  Mask MOD10CM categorical codes before snow extraction
+e5abd14   Fix literal newline in snow test constants
+7674701   Allow only roundoff-scale MOD10CM boundary overshoot
 ```
