@@ -388,6 +388,28 @@ analysis:
     min_seasonal_months: 18
     figure_dpi: 350
 
+  fixed_nuts2016_albedo_viirs_test:
+    # Focused mechanism test: does January-March 2021 visible surface-albedo
+    # anomaly predict the VIIRS anomaly and attenuate the validated snow block?
+    # AppEEARS VNP43MA3.002 downloads may be unzipped directories or ZIP bundles.
+    vnp43ma3_raw_dir: data/raw/modis/VNP43MA3_002
+    layer_wsa: Albedo_WSA_vis
+    layer_bsa: Albedo_BSA_vis
+    layer_qa: BRDF_Albedo_Band_Mandatory_Quality_vis
+    continental_europe_bounds_4326: [-25.0, 34.0, 45.0, 72.5]
+    # Daily BRDF/albedo estimates use overlapping temporal windows; they are
+    # aggregated to one monthly surface-state value rather than treated as
+    # independent observations.
+    min_pixel_valid_day_fraction: 0.25
+    min_region_valid_area_fraction: 0.50
+    # Used only when AppEEARS GeoTIFFs do not expose a non-unity raster scale.
+    # The script validates the resulting physical albedo range (0..1).
+    fallback_albedo_scale_factor: 0.001
+    # Relative anomaly is contextual/sensitivity output. Absolute nW anomaly
+    # remains primary because percentage changes explode for near-dark regions.
+    relative_min_flank_radiance_nw: 0.01
+    figure_dpi: 350
+
   habitability_historical_validation:
     first_year: 2013
     last_year: 2024
