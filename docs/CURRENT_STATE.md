@@ -140,3 +140,12 @@ See:
 
 - `docs/investigations/viirs_2021_anomaly.md`
 - `docs/lab_notebook/2026-10-14.md`
+
+### Albedo first-run implementation note
+
+The first execution of `future-radiance-albedo-2021-test` exposed a CRS bug
+before any scientific inference: native sinusoidal VNP43MA3 rasters were zonally
+extracted against EPSG:4326 NUTS polygons. This produced no eligible albedo
+models and the run stopped at plotting. Commit `64ed94c` fixes the extraction,
+invalidates only the bad zonal caches, and preserves the expensive valid monthly
+composites. No failed-run numerical result is used.
