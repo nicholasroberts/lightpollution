@@ -1,0 +1,414 @@
+#!/usr/bin/env python3
+"""Discover and download historical MOD10CM Collection 6.1 monthly snow files.
+
+The downloader uses NASA CMR for discovery and Earthdata Login for protected
+file access.  It is deliberately idempotent: already-downloaded HDF files are
+reused, partial downloads are resumed, and an inventory manifest is written
+after every successful run.
+
+Authentication is never stored in the repository.  Two modes are supported:
+
+1. Preferred for unattended runs:
+       export EARTHDATA_TOKEN='...'
+   where the value is an Earthdata Login *user token* (not an AppEEARS API
+   session token).
+
+2. Standard Earthdata .netrc authentication:
+       ~/.netrc
+   containing a machine entry for urs.earthdata.nasa.gov.
+
+The stage downloads all configured months so the historical snow archive can be
+reused for later seasonal diagnostics.  The subsequent historical surface-state
+model can still pre-specify January-February as the primary control window.
+"""
+
+from __future__ import annotations
+
+import argparse
+import calendar
+import csv
+import hashlib
+import json
+import netrc
+import os
+import re
+import shutil
+import subprocess
+import sys
+import urllib.parse
+import urllib.request
+from pathlib import Path
+from typing import Any
+
+from project_config import PROJECT_ROOT, load_config
+
+
+CMR_URL = "https://cmr.earthdata.nasa.gov/search/granules.umm_json"
+HDF_RE = re.compile(
+    r"^MOD10CM\.A(?P<year>\d{4})(?P<doy>\d{3})\.061\..*\.hdf$"
+)
+
+
+def month_from_year_doy(year: int, doy: int) -> int:
+    import datetime as dt
+
+    return (dt.date(year, 1, 1) + dt.timedelta(days=doy - 1)).month
+
+
+def cmr_search(cfg: dict) -> list[dict[str, Any]]:
+    first_year = int(cfg["first_year"])
+    last_year = int(cfg["last_year"])
+    params = {
+        "short_name": str(cfg["short_name"]),
+        "version": str(cfg["version"]),
+        "temporal": (
+            f"{first_year}-01-01T00:00:00Z,"
+            f"{last_year}-12-31T23:59:59Z"
+        ),
+        "downloadable": "true",
+        "page_size": "2000",
+    }
+    url = CMR_URL + "?" + urllib.parse.urlencode(params)
+    req = urllib.request.Request(
+        url,
+        headers={
+            "User-Agent": "lightpollution-MOD10CM-downloader/1.0",
+            "Accept": "application/vnd.nasa.cmr.umm_results+json",
+        },
+    )
+    print(f"Querying CMR: {url}", flush=True)
+    with urllib.request.urlopen(req, timeout=120) as response:
+        payload = json.load(response)
+
+    items = payload.get("items", [])
+    hits = int(payload.get("hits", len(items)))
+    if hits > len(items):
+        raise RuntimeError(
+            f"CMR returned {len(items)} of {hits} hits. Increase page_size or "
+            "add pagination before continuing."
+        )
+    if not items:
+        raise RuntimeError("CMR returned no MOD10CM granules.")
+    return items
+
+
+def checksum_from_umm(umm: dict[str, Any]) -> tuple[str | None, str | None]:
+    dg = umm.get("DataGranule") or {}
+    checksum = dg.get("Checksum") or {}
+    value = checksum.get("Value")
+    algorithm = checksum.get("Algorithm")
+    if value and algorithm:
+        return str(algorithm).upper(), str(value).lower()
+    return None, None
+
+
+def choose_data_url(umm: dict[str, Any]) -> str:
+    candidates: list[tuple[int, str]] = []
+    for rel in umm.get("RelatedUrls") or []:
+        url = str(rel.get("URL") or "")
+        if not url:
+            continue
+        path = urllib.parse.urlparse(url).path
+        name = Path(path).name
+        if not HDF_RE.match(name):
+            continue
+        rtype = str(rel.get("Type") or "").upper()
+        subtype = str(rel.get("Subtype") or "").upper()
+        # Prefer direct data links over service/metadata links.
+        score = 0
+        if rtype == "GET DATA":
+            score += 20
+        if rtype == "GET DATA VIA DIRECT ACCESS":
+            score += 30
+        if "DIRECT" in subtype:
+            score += 10
+        if url.startswith("https://"):
+            score += 2
+        candidates.append((score, url))
+
+    if not candidates:
+        raise RuntimeError(
+            f"No direct HDF data URL found in CMR record for "
+            f"{umm.get('GranuleUR', '<unknown granule>')}"
+        )
+    candidates.sort(key=lambda x: (-x[0], x[1]))
+    return candidates[0][1]
+
+
+def build_inventory(items: list[dict[str, Any]], cfg: dict) -> list[dict[str, Any]]:
+    first_year = int(cfg["first_year"])
+    last_year = int(cfg["last_year"])
+    requested_months = {int(x) for x in cfg["months"]}
+    by_key: dict[tuple[int, int], dict[str, Any]] = {}
+
+    for item in items:
+        umm = item.get("umm") or {}
+        try:
+            url = choose_data_url(umm)
+        except RuntimeError:
+            continue
+        name = Path(urllib.parse.urlparse(url).path).name
+        match = HDF_RE.match(name)
+        if not match:
+            continue
+        year = int(match.group("year"))
+        month = month_from_year_doy(year, int(match.group("doy")))
+        if not (first_year <= year <= last_year) or month not in requested_months:
+            continue
+        key = (year, month)
+        if key in by_key:
+            raise RuntimeError(
+                f"CMR returned duplicate MOD10CM granules for {year}-{month:02d}: "
+                f"{by_key[key]['filename']} and {name}"
+            )
+        algorithm, checksum = checksum_from_umm(umm)
+        by_key[key] = {
+            "year": year,
+            "month": month,
+            "filename": name,
+            "url": url,
+            "checksum_algorithm": algorithm or "",
+            "checksum_expected": checksum or "",
+        }
+
+    expected = {
+        (year, month)
+        for year in range(first_year, last_year + 1)
+        for month in requested_months
+    }
+    allowed_missing = {
+        tuple(int(v) for v in str(x).split("-"))
+        for x in cfg.get("allowed_missing_year_month", [])
+    }
+    missing = sorted(expected - set(by_key))
+    unexpected_missing = [x for x in missing if x not in allowed_missing]
+    if unexpected_missing:
+        raise RuntimeError(
+            "CMR inventory is missing requested MOD10CM months not listed as "
+            f"allowed missing: {unexpected_missing}"
+        )
+    if missing:
+        print(
+            "CMR missing allowed month(s): "
+            + ", ".join(f"{y}-{m:02d}" for y, m in missing),
+            flush=True,
+        )
+
+    return [by_key[key] for key in sorted(by_key)]
+
+
+def authentication_mode() -> tuple[str, str | None]:
+    token = os.environ.get("EARTHDATA_TOKEN", "").strip()
+    if token:
+        return "bearer_token", token
+
+    netrc_path = Path.home() / ".netrc"
+    if netrc_path.exists():
+        try:
+            auth = netrc.netrc(str(netrc_path)).authenticators(
+                "urs.earthdata.nasa.gov"
+            )
+        except (netrc.NetrcParseError, OSError) as exc:
+            raise RuntimeError(f"Could not parse {netrc_path}: {exc}") from exc
+        if auth:
+            return "netrc", None
+
+    raise RuntimeError(
+        "No Earthdata authentication found. Either set EARTHDATA_TOKEN to an "
+        "Earthdata Login user token, or configure ~/.netrc for "
+        "urs.earthdata.nasa.gov. An AppEEARS API session token is not the same "
+        "credential."
+    )
+
+
+def curl_base(auth_mode: str, token: str | None) -> list[str]:
+    curl = shutil.which("curl")
+    if not curl:
+        raise RuntimeError("curl is required for authenticated MOD10CM downloads.")
+
+    cmd = [
+        curl,
+        "--location",
+        "--fail",
+        "--show-error",
+        "--retry", "5",
+        "--retry-delay", "3",
+        "--retry-all-errors",
+    ]
+    if auth_mode == "bearer_token":
+        cmd += ["--header", f"Authorization: Bearer {token}"]
+    elif auth_mode == "netrc":
+        cookie = Path.home() / ".urs_cookies"
+        cookie.touch(exist_ok=True)
+        cmd += [
+            "--netrc",
+            "--cookie", str(cookie),
+            "--cookie-jar", str(cookie),
+        ]
+    else:
+        raise ValueError(auth_mode)
+    return cmd
+
+
+def compute_checksum(path: Path, algorithm: str) -> str:
+    name = algorithm.replace("-", "").lower()
+    supported = {"md5": "md5", "sha1": "sha1", "sha256": "sha256"}
+    if name not in supported:
+        return ""
+    h = hashlib.new(supported[name])
+    with path.open("rb") as src:
+        for chunk in iter(lambda: src.read(8 * 1024 * 1024), b""):
+            h.update(chunk)
+    return h.hexdigest().lower()
+
+
+def validate_existing(
+    path: Path, checksum_algorithm: str, checksum_expected: str
+) -> tuple[bool, str]:
+    if not path.exists() or path.stat().st_size <= 1024:
+        return False, ""
+    if checksum_algorithm and checksum_expected:
+        actual = compute_checksum(path, checksum_algorithm)
+        if actual:
+            return actual == checksum_expected.lower(), actual
+    return True, ""
+
+
+def download_one(
+    row: dict[str, Any],
+    raw_dir: Path,
+    auth_mode: str,
+    token: str | None,
+) -> dict[str, Any]:
+    target = raw_dir / row["filename"]
+    ok, checksum_actual = validate_existing(
+        target,
+        row["checksum_algorithm"],
+        row["checksum_expected"],
+    )
+    if ok:
+        status = "reused"
+        print(f"REUSE {row['year']}-{row['month']:02d} {target.name}", flush=True)
+    else:
+        if target.exists():
+            print(f"Existing file failed validation; redownloading {target.name}")
+            target.unlink()
+
+        part = target.with_name(target.name + ".part")
+        cmd = curl_base(auth_mode, token)
+        if part.exists() and part.stat().st_size > 0:
+            cmd += ["--continue-at", "-"]
+        cmd += ["--output", str(part), row["url"]]
+
+        print(
+            f"DOWNLOAD {row['year']}-{row['month']:02d} {target.name}",
+            flush=True,
+        )
+        result = subprocess.run(cmd)
+        if result.returncode != 0:
+            raise RuntimeError(
+                f"Download failed for {row['year']}-{row['month']:02d}: "
+                f"{row['url']}"
+            )
+        if not part.exists() or part.stat().st_size <= 1024:
+            raise RuntimeError(f"Downloaded file is unexpectedly small: {part}")
+
+        part.replace(target)
+        ok, checksum_actual = validate_existing(
+            target,
+            row["checksum_algorithm"],
+            row["checksum_expected"],
+        )
+        if not ok:
+            raise RuntimeError(
+                f"Checksum validation failed after download: {target.name}"
+            )
+        status = "downloaded"
+
+    out = dict(row)
+    out.update(
+        {
+            "local_path": str(target.relative_to(PROJECT_ROOT)),
+            "size_bytes": int(target.stat().st_size),
+            "checksum_actual": checksum_actual,
+            "status": status,
+        }
+    )
+    return out
+
+
+def write_manifest(rows: list[dict[str, Any]], path: Path) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    fields = [
+        "year", "month", "filename", "url", "local_path", "size_bytes",
+        "checksum_algorithm", "checksum_expected", "checksum_actual", "status",
+    ]
+    with path.open("w", newline="", encoding="utf-8") as handle:
+        writer = csv.DictWriter(handle, fieldnames=fields)
+        writer.writeheader()
+        for row in rows:
+            writer.writerow({key: row.get(key, "") for key in fields})
+
+
+def inventory_summary(
+    rows: list[dict[str, Any]], cfg: dict, manifest: Path
+) -> None:
+    first_year = int(cfg["first_year"])
+    last_year = int(cfg["last_year"])
+    months = sorted(int(x) for x in cfg["months"])
+    expected_total = (last_year - first_year + 1) * len(months)
+    allowed_missing = len(cfg.get("allowed_missing_year_month", []))
+    downloaded = sum(r["status"] == "downloaded" for r in rows)
+    reused = sum(r["status"] == "reused" for r in rows)
+    size_gib = sum(int(r["size_bytes"]) for r in rows) / 1024**3
+
+    print("\nMOD10CM HISTORICAL DOWNLOAD COMPLETE")
+    print(f"Years: {first_year}-{last_year}")
+    print(f"Months requested per year: {months}")
+    print(
+        f"Available granules: {len(rows)} / nominal {expected_total} "
+        f"(configured allowed-missing entries: {allowed_missing})"
+    )
+    print(f"Downloaded this run: {downloaded}")
+    print(f"Reused existing: {reused}")
+    print(f"Local archive size: {size_gib:.2f} GiB")
+    print(f"Manifest: {manifest}")
+
+
+def main() -> None:
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--config", default="config/pipeline.yaml")
+    args = parser.parse_args()
+
+    config = load_config(args.config)
+    cfg = config["analysis"]["mod10cm_history_download"]
+    raw_dir = PROJECT_ROOT / str(cfg["raw_dir"])
+    raw_dir.mkdir(parents=True, exist_ok=True)
+
+    items = cmr_search(cfg)
+    inventory = build_inventory(items, cfg)
+    print(f"CMR discovered {len(inventory)} requested MOD10CM granules.", flush=True)
+
+    auth_mode, token = authentication_mode()
+    print(f"Earthdata authentication mode: {auth_mode}", flush=True)
+
+    completed: list[dict[str, Any]] = []
+    manifest = PROJECT_ROOT / str(cfg["manifest_file"])
+    try:
+        for row in inventory:
+            completed.append(
+                download_one(row, raw_dir, auth_mode, token)
+            )
+            # Persist progress so an interrupted long run remains auditable.
+            write_manifest(completed, manifest)
+    except KeyboardInterrupt:
+        write_manifest(completed, manifest)
+        print("\nInterrupted; completed manifest preserved.", file=sys.stderr)
+        raise
+
+    write_manifest(completed, manifest)
+    inventory_summary(completed, cfg, manifest)
+
+
+if __name__ == "__main__":
+    main()
