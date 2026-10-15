@@ -399,10 +399,11 @@ analysis:
     months: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]
     raw_dir: data/raw/modis/MOD10CM_061
     manifest_file: data/processed/mod10cm_061_history_download_manifest.csv
-    # October 2022 was absent in the earlier validated archive. If CMR now
-    # exposes it, it will be downloaded; if still absent, this is the one
-    # explicitly tolerated missing month.
-    allowed_missing_year_month: ["2022-10"]
+    # Known MOD10CM archive gaps within 2013-2024. February 2016 coincides
+    # with the Terra MODIS safe-mode outage; October 2022 coincides with the
+    # Terra constellation-exit outage. If CMR exposes either month in future,
+    # it will still be downloaded because this list only permits absence.
+    allowed_missing_year_month: ["2016-02", "2022-10"]
 
   fixed_nuts2016_albedo_viirs_test:
     # Focused mechanism test: does January-March 2021 visible surface-albedo
