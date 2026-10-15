@@ -372,12 +372,21 @@ def fit_model_pair(
             f"{d['NUTS_ID'].nunique()} regions."
         )
 
+    # Baseline brightness must be present in BOTH models.  Using the
+    # Patsy "*" expansion only in the controlled model would add the
+    # time-invariant brightness main effect together with snow and the
+    # snow-by-brightness interaction.  The LRT would then test a 3-df block
+    # containing baseline brightness itself rather than the intended 2-df
+    # surface-state block.  Keep brightness as a common nuisance covariate and
+    # test only snow + snow:brightness.
     base_formula = (
-        f"{outcome} ~ year_c * C(density_band) + C(country)"
+        f"{outcome} ~ year_c * C(density_band) + C(country) "
+        "+ log10_baseline_c"
     )
     controlled_formula = (
         base_formula
-        + " + winter_snow_anomaly_pp * log10_baseline_c"
+        + " + winter_snow_anomaly_pp"
+        + " + winter_snow_anomaly_pp:log10_baseline_c"
     )
 
     base, opt0 = fit_mixedlm(base_formula, d)
