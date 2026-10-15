@@ -164,3 +164,17 @@ This does not yet justify an ad-hoc 2021 correction. The next task is to define
 a historically general surface-state control and then revisit the
 density-dependent long-term response in both absolute and relative radiance
 space.
+
+### Historical winter snow-control stage ready
+
+The complete 2013-2024 MOD10CM archive is now available locally (142/144
+monthly granules; documented gaps 2016-02 and 2022-10). A new pre-registered
+stage, `future-radiance-historical-snow-control`, is ready to test whether a
+general January-February surface-state covariate materially changes the locked
+fixed-NUTS2016 2014-2024 density trends.
+
+The stage reports matched before/after trends in both proportional and absolute
+radiance space, includes a complete-Jan/Feb sensitivity analysis, and has a
+pre-specified stopping rule for whether full historical albedo acquisition is
+warranted. No result from this stage has yet been viewed and no annual VIIRS
+production value is modified.
