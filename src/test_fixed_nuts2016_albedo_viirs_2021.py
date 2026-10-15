@@ -251,12 +251,15 @@ def validate_alignment(datasets: list[rasterio.io.DatasetReader]) -> None:
 
 
 def determine_albedo_scale(path: Path, fallback: float) -> tuple[float, float, str]:
-    with rasterio.open(path) as ds:
-        scale = float(ds.scales[0]) if ds.scales and np.isfinite(ds.scales[0]) else 1.0
-        offset = float(ds.offsets[0]) if ds.offsets and np.isfinite(ds.offsets[0]) else 0.0
-        if not np.isclose(scale, 1.0) or not np.isclose(offset, 0.0):
-            return scale, offset, "raster_metadata"
+    """Resolve AppEEARS albedo scaling from actual values plus raster metadata.
 
+    AppEEARS exports can differ in whether scale factors are already applied.
+    Therefore a small value sample is inspected first.  If values are already
+    in the physical 0..1 albedo range, unity scaling wins even if inherited
+    metadata contain a non-unity scale.  Otherwise raster scale metadata are
+    tested, then the configured product fallback.
+    """
+    with rasterio.open(path) as ds:
         h = min(ds.height, 256)
         w = min(ds.width, 256)
         row0 = max(0, (ds.height - h) // 2)
@@ -267,17 +270,38 @@ def determine_albedo_scale(path: Path, fallback: float) -> tuple[float, float, s
         if len(vals) == 0:
             raise RuntimeError(f"Could not inspect albedo scaling in {path}")
         q99 = float(np.nanpercentile(vals, 99))
+
+        # AppEEARS may already have applied the product scaling.
         if q99 <= 1.5:
             return 1.0, 0.0, "already_physical"
+
+        meta_scale = (
+            float(ds.scales[0])
+            if ds.scales and np.isfinite(ds.scales[0])
+            else 1.0
+        )
+        meta_offset = (
+            float(ds.offsets[0])
+            if ds.offsets and np.isfinite(ds.offsets[0])
+            else 0.0
+        )
+        meta_q99 = q99 * meta_scale + meta_offset
+        if (
+            (not np.isclose(meta_scale, 1.0) or not np.isclose(meta_offset, 0.0))
+            and 0 <= meta_q99 <= 1.5
+        ):
+            return meta_scale, meta_offset, "raster_metadata"
+
         scaled_q99 = q99 * fallback
-        if scaled_q99 <= 1.5:
+        if 0 <= scaled_q99 <= 1.5:
             return fallback, 0.0, "configured_fallback"
+
         raise RuntimeError(
             f"Ambiguous albedo scaling for {path.name}: sampled 99th percentile "
-            f"is {q99:g}; raster scale metadata are unity and fallback "
-            f"{fallback:g} would give {scaled_q99:g}. Inspect with gdalinfo."
+            f"is {q99:g}; metadata scale/offset={meta_scale:g}/{meta_offset:g}; "
+            f"configured fallback={fallback:g}. Inspect this file with gdalinfo "
+            "before changing the analysis."
         )
-
 
 def build_monthly_composite(
     year: int,
@@ -560,11 +584,6 @@ def build_analysis(
             value = f"{layer}_{mode}_mean"
             valid = f"{layer}_{mode}_valid_area"
             dayfrac = f"{layer}_{mode}_day_fraction"
-            p = zonal.pivot(index="NUTS_ID", columns=["year", "month"])
-            # Use explicit month subsets below; this pivot object is only used
-            # to guarantee a complete year/month key set without label alignment.
-            del p
-
             for month in MONTHS:
                 m = zonal[zonal["month"] == month].copy()
                 pv = m.pivot(index="NUTS_ID", columns="year", values=value)
