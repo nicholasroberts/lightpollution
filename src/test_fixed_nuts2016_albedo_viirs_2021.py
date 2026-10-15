@@ -71,6 +71,8 @@ BAND_NAMES = {
 DATE_PATTERNS = [
     re.compile(r"doy(?P<year>20\d{2})(?P<doy>\d{3})", re.IGNORECASE),
     re.compile(r"\.A(?P<year>20\d{2})(?P<doy>\d{3})\.", re.IGNORECASE),
+    # AppEEARS calendar-date GeoTIFFs use e.g. 20200101T000000.
+    re.compile(r"(?P<year>20\d{2})(?P<month>\d{2})(?P<day>\d{2})T\d{6}", re.IGNORECASE),
     re.compile(r"(?P<year>20\d{2})[-_](?P<month>\d{2})[-_](?P<day>\d{2})"),
 ]
 
@@ -79,12 +81,14 @@ def integration_self_test() -> None:
     names = [
         "VNP43MA3.002_Albedo_WSA_vis_doy2020032_aid0001.tif",
         "VNP43MA3.A2021060.002.Albedo_BSA_vis.tif",
+        "VNP43MA3.002_Albedo_BSA_vis_20200101T000000_aid0001.tif",
         "VNP43MA3_2022-03-15_BRDF_Albedo_Band_Mandatory_Quality_vis.tif",
     ]
     dates = [parse_date_from_name(x) for x in names]
     expected = [
         pd.Timestamp("2020-02-01"),
         pd.Timestamp("2021-03-01"),
+        pd.Timestamp("2020-01-01"),
         pd.Timestamp("2022-03-15"),
     ]
     if dates != expected:
