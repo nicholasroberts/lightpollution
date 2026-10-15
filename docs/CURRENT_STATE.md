@@ -5,6 +5,48 @@
 **Machine:** EcoVis  
 **Repository root:** `/run/media/bznwr/data/lightpollution`
 
+## Overarching objective: historical reality and model response must converge
+
+The immediate snow/albedo work is subordinate to the main scientific problem:
+the future-radiance model must reproduce the historical density-dependent
+radiance behaviour before it is used for projection.
+
+The key diagnostic figure is:
+
+```text
+figures/population_relationship/future_radiance_historical_validation/
+    historical_nuts3_slope_distributions.pdf
+```
+
+It compares the distribution of observed fixed-NUTS2016 2013-2020 NUTS3
+radiance trends in each population-density class with the canonical
+density-class estimates derived from the longer 2013-2024 modelling framework.
+
+The important feature is not merely whether the canonical diamonds lie within
+the broad observed distributions. Their *density-dependent pattern* should agree
+with the historical class behaviour. At present the figure shows a systematic
+tension: the canonical estimates are more positive in sparse classes and
+negative in dense classes, whereas the central tendency of the observed
+2013-2020 distributions is approximately flat/negative in sparse classes and
+more positive in dense classes.
+
+Therefore the current analysis sequence is:
+
+1. identify and explain non-secular disturbances that can rotate the estimated
+   density response, especially the 2021 winter pulse;
+2. quantify whether snow/surface-albedo effects account for those disturbances;
+3. construct a historically defensible radiance series / model specification;
+4. refit the density-dependent temporal response;
+5. regenerate `historical_nuts3_slope_distributions.pdf` using the final model;
+6. require qualitative and quantitative agreement between observed historical
+   class behaviour and model-predicted class trends before using the response
+   for future projection.
+
+The albedo attenuation test is therefore not an end in itself. Its role is to
+determine whether the 2021 pulse is an environmental observation effect that
+should be modelled/controlled rather than interpreted as secular change in
+artificial-light emissions.
+
 ## Current conclusion
 
 The corrected MOD10CM snow test has completed and is valid.
