@@ -103,37 +103,56 @@ def checksum_from_umm(umm: dict[str, Any]) -> tuple[str | None, str | None]:
 
 
 def choose_data_url(umm: dict[str, Any]) -> str:
+    """Choose an HTTP(S) HDF download URL from a CMR granule record.
+
+    CMR can advertise both Earthdata Cloud S3 object URLs and ordinary HTTPS
+    distribution URLs for the same granule.  curl cannot read s3:// URLs unless
+    built with S3 support/extra tooling, and the repository deliberately uses
+    standard curl + Earthdata authentication.  Therefore S3 URLs are *not*
+    candidates here even when CMR labels them "GET DATA VIA DIRECT ACCESS".
+    """
     candidates: list[tuple[int, str]] = []
+    seen_related: list[str] = []
+
     for rel in umm.get("RelatedUrls") or []:
         url = str(rel.get("URL") or "")
         if not url:
             continue
-        path = urllib.parse.urlparse(url).path
-        name = Path(path).name
+        seen_related.append(url)
+
+        parsed = urllib.parse.urlparse(url)
+        if parsed.scheme not in ("http", "https"):
+            continue
+
+        name = Path(parsed.path).name
         if not HDF_RE.match(name):
             continue
+
         rtype = str(rel.get("Type") or "").upper()
         subtype = str(rel.get("Subtype") or "").upper()
-        # Prefer direct data links over service/metadata links.
+
+        # We require an ordinary web URL.  Within that constraint prefer
+        # explicit GET DATA links and HTTPS.
         score = 0
         if rtype == "GET DATA":
-            score += 20
-        if rtype == "GET DATA VIA DIRECT ACCESS":
             score += 30
         if "DIRECT" in subtype:
+            score += 5
+        if parsed.scheme == "https":
             score += 10
-        if url.startswith("https://"):
-            score += 2
         candidates.append((score, url))
 
     if not candidates:
+        preview = "\n".join(f"  {u}" for u in seen_related[:12])
         raise RuntimeError(
-            f"No direct HDF data URL found in CMR record for "
-            f"{umm.get('GranuleUR', '<unknown granule>')}"
+            f"No HTTP(S) HDF data URL found in CMR record for "
+            f"{umm.get('GranuleUR', '<unknown granule>')}. "
+            "CMR related URLs included:\n"
+            f"{preview}"
         )
+
     candidates.sort(key=lambda x: (-x[0], x[1]))
     return candidates[0][1]
-
 
 def build_inventory(items: list[dict[str, Any]], cfg: dict) -> list[dict[str, Any]]:
     first_year = int(cfg["first_year"])
