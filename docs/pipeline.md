@@ -973,7 +973,9 @@ The downloader is idempotent and resumable:
 - a progress/final manifest is written to
   `data/processed/mod10cm_061_history_download_manifest.csv`;
 - missing requested months are a hard failure except explicitly documented
-  allowed gaps (currently 2022-10 from the earlier validated archive).
+  archive gaps. Within 2013-2024 these are 2016-02 and 2022-10. The former
+  coincides with the February 2016 Terra MODIS safe-mode outage; the latter
+  with the October 2022 Terra constellation-exit outage.
 
 Authentication is supplied outside Git. The preferred method is an Earthdata
 Login user token in the `EARTHDATA_TOKEN` environment variable. Standard
