@@ -187,3 +187,18 @@ added baseline brightness as part of the tested block. Commit `dcaaca3`
 holds baseline brightness constant in both models and tests only snow + snow x
 brightness. The pre-registered stopping rule is unchanged. A clean rerun is
 required before deciding whether historical albedo acquisition is warranted.
+
+### Corrected historical snow-control primary result
+
+After the formula fix, the intended 2-df snow + snow x baseline-brightness
+block is significant in proportional radiance (p=0.000132) but not in absolute
+radiance (p=0.151). Despite that within-series explanatory power, the
+2014-2024 density-class secular trends move only trivially in proportional
+space and the large 2021 annual residual remains mostly intact. Two dark
+classes cross the pre-registered normalized absolute materiality threshold only
+because very small physical nW shifts are large relative to their low baseline.
+
+The formal pre-registered rule therefore returns
+`historical_albedo_warranted=True`, but the corrected complete-Jan/Feb
+sensitivity output should be reviewed before initiating a large historical
+albedo download.
