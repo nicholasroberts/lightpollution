@@ -71,6 +71,29 @@ The full 2020-2022 within-region seasonal relationship is not generally
 positive, so the conclusion is specific to the winter 2021 event rather than a
 universal European snow-brightness rule.
 
+## Executable albedo stage
+
+The focused albedo attenuation test is now committed and registered:
+
+```bash
+python src/run_pipeline.py future-radiance-albedo-2021-test
+```
+
+Place all three AppEEARS January-March bundles (2020, 2021, 2022) somewhere
+under:
+
+```text
+data/raw/modis/VNP43MA3_002/
+```
+
+ZIP bundles can remain zipped. The stage will refuse to run a partial
+2020-2022 inventory.
+
+Primary interpretation remains absolute nW radiance; relative percentage
+anomaly is reported alongside it specifically to prevent small-denominator
+percentage changes in dark regions from being mistaken for large physical
+radiance changes.
+
 ## Next scientific task
 
 Follow the published seasonal-night-light framework one step further by adding:
