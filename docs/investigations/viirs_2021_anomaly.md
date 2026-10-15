@@ -857,3 +857,86 @@ The next model-development task should return to the main historical question:
 how to control winter surface-state disturbances without tuning specifically to
 2021, then refit the density-dependent long-term response and regenerate the
 historical validation in both absolute and proportional radiance units.
+
+## Pre-registered historical snow-control test
+
+Following the validated January-February snow and albedo mechanism work, the
+next question is whether winter surface state materially biases the inferred
+2014-2024 density-dependent annual VIIRS trends.
+
+Stage:
+
+```bash
+python src/run_pipeline.py future-radiance-historical-snow-control
+```
+
+This stage is diagnostic and uses the locked fixed-NUTS2016 2014-2024 cohort
+and density classes. It does not alter annual VIIRS values and does not assign
+a special correction to 2021.
+
+### Surface-state covariate
+
+For every NUTS3 region and year, January and February MOD10CM snow are
+extracted with the already validated physical-code masking and area-weighted
+zonal method. Each monthly value is converted to a region/month-specific
+leave-one-out anomaly:
+
+```text
+snow anomaly(year, month)
+  = snow(year, month) - mean[snow(other years, same region/month)]
+```
+
+The winter surface-state index is the mean of the available January/February
+month-specific anomalies. This choice is important for the genuine 2016-02
+archive gap: January 2016 can contribute as a January *anomaly* without being
+treated as a substitute for a raw two-month winter mean.
+
+Primary sample: at least one valid winter month.
+Sensitivity sample: both January and February valid.
+
+### Matched model comparison
+
+For each sample and each reporting space, the same observations are used
+before and after surface-state control.
+
+Unadjusted:
+
+```text
+radiance ~ year x density band + country + NUTS3 random intercept
+```
+
+Controlled:
+
+```text
+radiance ~ year x density band + country
+         + winter snow anomaly x fixed baseline brightness
+         + NUTS3 random intercept
+```
+
+Reporting spaces:
+
+1. log10 calibrated radiance, converted to % yr-1;
+2. calibrated radiance in absolute nW cm-2 sr-1 yr-1.
+
+The snow x baseline-brightness interaction is pre-specified from the validated
+2021 mechanism: the same reflecting-surface change can produce a larger
+absolute VIIRS response where more artificial light is available to reflect.
+
+### Pre-registered stopping rule
+
+Historical albedo acquisition is considered scientifically warranted only if:
+
+1. the added snow block is significant at alpha=0.05 in at least one primary
+   reporting space; **and**
+2. at least two density classes move materially after snow control.
+
+A proportional trend shift is material if it is at least 0.25 percentage
+points yr-1, at least 25% of a non-trivial unadjusted trend, or causes a
+non-trivial sign reversal.
+
+An absolute trend shift is material if it is at least 0.25% of that class's
+median baseline radiance per year, with the same relative/sign safeguards.
+
+If this rule is not met, winter surface state will be retained as an
+explanation for the 2021 pulse but will not be pursued as the main explanation
+for the broader historical/model discrepancy.
