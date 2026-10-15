@@ -216,3 +216,17 @@ proportional VIIRS variation but does not robustly alter the 2014-2024
 density-dependent secular trend. Full historical albedo, if pursued, should be
 framed as a mechanism/refinement test rather than as the expected explanation
 for the historical/model discrepancy.
+
+### Historical surface-state branch closed
+
+The corrected historical snow-control analysis shows that winter surface state
+has statistically detectable short-term proportional effects but negligible
+practical leverage on the main annual/secular results. For 2021, the
+country-balanced proportional residual falls only from 12.7405% to 12.0225%
+(~5.6% reduction) after the general snow control, while the long-term
+density-class trends are essentially unchanged.
+
+Accordingly, do **not** proceed to a large historical albedo acquisition for the
+main trend analysis. Retain the targeted 2021 snow/albedo work as mechanistic
+evidence for the winter pulse, but return the main workflow to modelling the
+density-dependent anthropogenic radiance trend itself.
