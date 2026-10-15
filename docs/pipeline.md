@@ -982,3 +982,26 @@ The downloader is idempotent and restartable:
 Authentication is supplied outside Git through the standard Earthdata
 `~/.netrc` credentials and NASA's `earthaccess` library. AppEEARS API session
 tokens are not used for this stage.
+
+## Historical winter surface-state control
+
+Run after the complete MOD10CM archive is available:
+
+```bash
+python src/run_pipeline.py future-radiance-historical-snow-control
+```
+
+The stage extracts January-February MOD10CM snow on the locked fixed-NUTS2016
+cohort, constructs region/month-specific leave-one-out snow anomalies, and
+tests whether adding the winter surface-state term changes 2014-2024
+density-class radiance trends.
+
+The primary analysis allows one or two valid winter months because February
+2016 is a documented archive gap; the month-specific anomaly construction
+keeps the one-month 2016 value on a comparable anomaly scale. A stricter
+two-month sensitivity analysis excludes such rows.
+
+Outputs include the monthly snow extraction, annual winter index, availability
+audit, matched before/after trend table in proportional and absolute radiance
+space, model tests, NUTS3 region slopes, annual residual diagnostics, and
+publication-ready PDF figures. The stage never overwrites production VIIRS.
