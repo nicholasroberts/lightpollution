@@ -217,10 +217,15 @@ def build_inventory(items: list[dict[str, Any]], cfg: dict) -> list[dict[str, An
 
 
 def authentication_mode() -> tuple[str, str | None]:
-    token = os.environ.get("EARTHDATA_TOKEN", "").strip()
-    if token:
-        return "bearer_token", token
+    """Resolve authentication for NSIDC Earthdata Cloud HTTPS.
 
+    NSIDC's current command-line guidance for data.nsidc.earthdatacloud.nasa.gov
+    uses Earthdata Login credentials in ~/.netrc plus a persistent cookie jar.
+    A generic EDL bearer user token can authenticate some EDL-enabled services,
+    but the NSIDC Earthdata Cloud HTTPS endpoint used by MOD10CM returns HTTP
+    401 for that path.  Prefer the documented .netrc workflow and fail clearly
+    rather than retrying an incompatible bearer token.
+    """
     netrc_path = Path.home() / ".netrc"
     if netrc_path.exists():
         try:
@@ -229,23 +234,49 @@ def authentication_mode() -> tuple[str, str | None]:
             )
         except (netrc.NetrcParseError, OSError) as exc:
             raise RuntimeError(f"Could not parse {netrc_path}: {exc}") from exc
-        if auth:
+        if auth and auth[0] and auth[2]:
+            mode = netrc_path.stat().st_mode & 0o777
+            if mode & 0o077:
+                raise RuntimeError(
+                    f"{netrc_path} permissions are {oct(mode)}; Earthdata "
+                    "credentials should be private. Run: chmod 600 ~/.netrc"
+                )
             return "netrc", None
 
-    raise RuntimeError(
-        "No Earthdata authentication found. Either set EARTHDATA_TOKEN to an "
-        "Earthdata Login user token, or configure ~/.netrc for "
-        "urs.earthdata.nasa.gov. An AppEEARS API session token is not the same "
-        "credential."
-    )
+    if os.environ.get("EARTHDATA_TOKEN", "").strip():
+        raise RuntimeError(
+            "EARTHDATA_TOKEN is set, but NSIDC Earthdata Cloud HTTPS returned "
+            "HTTP 401 for bearer-token access. Configure the documented "
+            "~/.netrc Earthdata Login workflow instead, then rerun. The file "
+            "must contain a machine entry for urs.earthdata.nasa.gov and have "
+            "permissions 600."
+        )
 
+    raise RuntimeError(
+        "No usable Earthdata authentication found. NSIDC Earthdata Cloud HTTPS "
+        "requires the standard ~/.netrc + cookie workflow for this downloader. "
+        "Create ~/.netrc with a machine entry for urs.earthdata.nasa.gov, then "
+        "run chmod 600 ~/.netrc and rerun the pipeline."
+    )
 
 def curl_base(auth_mode: str, token: str | None) -> list[str]:
     curl = shutil.which("curl")
     if not curl:
         raise RuntimeError("curl is required for authenticated MOD10CM downloads.")
 
-    cmd = [
+    if auth_mode != "netrc":
+        raise RuntimeError(
+            f"Unsupported authentication mode for NSIDC Earthdata Cloud: {auth_mode}"
+        )
+
+    cookie = Path.home() / ".urs_cookies"
+    cookie.touch(exist_ok=True)
+    try:
+        cookie.chmod(0o600)
+    except OSError:
+        pass
+
+    return [
         curl,
         "--location",
         "--fail",
@@ -253,21 +284,10 @@ def curl_base(auth_mode: str, token: str | None) -> list[str]:
         "--retry", "5",
         "--retry-delay", "3",
         "--retry-all-errors",
+        "--netrc",
+        "--cookie", str(cookie),
+        "--cookie-jar", str(cookie),
     ]
-    if auth_mode == "bearer_token":
-        cmd += ["--header", f"Authorization: Bearer {token}"]
-    elif auth_mode == "netrc":
-        cookie = Path.home() / ".urs_cookies"
-        cookie.touch(exist_ok=True)
-        cmd += [
-            "--netrc",
-            "--cookie", str(cookie),
-            "--cookie-jar", str(cookie),
-        ]
-    else:
-        raise ValueError(auth_mode)
-    return cmd
-
 
 def compute_checksum(path: Path, algorithm: str) -> str:
     name = algorithm.replace("-", "").lower()
