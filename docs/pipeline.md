@@ -919,3 +919,29 @@ questions remain visible as the code evolves:
 The exact command needed to resume the active investigation is maintained in
 `docs/CURRENT_STATE.md`.
 
+## VNP43MA3 surface-albedo attenuation test
+
+After the clean MOD10CM result linked anomalous January-February 2021 snow
+cover to the VIIRS pulse, the next pre-specified mechanism stage is:
+
+```bash
+python src/run_pipeline.py future-radiance-albedo-2021-test
+```
+
+The stage ingests AppEEARS `VNP43MA3.002` January-March daily visible
+white-sky albedo, black-sky albedo and mandatory-quality rasters for
+2020-2022. Daily overlapping BRDF/albedo estimates are reduced to monthly
+surface-state composites before fixed-NUTS2016 extraction.
+
+The formal model sequence compares controls only, snow, albedo, and combined
+snow+albedo models. The primary endpoint is attenuation of the snow block after
+albedo enters. February is primary, January supportive and March a negative
+control.
+
+Absolute VIIRS anomaly in nW cm-2 sr-1 is primary. Relative percentage anomaly
+is retained as a separate context/sensitivity result because percentage changes
+in low-radiance regions can be numerically large while remaining physically
+small.
+
+This stage is mechanistic and diagnostic. It does not alter the annual
+production radiance series.
