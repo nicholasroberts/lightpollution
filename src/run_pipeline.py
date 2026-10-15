@@ -52,6 +52,7 @@ STAGES = {
     "future-radiance-download-monthly-2021": PROJECT_ROOT / "src" / "fetch_eog_monthly_vcmslcfg_2021.py",
     "future-radiance-monthly-2021-localization": PROJECT_ROOT / "src" / "diagnose_fixed_nuts2016_monthly_2021_localization.py",
     "future-radiance-snow-2021-test": PROJECT_ROOT / "src" / "test_fixed_nuts2016_snow_viirs_2021.py",
+    "future-radiance-albedo-2021-test": PROJECT_ROOT / "src" / "test_fixed_nuts2016_albedo_viirs_2021.py",
     "habitability-fetch": PROJECT_ROOT / "src" / "fetch_habitability_inputs.py",
     "habitability-build": PROJECT_ROOT / "src" / "build_habitability_metric.py",
     "habitability-historical-validation": PROJECT_ROOT / "src" / "validate_habitability_historical_change.py",
