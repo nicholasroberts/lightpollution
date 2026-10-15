@@ -405,6 +405,30 @@ analysis:
     # it will still be downloaded because this list only permits absence.
     allowed_missing_year_month: ["2016-02", "2022-10"]
 
+  fixed_nuts2016_historical_snow_control:
+    # General historical surface-state control. The locked fixed-NUTS2016
+    # 2014-2024 panel and density classes are unchanged; 2021 receives no
+    # special correction.
+    first_year: 2014
+    last_year: 2024
+    mod10cm_raw_dir: data/raw/modis/MOD10CM_061
+    winter_months: [1, 2]
+    # February 2016 is a documented MOD10CM/Terra archive gap. It is retained
+    # as missing; the primary month-anomaly index can use January alone.
+    allowed_missing_year_month: ["2016-02"]
+    min_snow_valid_area_fraction: 0.50
+    min_climatology_other_years: 5
+    primary_min_winter_months: 1
+    sensitivity_min_winter_months: 2
+    # Pre-registered practical materiality thresholds for deciding whether a
+    # much larger historical albedo acquisition is scientifically warranted.
+    material_pct_shift_pp_per_year: 0.25
+    material_relative_shift_fraction: 0.25
+    material_absolute_shift_pct_of_baseline_per_year: 0.25
+    material_min_density_classes: 2
+    selection_alpha: 0.05
+    figure_dpi: 350
+
   fixed_nuts2016_albedo_viirs_test:
     # Focused mechanism test: does January-March 2021 visible surface-albedo
     # anomaly predict the VIIRS anomaly and attenuate the validated snow block?
