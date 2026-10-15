@@ -755,3 +755,105 @@ f07c53f8  Fix NUTS ID alignment in snow anomaly pivots
 e5abd14   Fix literal newline in snow test constants
 7674701   Allow only roundoff-scale MOD10CM boundary overshoot
 ```
+
+## Validated albedo attenuation result — 2026-10-15
+
+The pre-registered VNP43MA3 visible-albedo attenuation stage completed
+successfully after the CRS fix. The primary analysis was February 2021,
+white-sky visible albedo (WSA), mandatory QA 0/1, absolute VIIRS anomaly.
+
+### Primary February result
+
+```text
+n NUTS3                         1497
+region Spearman rho             +0.7198
+country-median rho              +0.8440
+
+M0 controls R2                   0.3026
+M1 controls + snow R2            0.4981
+M2 controls + albedo R2          0.4657
+M3 controls + snow + albedo R2   0.5079
+
+snow partial R2 before albedo     0.2803
+snow partial R2 after albedo      0.0789
+snow-block attenuation           71.8%
+
+albedo partial R2 after snow      0.0196
+albedo block p, HC3               0.0073
+albedo block p, country cluster   0.0121
+
+snow block p, HC3                 0.0013
+snow block p, country cluster     0.00037
+```
+
+This meets the pre-specified primary criterion: February albedo anomaly strongly
+tracks the absolute VIIRS anomaly, adds explanatory power beyond snow, and
+materially attenuates the snow block. Snow remains independently informative,
+so the result supports a shared surface-state pathway rather than complete
+replacement of snow by albedo.
+
+The February snow and WSA albedo anomalies are themselves strongly correlated
+(Spearman rho approximately 0.85), so coefficient-level interpretation is
+limited by collinearity. The pre-specified block-level attenuation / partial-R2
+comparison is therefore the more appropriate summary.
+
+### Replication and controls
+
+January independently supports the same mechanism. For primary WSA QA0/1,
+region rho is +0.5107 and country-median rho +0.7677. The snow block attenuates
+by about 90.8% after albedo enters, while albedo retains substantial independent
+explanatory power.
+
+March is a useful negative control. The raw WSA QA0/1 rank correlation is small
+(+0.1548) and becomes practically null in the adjusted model: albedo partial R2
+after snow is about 0.0011, with albedo-block p=0.834 (HC3) and p=0.882
+(country-clustered). The very small unadjusted p-value is therefore a sample-size
+effect rather than meaningful explanatory power.
+
+Black-sky albedo closely reproduces the primary February result: region rho
++0.7222, snow-block attenuation 71.6%, and albedo partial R2 after snow 0.0210.
+
+### QA sensitivity
+
+The QA0-only sensitivity is much smaller in winter (February n=310, 17
+countries, versus 1497 / 31 for QA0/1) and does not independently support the
+albedo block after adjustment. This is not treated as equivalent evidence
+against the primary result because QA0 requires full BRDF inversion and
+therefore conditions on a strongly selective subset of winter observations.
+However, it is an important limitation and must be reported: the clean
+Europe-wide result depends on including both full and magnitude BRDF inversions
+(QA 0/1), as pre-specified.
+
+### Absolute versus relative radiance
+
+The February density-class result demonstrates why percentage trends cannot be
+read as physical radiance changes:
+
+```text
+density       median absolute anomaly     median relative anomaly
+<30                  0.234 nW                    35.4%
+30-100               0.314 nW                    37.9%
+100-300              0.768 nW                    55.5%
+300-1000             1.919 nW                    55.9%
+>=1000               5.624 nW                    45.3%
+```
+
+Thus the >=1000 class has an absolute February anomaly roughly 24 times the
+<30 class despite broadly comparable proportional anomalies. This is now a hard
+constraint on the historical-model reconciliation: both absolute and relative
+radiance space must be examined.
+
+### Scientific interpretation
+
+The evidence now strongly supports the January-February 2021 disturbance as a
+surface-reflectance event. Snow cover and visible albedo are overlapping
+indicators of that surface state; albedo substantially explains the component
+previously attributed to snow, but snow retains independent information.
+
+This is mechanistic attenuation in observational data, not formal causal
+mediation.
+
+The next model-development task should return to the main historical question:
+how to control winter surface-state disturbances without tuning specifically to
+2021, then refit the density-dependent long-term response and regenerate the
+historical validation in both absolute and proportional radiance units.
