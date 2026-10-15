@@ -178,3 +178,12 @@ radiance space, includes a complete-Jan/Feb sensitivity analysis, and has a
 pre-specified stopping rule for whether full historical albedo acquisition is
 warranted. No result from this stage has yet been viewed and no annual VIIRS
 production value is modified.
+
+### Historical snow-control rerun required after formula audit
+
+The first output from `future-radiance-historical-snow-control` is invalid for
+scientific interpretation because the controlled Patsy formula inadvertently
+added baseline brightness as part of the tested block. Commit `dcaaca3`
+holds baseline brightness constant in both models and tests only snow + snow x
+brightness. The pre-registered stopping rule is unchanged. A clean rerun is
+required before deciding whether historical albedo acquisition is warranted.
