@@ -574,6 +574,138 @@ mediation, because all variables are observational.
 
 ---
 
+## Pre-registered albedo attenuation test — 2026-10-15
+
+The next mechanism stage is now implemented as:
+
+```bash
+python src/run_pipeline.py future-radiance-albedo-2021-test
+```
+
+It is intentionally narrower than a new exploratory surface-model sweep. Its
+single primary question is:
+
+> Does visible surface-albedo anomaly predict the February 2021 VIIRS anomaly,
+> and does adding albedo materially attenuate the validated snow block?
+
+Pre-specification:
+
+```text
+months:
+    February primary
+    January supportive
+    March negative control
+
+surface variable:
+    VNP43MA3.002 Albedo_WSA_vis primary
+    Albedo_BSA_vis sensitivity
+
+mandatory-quality handling:
+    QA 0/1 primary
+    QA 0 only stricter sensitivity
+
+anomaly:
+    2021 - mean(2020, 2022)
+
+controls:
+    country
+    latitude
+    baseline VIIRS brightness
+    cf_cvg anomaly
+
+interaction:
+    snow x baseline brightness
+    albedo x baseline brightness
+```
+
+The sequential models are frozen before viewing the albedo result:
+
+```text
+M0 = controls only
+M1 = controls + snow + snow x brightness
+M2 = controls + albedo + albedo x brightness
+M3 = controls + snow + snow x brightness
+              + albedo + albedo x brightness
+```
+
+The primary attenuation statistic is the reduction in the snow-block partial
+R2 from `M1 vs M0` to `M3 vs M2`. Main-effect coefficient attenuation is
+reported as a secondary summary because the snow x brightness interaction means
+one snow coefficient alone does not represent the whole snow effect.
+
+Both HC3 and country-clustered uncertainty are retained for the combined model.
+
+### Absolute versus relative radiance is a hard requirement
+
+The primary mechanism outcome is the **absolute** VIIRS anomaly in
+nW cm-2 sr-1. The stage also calculates:
+
+```text
+relative anomaly (%) =
+    100 x [R2021 - mean(R2020,R2022)] / mean(R2020,R2022)
+```
+
+and writes a density-class context table and paired figure showing absolute and
+relative results.
+
+This distinction is essential for the eventual historical/model reconciliation:
+a large percentage change in a very dark NUTS3 can represent much less physical
+radiance than a small percentage change in a bright NUTS3. The final
+density-dependent historical response must therefore agree with observations in
+both proportional and absolute radiance space rather than being tuned to the
+percentage-trend figure alone.
+
+### AppEEARS input layout
+
+The stage recursively discovers the three JFM AppEEARS downloads under:
+
+```text
+data/raw/modis/VNP43MA3_002/
+```
+
+The downloads may be placed in separate year/request subdirectories or left as
+ZIP bundles. The required layers are:
+
+```text
+Albedo_WSA_vis
+Albedo_BSA_vis
+BRDF_Albedo_Band_Mandatory_Quality_vis
+```
+
+All daily dates from January-March 2020, 2021 and 2022 must be present before
+the analysis runs. Missing dates/layers cause a hard stop with an inventory
+report rather than a partial analysis.
+
+Daily BRDF/albedo products are aggregated to one monthly surface-state raster
+before NUTS3 extraction. The code checks whether AppEEARS has already applied
+albedo scale factors and refuses ambiguous scaling instead of silently guessing.
+
+### Outputs reserved for the paper trail
+
+```text
+data/processed/fixed_nuts2016_vnp43ma3_manifest.csv
+data/processed/fixed_nuts2016_vnp43ma3_monthly_2020_2022.csv
+data/processed/fixed_nuts2016_albedo_snow_viirs_anomaly_regional.csv
+data/processed/fixed_nuts2016_albedo_2021_anomaly_tests.csv
+data/processed/fixed_nuts2016_albedo_snow_attenuation_models.csv
+data/processed/fixed_nuts2016_albedo_viirs_density_context.csv
+data/processed/fixed_nuts2016_albedo_viirs_test_summary.txt
+
+figures/population_relationship/fixed_nuts2016_albedo_viirs_test/
+    february_wsa_albedo_vs_viirs_anomaly_absolute.pdf
+    february_wsa_albedo_vs_viirs_anomaly_relative.pdf
+    february_snow_albedo_partial_r2.pdf
+    albedo_viirs_rho_jan_feb_mar.pdf
+    february_viirs_anomaly_absolute_relative_by_density.pdf
+```
+
+If the albedo pathway is supported, this stage still does **not** directly
+rewrite the annual 2013-2024 series. The following step is to define a
+scientifically defensible control/correction for the 2021 surface-reflectance
+disturbance and then refit the long-term density response, with the
+historical-distribution comparison regenerated in both relative and absolute
+radiance space.
+
 ## Current next step
 
 The snow hypothesis has now passed the clean pre-specified test. Do **not**
