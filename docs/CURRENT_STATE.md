@@ -149,3 +149,18 @@ extracted against EPSG:4326 NUTS polygons. This produced no eligible albedo
 models and the run stopped at plotting. Commit `64ed94c` fixes the extraction,
 invalidates only the bad zonal caches, and preserves the expensive valid monthly
 composites. No failed-run numerical result is used.
+
+### Albedo mechanism result
+
+The corrected VNP43MA3 attenuation stage now strongly supports the
+January-February 2021 pulse as a surface-reflectance disturbance. Primary
+February WSA QA0/1: region rho +0.7198, country-median rho +0.8440; adding
+albedo reduces the snow-block partial R2 from 0.2803 to 0.0789 (71.8%
+attenuation), while albedo retains independent explanatory power beyond snow
+(partial R2 0.0196; p=0.0073 HC3, 0.0121 country-clustered). March is
+practically null after adjustment.
+
+This does not yet justify an ad-hoc 2021 correction. The next task is to define
+a historically general surface-state control and then revisit the
+density-dependent long-term response in both absolute and relative radiance
+space.
