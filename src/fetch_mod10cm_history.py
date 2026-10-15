@@ -40,6 +40,15 @@ import urllib.request
 from pathlib import Path
 from typing import Any
 
+try:
+    import earthaccess
+except ImportError as exc:
+    raise RuntimeError(
+        "The historical MOD10CM downloader now uses NASA's earthaccess "
+        "library for authenticated Earthdata Cloud downloads. Install the "
+        "project requirements with: python -m pip install -r requirements.txt"
+    ) from exc
+
 from project_config import PROJECT_ROOT, load_config
 
 
@@ -216,78 +225,38 @@ def build_inventory(items: list[dict[str, Any]], cfg: dict) -> list[dict[str, An
     return [by_key[key] for key in sorted(by_key)]
 
 
-def authentication_mode() -> tuple[str, str | None]:
-    """Resolve authentication for NSIDC Earthdata Cloud HTTPS.
+def authenticate_earthaccess():
+    """Authenticate through NASA's supported earthaccess client.
 
-    NSIDC's current command-line guidance for data.nsidc.earthdatacloud.nasa.gov
-    uses Earthdata Login credentials in ~/.netrc plus a persistent cookie jar.
-    A generic EDL bearer user token can authenticate some EDL-enabled services,
-    but the NSIDC Earthdata Cloud HTTPS endpoint used by MOD10CM returns HTTP
-    401 for that path.  Prefer the documented .netrc workflow and fail clearly
-    rather than retrying an incompatible bearer token.
+    earthaccess handles the OAuth/EDL session needed by Earthdata Cloud HTTPS
+    endpoints and is more robust than reproducing the redirect/cookie flow with
+    raw curl.  The user's ~/.netrc remains the credential source.
     """
     netrc_path = Path.home() / ".netrc"
-    if netrc_path.exists():
-        try:
-            auth = netrc.netrc(str(netrc_path)).authenticators(
-                "urs.earthdata.nasa.gov"
-            )
-        except (netrc.NetrcParseError, OSError) as exc:
-            raise RuntimeError(f"Could not parse {netrc_path}: {exc}") from exc
-        if auth and auth[0] and auth[2]:
-            mode = netrc_path.stat().st_mode & 0o777
-            if mode & 0o077:
-                raise RuntimeError(
-                    f"{netrc_path} permissions are {oct(mode)}; Earthdata "
-                    "credentials should be private. Run: chmod 600 ~/.netrc"
-                )
-            return "netrc", None
-
-    if os.environ.get("EARTHDATA_TOKEN", "").strip():
+    if not netrc_path.exists():
         raise RuntimeError(
-            "EARTHDATA_TOKEN is set, but NSIDC Earthdata Cloud HTTPS returned "
-            "HTTP 401 for bearer-token access. Configure the documented "
-            "~/.netrc Earthdata Login workflow instead, then rerun. The file "
-            "must contain a machine entry for urs.earthdata.nasa.gov and have "
-            "permissions 600."
+            "No ~/.netrc found. Configure Earthdata Login credentials first."
+        )
+    mode = netrc_path.stat().st_mode & 0o777
+    if mode & 0o077:
+        raise RuntimeError(
+            f"{netrc_path} permissions are {oct(mode)}; run: chmod 600 ~/.netrc"
         )
 
-    raise RuntimeError(
-        "No usable Earthdata authentication found. NSIDC Earthdata Cloud HTTPS "
-        "requires the standard ~/.netrc + cookie workflow for this downloader. "
-        "Create ~/.netrc with a machine entry for urs.earthdata.nasa.gov, then "
-        "run chmod 600 ~/.netrc and rerun the pipeline."
-    )
-
-def curl_base(auth_mode: str, token: str | None) -> list[str]:
-    curl = shutil.which("curl")
-    if not curl:
-        raise RuntimeError("curl is required for authenticated MOD10CM downloads.")
-
-    if auth_mode != "netrc":
-        raise RuntimeError(
-            f"Unsupported authentication mode for NSIDC Earthdata Cloud: {auth_mode}"
-        )
-
-    cookie = Path.home() / ".urs_cookies"
-    cookie.touch(exist_ok=True)
     try:
-        cookie.chmod(0o600)
-    except OSError:
-        pass
+        auth = earthaccess.login(strategy="netrc")
+    except Exception as exc:
+        raise RuntimeError(
+            "earthaccess could not authenticate with Earthdata Login using "
+            "~/.netrc. Check the EDL username/password and any required "
+            "application authorization."
+        ) from exc
 
-    return [
-        curl,
-        "--location",
-        "--fail",
-        "--show-error",
-        "--retry", "5",
-        "--retry-delay", "3",
-        "--retry-all-errors",
-        "--netrc",
-        "--cookie", str(cookie),
-        "--cookie-jar", str(cookie),
-    ]
+    if not getattr(auth, "authenticated", False):
+        raise RuntimeError(
+            "earthaccess returned without an authenticated Earthdata session."
+        )
+    return auth
 
 def compute_checksum(path: Path, algorithm: str) -> str:
     name = algorithm.replace("-", "").lower()
@@ -316,8 +285,6 @@ def validate_existing(
 def download_one(
     row: dict[str, Any],
     raw_dir: Path,
-    auth_mode: str,
-    token: str | None,
 ) -> dict[str, Any]:
     target = raw_dir / row["filename"]
     ok, checksum_actual = validate_existing(
@@ -333,26 +300,54 @@ def download_one(
             print(f"Existing file failed validation; redownloading {target.name}")
             target.unlink()
 
-        part = target.with_name(target.name + ".part")
-        cmd = curl_base(auth_mode, token)
-        if part.exists() and part.stat().st_size > 0:
-            cmd += ["--continue-at", "-"]
-        cmd += ["--output", str(part), row["url"]]
-
         print(
             f"DOWNLOAD {row['year']}-{row['month']:02d} {target.name}",
             flush=True,
         )
-        result = subprocess.run(cmd)
-        if result.returncode != 0:
-            raise RuntimeError(
-                f"Download failed for {row['year']}-{row['month']:02d}: "
-                f"{row['url']}"
-            )
-        if not part.exists() or part.stat().st_size <= 1024:
-            raise RuntimeError(f"Downloaded file is unexpectedly small: {part}")
 
-        part.replace(target)
+        # earthaccess accepts HTTP URL strings when the provider is supplied.
+        # Running one granule at a time preserves the existing per-file
+        # checksum, progress-manifest, and clean-restart semantics.
+        try:
+            paths = earthaccess.download(
+                [row["url"]],
+                local_path=str(raw_dir),
+                provider="NSIDC_CPRD",
+                threads=1,
+                show_progress=True,
+                force=True,
+            )
+        except Exception as exc:
+            raise RuntimeError(
+                f"earthaccess download failed for "
+                f"{row['year']}-{row['month']:02d}: {row['url']}"
+            ) from exc
+
+        if not paths:
+            raise RuntimeError(
+                f"earthaccess returned no local file for {row['filename']}"
+            )
+
+        # earthaccess normally preserves the source filename.  Resolve its
+        # returned path explicitly so a future library change cannot silently
+        # leave the expected archive entry absent.
+        returned = Path(paths[0])
+        if not returned.is_absolute():
+            returned = (PROJECT_ROOT / returned).resolve()
+        if not target.exists() and returned.exists():
+            if returned.name != target.name:
+                raise RuntimeError(
+                    f"earthaccess downloaded {returned.name}, expected "
+                    f"{target.name}"
+                )
+            if returned.resolve() != target.resolve():
+                returned.replace(target)
+
+        if not target.exists() or target.stat().st_size <= 1024:
+            raise RuntimeError(
+                f"Downloaded file is missing or unexpectedly small: {target}"
+            )
+
         ok, checksum_actual = validate_existing(
             target,
             row["checksum_algorithm"],
@@ -374,7 +369,6 @@ def download_one(
         }
     )
     return out
-
 
 def write_manifest(rows: list[dict[str, Any]], path: Path) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
@@ -428,15 +422,15 @@ def main() -> None:
     inventory = build_inventory(items, cfg)
     print(f"CMR discovered {len(inventory)} requested MOD10CM granules.", flush=True)
 
-    auth_mode, token = authentication_mode()
-    print(f"Earthdata authentication mode: {auth_mode}", flush=True)
+    authenticate_earthaccess()
+    print("Earthdata authentication mode: earthaccess/netrc", flush=True)
 
     completed: list[dict[str, Any]] = []
     manifest = PROJECT_ROOT / str(cfg["manifest_file"])
     try:
         for row in inventory:
             completed.append(
-                download_one(row, raw_dir, auth_mode, token)
+                download_one(row, raw_dir)
             )
             # Persist progress so an interrupted long run remains auditable.
             write_manifest(completed, manifest)
