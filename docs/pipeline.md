@@ -965,7 +965,9 @@ The full 12-month archive is retained even though the first historical control
 will focus on January-February. This avoids repeated acquisition if later
 seasonal diagnostics are required.
 
-The downloader is idempotent and resumable:
+Authenticated transfer is handled by NASA's `earthaccess` client using the user's Earthdata Login credentials from `~/.netrc`. This avoids reproducing Earthdata Cloud OAuth/redirect handling with raw curl.
+
+The downloader is idempotent and restartable:
 
 - existing HDF files are reused;
 - partial files are written as `.part` and resumed with curl;
@@ -977,7 +979,6 @@ The downloader is idempotent and resumable:
   coincides with the February 2016 Terra MODIS safe-mode outage; the latter
   with the October 2022 Terra constellation-exit outage.
 
-Authentication is supplied outside Git. The preferred method is an Earthdata
-Login user token in the `EARTHDATA_TOKEN` environment variable. Standard
-Earthdata `~/.netrc` authentication is also supported. AppEEARS API session
+Authentication is supplied outside Git through the standard Earthdata
+`~/.netrc` credentials and NASA's `earthaccess` library. AppEEARS API session
 tokens are not used for this stage.
