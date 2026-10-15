@@ -481,27 +481,49 @@ def extract_monthly_zonal(
     id_field = config["nuts"]["id_field"]
     cache_dir.mkdir(parents=True, exist_ok=True)
     cache = cache_dir / f"vnp43ma3_nuts2016_{year}_{month:02d}.parquet"
-    signature = f"{tif.name}:{tif.stat().st_size}"
-
-    if cache.exists():
-        d = pd.read_parquet(cache)
-        required = {id_field, "year", "month", "source_signature"}
-        if required.issubset(d.columns):
-            if (
-                d["source_signature"].dropna().astype(str).unique().tolist() == [signature]
-                and set(d[id_field].astype(str)) == set(nuts[id_field].astype(str))
-            ):
-                return d
+    # Cache version 2: the AppEEARS outputs are in native MODIS/VIIRS
+    # sinusoidal coordinates, whereas the locked NUTS2016 geometry is EPSG:4326.
+    # Earlier code passed the unprojected polygons directly to exactextract,
+    # yielding rows but effectively no spatial overlap.  Reproject the polygons
+    # to the raster CRS before zonal extraction and invalidate those old caches.
+    cache_version = "zonal_v2_reproject_to_raster_crs"
 
     with rasterio.open(tif) as ds:
+        if ds.crs is None:
+            raise RuntimeError(f"Monthly VNP43MA3 composite has no CRS: {tif}")
+        signature = (
+            f"{cache_version}:{tif.name}:{tif.stat().st_size}:{ds.crs.to_string()}"
+        )
+
+        if cache.exists():
+            d = pd.read_parquet(cache)
+            required = {id_field, "year", "month", "source_signature"}
+            if required.issubset(d.columns):
+                if (
+                    d["source_signature"].dropna().astype(str).unique().tolist()
+                    == [signature]
+                    and set(d[id_field].astype(str))
+                    == set(nuts[id_field].astype(str))
+                ):
+                    return d
+
+        nuts_raster = nuts.to_crs(ds.crs)
+        if nuts_raster.crs != ds.crs:
+            raise RuntimeError(
+                f"Failed to reproject NUTS2016 geometry to raster CRS for {tif.name}."
+            )
+
         sources = [
             RasterioRasterSource(ds, band, name=name)
             for band, name in BAND_NAMES.items()
         ]
+        # Native sinusoidal pixels are equal-area.  exactextract's ordinary
+        # mean already coverage-weights boundary pixels, so a second spherical
+        # area weighting is neither needed nor appropriate in projected metres.
         out = exact_extract(
             sources,
-            nuts,
-            ["mean(coverage_weight=area_spherical_m2)"],
+            nuts_raster,
+            ["mean"],
             include_cols=[id_field],
             output="pandas",
             progress=True,
@@ -530,6 +552,20 @@ def extract_monthly_zonal(
                 out.loc[out[day].notna(), day] = out.loc[out[day].notna(), day].clip(0, 1)
             if valid in out:
                 out.loc[out[valid].notna(), valid] = out.loc[out[valid].notna(), valid].clip(0, 1)
+
+    # A successful exactextract call can still return all-NaN columns if the
+    # vector and raster CRS do not overlap.  Treat that as a hard failure here
+    # rather than allowing the analysis to reach plotting with empty models.
+    primary_valid = "wsa_qa01_valid_area"
+    primary_albedo = "wsa_qa01_mean"
+    n_valid_area = int(pd.to_numeric(out[primary_valid], errors="coerce").notna().sum())
+    n_albedo = int(pd.to_numeric(out[primary_albedo], errors="coerce").notna().sum())
+    if n_valid_area == 0 or n_albedo == 0:
+        raise RuntimeError(
+            f"{year}-{month:02d}: VNP43MA3 zonal extraction produced no physical "
+            f"values after CRS-aligned extraction (valid_area={n_valid_area}, "
+            f"albedo={n_albedo}). Do not continue to modelling."
+        )
 
     out.to_parquet(cache, index=False)
     return out
@@ -798,7 +834,28 @@ def tests_and_models(analysis: pd.DataFrame) -> tuple[pd.DataFrame, pd.DataFrame
                 "outcome_scale": scale,
             })
             models.append(fit)
-    return pd.DataFrame(tests), pd.DataFrame(models)
+    tests_df = pd.DataFrame(tests)
+    models_df = pd.DataFrame(models)
+    if models_df.empty:
+        diag = (
+            analysis.groupby(
+                ["month", "albedo_type", "quality_mode"], observed=True
+            )
+            .agg(
+                n_rows=("NUTS_ID", "size"),
+                n_eligible=("eligible_albedo", "sum"),
+                n_albedo=("albedo_anomaly_pp", lambda s: int(s.notna().sum())),
+                median_min_valid_area=(
+                    "min_albedo_valid_area_fraction", "median"
+                ),
+            )
+            .reset_index()
+        )
+        raise RuntimeError(
+            "No eligible albedo models were created. Eligibility diagnostics:\n"
+            + diag.to_string(index=False)
+        )
+    return tests_df, models_df
 
 
 def density_context(analysis: pd.DataFrame) -> pd.DataFrame:
