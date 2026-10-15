@@ -945,3 +945,37 @@ small.
 
 This stage is mechanistic and diagnostic. It does not alter the annual
 production radiance series.
+
+## Historical MOD10CM download automation
+
+The historical surface-state archive is acquired with:
+
+```bash
+python src/run_pipeline.py future-radiance-download-snow-history
+```
+
+The stage queries NASA CMR for `MOD10CM` Collection 6.1 and downloads the
+available monthly HDF-EOS2 granules for 2013-2024 into:
+
+```text
+data/raw/modis/MOD10CM_061/
+```
+
+The full 12-month archive is retained even though the first historical control
+will focus on January-February. This avoids repeated acquisition if later
+seasonal diagnostics are required.
+
+The downloader is idempotent and resumable:
+
+- existing HDF files are reused;
+- partial files are written as `.part` and resumed with curl;
+- CMR checksums are verified when supplied;
+- a progress/final manifest is written to
+  `data/processed/mod10cm_061_history_download_manifest.csv`;
+- missing requested months are a hard failure except explicitly documented
+  allowed gaps (currently 2022-10 from the earlier validated archive).
+
+Authentication is supplied outside Git. The preferred method is an Earthdata
+Login user token in the `EARTHDATA_TOKEN` environment variable. Standard
+Earthdata `~/.netrc` authentication is also supported. AppEEARS API session
+tokens are not used for this stage.
