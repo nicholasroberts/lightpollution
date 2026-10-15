@@ -202,3 +202,17 @@ The formal pre-registered rule therefore returns
 `historical_albedo_warranted=True`, but the corrected complete-Jan/Feb
 sensitivity output should be reviewed before initiating a large historical
 albedo download.
+
+### Complete-Jan/Feb snow sensitivity
+
+The corrected complete-Jan/Feb sensitivity (14,998 observations; 1,509 NUTS3;
+31 countries) strongly confirms the proportional snow/surface-state block
+(LR=34.20, df=2, p=3.74e-08; delta AIC=-30.20) but the absolute block is null
+(p=0.735; delta AIC=+3.38). No density class shifts materially in either
+proportional or absolute trend space under the complete-winter sensitivity.
+
+Thus winter surface state is a real, reproducible source of short-term
+proportional VIIRS variation but does not robustly alter the 2014-2024
+density-dependent secular trend. Full historical albedo, if pursued, should be
+framed as a mechanism/refinement test rather than as the expected explanation
+for the historical/model discrepancy.
