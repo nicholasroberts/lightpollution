@@ -1,5 +1,36 @@
 # Current research state / restart point
 
+**Updated:** 2026-10-16  
+**Branch:** \`future-population-models\`  
+**Machine:** EcoVis  
+**Repository root:** \`/run/media/bznwr/data/lightpollution\`
+
+## CURRENT PRIMARY DECISION — 2026-10-16
+
+Read the full dated [2026-10-16 laboratory notebook](lab_notebook/2026-10-16.md) for detailed tables, scientific reasoning, all figure paths, data provenance and commit references.
+
+**Primary modelling input:** 1,514 NUTS2016 regions × every annual observation from 2014 to 2024, with **both** the 2017+ pixel calibration and **2021 log-ratio snow/surface correction**. Specifically:
+\`data/processed/fixed_nuts2016_2021_surface_correction/fixed_nuts2016_viirs_2014_2024_surface_corrected.parquet\`, field \`radiance_mean_corrected_surface_logratio_primary\`.
+
+**Working predictor structure:** density-specific longitudinal time slopes, country baseline intercept and NUTS3 random intercept. **H removed from the primary forecasting model** after small out-of-sample gains and failure of national H composition to explain most country trends. Country-specific temporal slopes are diagnostics, not automatically adopted mechanistic predictors.
+
+**NL333:** exceptionally bright Delft en Westland region fell from 275.87 to 96.33 nW cm^-2 sr^-1 (2014→2024). In earlier *pre-snow* holdouts it dominated (~87%) squared absolute errors. Its **year-by-year** cause/timing remains unverified. Do not delete it or claim a greenhouse explanation without a proper audit.
+
+**Next stage committed but not yet run on EcoVis:**
+
+\`\`\`bash
+python src/run_pipeline.py future-radiance-corrected-annual-nl333
+\`\`\`
+
+**Outputs to inspect first:** \`data/processed/fixed_nuts2016_corrected_annual_nl333/nl333_annual_diagnosis.csv\`, \`corrected_annual_nl333_summary.txt\`, and \`figures/population_relationship/fixed_nuts2016_corrected_annual_nl333/nl333_full_annual_radiance.pdf\`, \`observed_vs_modelled_every_year_by_density.pdf\`.
+
+Endpoint maps/boxplots from \`future-radiance-corrected-endpoint-change\` were completed successfully and remain model-free ground truth, but endpoint comparisons are **not** a substitute for fitting the full annual panel. Pre-2021-correction H/country analyses remain valuable *supplementary negative results*, not the primary fully corrected analysis.
+
+---
+
+## Archived 2026-10-14 restart notes (superseded by the update above)
+
+
 **Updated:** 2026-10-14  
 **Branch:** `future-population-models`  
 **Machine:** EcoVis  
