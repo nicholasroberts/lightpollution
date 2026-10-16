@@ -523,7 +523,7 @@ def exact_total_region_area(
 
     if area["region_area_km2"].isna().any() or (area["region_area_km2"] <= 0).any():
         raise ValueError(
-            "Failed to calculate positive exact area for every locked NUTS3 region."
+            "Failed to calculate positive exact area for every tile-covered locked NUTS3 region."
         )
     return area[["NUTS_ID", "region_area_km2"]]
 
@@ -626,7 +626,7 @@ def run_zonal_extraction(
                 gc.collect()
 
     combined = pd.concat(frames, ignore_index=True)
-    expected_rows = EXPECTED_COHORT_SIZE * len(products) * len(YEARS) * 12
+    expected_rows = len(nuts) * len(products) * len(YEARS) * 12
     if len(combined) != expected_rows:
         raise ValueError(
             f"Unexpected combined row count: {len(combined):,}; "
@@ -1369,8 +1369,13 @@ def write_summary_text(
     lines.append("")
     lines.append("LOCKED DESIGN")
     lines.append("- fixed geography: NUTS2016")
+    n_tile = int(monthly["NUTS_ID"].nunique())
     lines.append(
-        f"- locked cohort: {EXPECTED_COHORT_SIZE:,} NUTS3 regions"
+        f"- locked source cohort: {EXPECTED_COHORT_SIZE:,} NUTS3 regions"
+    )
+    lines.append(
+        f"- monthly-tile analytical support: {n_tile:,} locked NUTS3 regions "
+        "fully contained by the EOG tile"
     )
     lines.append(
         "- comparison: 2021 month vs mean of the same month in 2020 and 2022"
@@ -1581,6 +1586,46 @@ def main() -> None:
         )
     if "CNTR_CODE" not in nuts.columns:
         nuts["CNTR_CODE"] = nuts["NUTS_ID"].str[:2]
+
+    # Match the established July-pilot/monthly-localization spatial support:
+    # the EOG monthly input is a tile, so retain only members of the locked
+    # 1,514-region cohort whose complete polygon is contained by that tile.
+    # This is a raster-support restriction, not a redefinition of the cohort.
+    reference_pair = pairs[(active_products[0], YEARS[0], 1)]
+    with rasterio.open(reference_pair.radiance) as ref:
+        if ref.crs is None or ref.crs.to_string() != "EPSG:4326":
+            raise RuntimeError(
+                f"Unexpected monthly reference CRS: {ref.crs}; expected EPSG:4326."
+            )
+        tile_bounds = ref.bounds
+    tile_polygon = box(
+        tile_bounds.left, tile_bounds.bottom, tile_bounds.right, tile_bounds.top
+    )
+    fully_covered = nuts.geometry.apply(tile_polygon.covers)
+    excluded = nuts.loc[
+        ~fully_covered, ["NUTS_ID", "CNTR_CODE"]
+    ].copy()
+    nuts = nuts.loc[fully_covered].copy().reset_index(drop=True)
+    if nuts.empty:
+        raise RuntimeError(
+            "No locked NUTS3 polygons are fully contained by the monthly VIIRS tile."
+        )
+
+    processed_out.mkdir(parents=True, exist_ok=True)
+    excluded.to_csv(
+        processed_out / "locked_nuts2016_excluded_outside_monthly_tile.csv",
+        index=False,
+    )
+    nuts[["NUTS_ID", "CNTR_CODE"]].to_csv(
+        processed_out / "locked_nuts2016_included_monthly_tile.csv",
+        index=False,
+    )
+    print(
+        f"Monthly tile fully contains {len(nuts):,} of "
+        f"{EXPECTED_COHORT_SIZE:,} locked NUTS3 regions; "
+        f"{len(excluded):,} excluded at tile edge/outside.",
+        flush=True,
+    )
 
     map_bounds = tuple(
         float(v)
