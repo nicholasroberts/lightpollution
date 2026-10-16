@@ -307,7 +307,7 @@ def discover_inputs(input_dir: Path) -> tuple[dict[tuple[str, int, int], RasterP
     pairs: dict[tuple[str, int, int], RasterPair] = {}
     missing: list[str] = []
 
-    for product in products:
+    for product in PRODUCTS:
         for year in YEARS:
             for month in range(1, 13):
                 key = (product, year, month)
