@@ -400,6 +400,19 @@ analysis:
     min_snow_valid_area_fraction: 0.50
     figure_dpi: 350
 
+  fixed_nuts2016_monthly_snow_control_years:
+    # Clean control-year test excluding anomalous 2021 from the contrast.
+    # The independent contrast is 2020 minus 2022 for Jan/Feb/Mar; the
+    # reverse 2022-minus-2020 orientation is written for audit but is not
+    # counted as a second independent replicate.
+    monthly_region_file: data/processed/fixed_nuts2016_monthly_product_atlas/monthly_region_2021_vs_flanks.csv
+    mod10cm_raw_dir: data/raw/modis/MOD10CM_061
+    products: [vcmslcfg, vcmcfg]
+    months: [1, 2, 3]
+    expected_monthly_tile_nuts3: 1510
+    min_snow_valid_area_fraction: 0.50
+    figure_dpi: 350
+
   fixed_nuts2016_snow_viirs_test:
     # Literature-led snow test for the Jan/Feb 2021 VIIRS pulse.
     # February is primary, January supportive, March negative control.
