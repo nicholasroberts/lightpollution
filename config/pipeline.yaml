@@ -388,6 +388,18 @@ analysis:
     min_country_regions: 3
     figure_dpi: 350
 
+  fixed_nuts2016_monthly_snow_amplification:
+    # Focused mechanism test built from the complete monthly product atlas.
+    # VCMSLCFG February is primary, January supportive, March negative control;
+    # VCMCFG is repeated as a product-robustness check.
+    monthly_region_file: data/processed/fixed_nuts2016_monthly_product_atlas/monthly_region_2021_vs_flanks.csv
+    mod10cm_raw_dir: data/raw/modis/MOD10CM_061
+    products: [vcmslcfg, vcmcfg]
+    months: [1, 2, 3]
+    expected_monthly_tile_nuts3: 1510
+    min_snow_valid_area_fraction: 0.50
+    figure_dpi: 350
+
   fixed_nuts2016_snow_viirs_test:
     # Literature-led snow test for the Jan/Feb 2021 VIIRS pulse.
     # February is primary, January supportive, March negative control.
