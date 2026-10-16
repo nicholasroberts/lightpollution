@@ -465,6 +465,17 @@ analysis:
     selection_alpha: 0.05
     figure_dpi: 350
 
+  fixed_nuts2016_2021_surface_correction:
+    # Candidate correction for the 2021 annual surface-state disturbance.
+    # Jan/Feb only; primary uses combined snow + WSA visible albedo where
+    # available, with snow-only fallback. Original production outputs remain
+    # untouched; corrected history is written separately.
+    annual_fixed_file: fixed_nuts2016_viirs_2014_2024.parquet
+    albedo_analysis_file: fixed_nuts2016_albedo_snow_viirs_anomaly_regional.csv
+    min_common_to_full_r2: 0.80
+    min_annual_reconstruction_r2: 0.80
+    min_control_delta_correlation: 0.70
+
   fixed_nuts2016_albedo_viirs_test:
     # Focused mechanism test: does January-March 2021 visible surface-albedo
     # anomaly predict the VIIRS anomaly and attenuate the validated snow block?
