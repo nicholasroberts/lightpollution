@@ -30,6 +30,7 @@ STAGES = {
     "calibration-offset-test": PROJECT_ROOT / "src" / "test_calibration_offset.py",
     "calibration-country-test": PROJECT_ROOT / "src" / "test_country_calibration_correction.py",
     "calibration-sensitivity": PROJECT_ROOT / "src" / "calibration_sensitivity.py",
+    "monthly-2021-anomaly": PROJECT_ROOT / "src" / "monthly_2021_anomaly.py",
 }
 
 
