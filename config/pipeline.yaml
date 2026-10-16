@@ -465,6 +465,14 @@ analysis:
     selection_alpha: 0.05
     figure_dpi: 350
 
+  presnow_density_h:
+    # Non-destructive reconstruction of the original 2014-2024 density trend,
+    # adding H_core as an independent predictor on the locked NUTS2016 cohort.
+    # This stage reads the original (pre-snow) calibrated fixed-NUTS2016 panel,
+    # NOT the subsequent 2021 surface-corrected parquet.
+    minimum_h_coverage_fraction: 0.95
+    figure_dpi: 300
+
   fixed_nuts2016_corrected_temporal_model:
     # Minimum-model selection on the multiplicative/log-ratio corrected
     # fixed-NUTS2016 annual history. This stage chooses the simplest temporal
