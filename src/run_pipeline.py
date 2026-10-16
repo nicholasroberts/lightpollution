@@ -55,6 +55,7 @@ STAGES = {
     "future-radiance-monthly-product-atlas": PROJECT_ROOT / "src" / "diagnose_fixed_nuts2016_monthly_product_atlas.py",
     "future-radiance-download-snow-history": PROJECT_ROOT / "src" / "fetch_mod10cm_history.py",
     "future-radiance-monthly-snow-amplification": PROJECT_ROOT / "src" / "test_fixed_nuts2016_monthly_snow_amplification.py",
+    "future-radiance-monthly-snow-control-years": PROJECT_ROOT / "src" / "test_fixed_nuts2016_monthly_snow_control_years.py",
     "future-radiance-snow-2021-test": PROJECT_ROOT / "src" / "test_fixed_nuts2016_snow_viirs_2021.py",
     "future-radiance-historical-snow-control": PROJECT_ROOT / "src" / "test_fixed_nuts2016_historical_snow_control.py",
     "future-radiance-albedo-2021-test": PROJECT_ROOT / "src" / "test_fixed_nuts2016_albedo_viirs_2021.py",
