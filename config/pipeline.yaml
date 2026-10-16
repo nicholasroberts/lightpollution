@@ -145,6 +145,17 @@ habitability:
 
 
 downloads:
+  eog_monthly_vcmcfg_2020_2022:
+    # Full monthly VCMCFG companion series for the 2020-2022 product atlas.
+    # July 2020/2021/2022 is reused from the existing paired pilot.
+    base_url: https://eogdata.mines.edu/nighttime_light/monthly/v10
+    years: [2020, 2021, 2022]
+    months: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]
+    tile: 75N060W
+    layers: [avg_rade9h, cf_cvg, cvg]
+    output_dir_template: data/raw/viirs/monthly_vcmcfg_{year}
+    keep_archives: false
+
   eog_monthly_vcmslcfg_2021:
     # Official EOG monthly VNL V1 repository. Authentication is attempted
     # directly first, then via EOG OAuth/OpenID programmatic credentials.
