@@ -74,7 +74,7 @@ def find_archive_in_listing(
         if (
             name.startswith(prefix)
             and ym in name
-            and f"_{tile}_{PRODUCT}_v10_" in lower
+            and f"_{tile.lower()}_{PRODUCT}_v10_" in lower
             and lower.endswith(".tgz")
         ):
             candidates.append((name, urljoin(listing_url, href)))
@@ -196,7 +196,7 @@ def extract_layers(
             matches = [
                 m for m in members
                 if Path(m.name).name.endswith(f".{layer}.tif")
-                and f"_{tile}_{PRODUCT}_v10_" in Path(m.name).name.lower()
+                and f"_{tile.lower()}_{PRODUCT}_v10_" in Path(m.name).name.lower()
             ]
             if len(matches) != 1:
                 raise RuntimeError(
