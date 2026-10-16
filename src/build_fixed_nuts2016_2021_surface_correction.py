@@ -188,7 +188,7 @@ def fit_surface_components(
     albedo: pd.DataFrame,
     cfg: dict,
 ) -> tuple[pd.DataFrame, pd.DataFrame]:
-    """Estimate signed Jan/Feb surface-state components on common support."""
+    """Estimate additive and log-ratio Jan/Feb surface components."""
     use = albedo[
         (albedo["albedo_type"].astype(str).str.upper() == "WSA")
         & (albedo["quality_mode"].astype(str) == "qa01")
@@ -200,123 +200,196 @@ def fit_surface_components(
 
     for month in MONTHS_TO_CORRECT:
         g0 = use[use["month"] == month].copy()
-
-        common_cols = [
-            "viirs_anomaly_abs_nw",
-            "snow_anomaly_2021_vs_flanks_pp",
-            "baseline_raw_nw",
-            "centroid_latitude",
-            "cf_cvg_anomaly_2021_vs_flanks",
-            "CNTR_CODE",
-        ]
-        snow_train = (
-            g0[common_cols]
-            .replace([np.inf, -np.inf], np.nan)
-            .dropna()
-            .copy()
-        )
-        snow_mu = float(
-            np.log10(snow_train["baseline_raw_nw"].clip(lower=1e-6)).mean()
-        )
-        snow_train["log10_baseline_c"] = (
-            np.log10(snow_train["baseline_raw_nw"].clip(lower=1e-6)) - snow_mu
-        )
-        snow_formula = (
-            "viirs_anomaly_abs_nw ~ "
-            "snow_anomaly_2021_vs_flanks_pp * log10_baseline_c + "
-            "centroid_latitude + cf_cvg_anomaly_2021_vs_flanks + C(CNTR_CODE)"
-        )
-        snow_model = smf.ols(snow_formula, data=snow_train).fit(cov_type="HC3")
-
-        comb_cols = common_cols + ["albedo_anomaly_pp"]
-        comb_train = (
-            g0[g0["eligible_albedo"].fillna(False).astype(bool)][comb_cols]
-            .replace([np.inf, -np.inf], np.nan)
-            .dropna()
-            .copy()
-        )
-        comb_mu = float(
-            np.log10(comb_train["baseline_raw_nw"].clip(lower=1e-6)).mean()
-        )
-        comb_train["log10_baseline_c"] = (
-            np.log10(comb_train["baseline_raw_nw"].clip(lower=1e-6)) - comb_mu
-        )
-        comb_formula = (
-            "viirs_anomaly_abs_nw ~ "
-            "snow_anomaly_2021_vs_flanks_pp * log10_baseline_c + "
-            "albedo_anomaly_pp * log10_baseline_c + "
-            "centroid_latitude + cf_cvg_anomaly_2021_vs_flanks + C(CNTR_CODE)"
-        )
-        combined = smf.ols(comb_formula, data=comb_train).fit(cov_type="HC3")
-
-        alb_formula = (
-            "viirs_anomaly_abs_nw ~ "
-            "albedo_anomaly_pp * log10_baseline_c + "
-            "centroid_latitude + cf_cvg_anomaly_2021_vs_flanks + C(CNTR_CODE)"
-        )
-        albedo_only = smf.ols(alb_formula, data=comb_train).fit(cov_type="HC3")
-
-        # Snow-only component for every row with the required fields.
-        snow_pred = g0.copy()
-        snow_pred["log10_baseline_c"] = (
-            np.log10(pd.to_numeric(snow_pred["baseline_raw_nw"], errors="coerce").clip(lower=1e-6))
-            - snow_mu
-        )
-        snow_ok = snow_pred[common_cols].replace(
-            [np.inf, -np.inf], np.nan
-        ).notna().all(axis=1)
-        snow_actual = snow_pred.loc[snow_ok].copy()
-        snow_zero = snow_actual.copy()
-        snow_zero["snow_anomaly_2021_vs_flanks_pp"] = 0.0
-        snow_component = pd.Series(np.nan, index=g0.index, dtype=float)
-        snow_component.loc[snow_actual.index] = (
-            snow_model.predict(snow_actual) - snow_model.predict(snow_zero)
+        g0["viirs_log10_ratio_common"] = np.where(
+            (pd.to_numeric(g0["radiance_2021_common_nw"], errors="coerce") > 0)
+            & (pd.to_numeric(g0["viirs_flank_mean_nw"], errors="coerce") > 0),
+            np.log10(
+                pd.to_numeric(g0["radiance_2021_common_nw"], errors="coerce")
+                / pd.to_numeric(g0["viirs_flank_mean_nw"], errors="coerce")
+            ),
+            np.nan,
         )
 
-        # Combined and albedo-only components only where primary albedo is valid.
-        comb_pred = g0.copy()
-        comb_pred["log10_baseline_c"] = (
-            np.log10(pd.to_numeric(comb_pred["baseline_raw_nw"], errors="coerce").clip(lower=1e-6))
-            - comb_mu
-        )
-        comb_ok = (
-            comb_pred["eligible_albedo"].fillna(False).astype(bool)
-            & comb_pred[comb_cols].replace(
+        def fit_family(outcome: str):
+            common_cols = [
+                outcome,
+                "snow_anomaly_2021_vs_flanks_pp",
+                "baseline_raw_nw",
+                "centroid_latitude",
+                "cf_cvg_anomaly_2021_vs_flanks",
+                "CNTR_CODE",
+            ]
+            snow_train = (
+                g0[common_cols]
+                .replace([np.inf, -np.inf], np.nan)
+                .dropna()
+                .copy()
+            )
+            snow_mu = float(
+                np.log10(
+                    snow_train["baseline_raw_nw"].clip(lower=1e-6)
+                ).mean()
+            )
+            snow_train["log10_baseline_c"] = (
+                np.log10(
+                    snow_train["baseline_raw_nw"].clip(lower=1e-6)
+                ) - snow_mu
+            )
+            snow_formula = (
+                f"{outcome} ~ "
+                "snow_anomaly_2021_vs_flanks_pp * log10_baseline_c + "
+                "centroid_latitude + cf_cvg_anomaly_2021_vs_flanks + "
+                "C(CNTR_CODE)"
+            )
+            snow_model = smf.ols(
+                snow_formula, data=snow_train
+            ).fit(cov_type="HC3")
+
+            comb_cols = common_cols + ["albedo_anomaly_pp"]
+            comb_train = (
+                g0[g0["eligible_albedo"].fillna(False).astype(bool)][comb_cols]
+                .replace([np.inf, -np.inf], np.nan)
+                .dropna()
+                .copy()
+            )
+            comb_mu = float(
+                np.log10(
+                    comb_train["baseline_raw_nw"].clip(lower=1e-6)
+                ).mean()
+            )
+            comb_train["log10_baseline_c"] = (
+                np.log10(
+                    comb_train["baseline_raw_nw"].clip(lower=1e-6)
+                ) - comb_mu
+            )
+            comb_formula = (
+                f"{outcome} ~ "
+                "snow_anomaly_2021_vs_flanks_pp * log10_baseline_c + "
+                "albedo_anomaly_pp * log10_baseline_c + "
+                "centroid_latitude + cf_cvg_anomaly_2021_vs_flanks + "
+                "C(CNTR_CODE)"
+            )
+            combined = smf.ols(
+                comb_formula, data=comb_train
+            ).fit(cov_type="HC3")
+
+            alb_formula = (
+                f"{outcome} ~ "
+                "albedo_anomaly_pp * log10_baseline_c + "
+                "centroid_latitude + cf_cvg_anomaly_2021_vs_flanks + "
+                "C(CNTR_CODE)"
+            )
+            albedo_only = smf.ols(
+                alb_formula, data=comb_train
+            ).fit(cov_type="HC3")
+
+            snow_pred = g0.copy()
+            snow_pred["log10_baseline_c"] = (
+                np.log10(
+                    pd.to_numeric(
+                        snow_pred["baseline_raw_nw"], errors="coerce"
+                    ).clip(lower=1e-6)
+                ) - snow_mu
+            )
+            snow_ok = snow_pred[common_cols].replace(
                 [np.inf, -np.inf], np.nan
             ).notna().all(axis=1)
-        )
-        comb_actual = comb_pred.loc[comb_ok].copy()
-        comb_zero = comb_actual.copy()
-        comb_zero["snow_anomaly_2021_vs_flanks_pp"] = 0.0
-        comb_zero["albedo_anomaly_pp"] = 0.0
-        combined_component = pd.Series(np.nan, index=g0.index, dtype=float)
-        combined_component.loc[comb_actual.index] = (
-            combined.predict(comb_actual) - combined.predict(comb_zero)
-        )
+            snow_actual = snow_pred.loc[snow_ok].copy()
+            snow_zero = snow_actual.copy()
+            snow_zero["snow_anomaly_2021_vs_flanks_pp"] = 0.0
+            snow_component = pd.Series(np.nan, index=g0.index, dtype=float)
+            snow_component.loc[snow_actual.index] = (
+                snow_model.predict(snow_actual)
+                - snow_model.predict(snow_zero)
+            )
 
-        alb_zero = comb_actual.copy()
-        alb_zero["albedo_anomaly_pp"] = 0.0
-        albedo_component = pd.Series(np.nan, index=g0.index, dtype=float)
-        albedo_component.loc[comb_actual.index] = (
-            albedo_only.predict(comb_actual) - albedo_only.predict(alb_zero)
-        )
+            comb_pred = g0.copy()
+            comb_pred["log10_baseline_c"] = (
+                np.log10(
+                    pd.to_numeric(
+                        comb_pred["baseline_raw_nw"], errors="coerce"
+                    ).clip(lower=1e-6)
+                ) - comb_mu
+            )
+            comb_ok = (
+                comb_pred["eligible_albedo"].fillna(False).astype(bool)
+                & comb_pred[comb_cols].replace(
+                    [np.inf, -np.inf], np.nan
+                ).notna().all(axis=1)
+            )
+            comb_actual = comb_pred.loc[comb_ok].copy()
+            comb_zero = comb_actual.copy()
+            comb_zero["snow_anomaly_2021_vs_flanks_pp"] = 0.0
+            comb_zero["albedo_anomaly_pp"] = 0.0
+            combined_component = pd.Series(
+                np.nan, index=g0.index, dtype=float
+            )
+            combined_component.loc[comb_actual.index] = (
+                combined.predict(comb_actual)
+                - combined.predict(comb_zero)
+            )
+
+            alb_zero = comb_actual.copy()
+            alb_zero["albedo_anomaly_pp"] = 0.0
+            albedo_component = pd.Series(
+                np.nan, index=g0.index, dtype=float
+            )
+            albedo_component.loc[comb_actual.index] = (
+                albedo_only.predict(comb_actual)
+                - albedo_only.predict(alb_zero)
+            )
+
+            return {
+                "snow_component": snow_component,
+                "combined_component": combined_component,
+                "albedo_component": albedo_component,
+                "snow_model": snow_model,
+                "combined_model": combined,
+                "snow_mu": snow_mu,
+                "combined_mu": comb_mu,
+            }
+
+        additive = fit_family("viirs_anomaly_abs_nw")
+        logratio = fit_family("viirs_log10_ratio_common")
 
         out = g0[
             [
                 "NUTS_ID", "CNTR_CODE", "density_band", "month",
-                "viirs_anomaly_abs_nw", "snow_anomaly_2021_vs_flanks_pp",
+                "viirs_anomaly_abs_nw", "viirs_log10_ratio_common",
+                "snow_anomaly_2021_vs_flanks_pp",
                 "albedo_anomaly_pp", "eligible_albedo",
             ]
         ].copy()
         out["month_name"] = MONTH_NAMES[month]
-        out["surface_component_common_snow_nw"] = snow_component.to_numpy()
-        out["surface_component_common_combined_nw"] = combined_component.to_numpy()
-        out["surface_component_common_albedo_nw"] = albedo_component.to_numpy()
+
+        for stem, series in (
+            ("snow", additive["snow_component"]),
+            ("combined", additive["combined_component"]),
+            ("albedo", additive["albedo_component"]),
+        ):
+            out[f"surface_component_common_{stem}_nw"] = series.to_numpy()
         out["surface_component_common_primary_nw"] = np.where(
             np.isfinite(out["surface_component_common_combined_nw"]),
             out["surface_component_common_combined_nw"],
             out["surface_component_common_snow_nw"],
         )
+
+        for stem, series in (
+            ("snow", logratio["snow_component"]),
+            ("combined", logratio["combined_component"]),
+            ("albedo", logratio["albedo_component"]),
+        ):
+            out[
+                f"surface_component_common_logratio_{stem}_log10"
+            ] = series.to_numpy()
+        out["surface_component_common_logratio_primary_log10"] = np.where(
+            np.isfinite(
+                out["surface_component_common_logratio_combined_log10"]
+            ),
+            out["surface_component_common_logratio_combined_log10"],
+            out["surface_component_common_logratio_snow_log10"],
+        )
+
         out["surface_component_primary_method"] = np.where(
             np.isfinite(out["surface_component_common_combined_nw"]),
             "snow_plus_albedo",
@@ -332,12 +405,22 @@ def fit_surface_components(
             {
                 "month": month,
                 "month_name": MONTH_NAMES[month],
-                "n_snow_model": int(snow_model.nobs),
-                "n_combined_model": int(combined.nobs),
-                "r2_snow_model": float(snow_model.rsquared),
-                "r2_combined_model": float(combined.rsquared),
-                "snow_model_baseline_log10_mean": snow_mu,
-                "combined_model_baseline_log10_mean": comb_mu,
+                "n_snow_model": int(additive["snow_model"].nobs),
+                "n_combined_model": int(additive["combined_model"].nobs),
+                "r2_snow_model": float(additive["snow_model"].rsquared),
+                "r2_combined_model": float(
+                    additive["combined_model"].rsquared
+                ),
+                "n_log_snow_model": int(logratio["snow_model"].nobs),
+                "n_log_combined_model": int(
+                    logratio["combined_model"].nobs
+                ),
+                "r2_log_snow_model": float(
+                    logratio["snow_model"].rsquared
+                ),
+                "r2_log_combined_model": float(
+                    logratio["combined_model"].rsquared
+                ),
             }
         )
 
@@ -353,7 +436,22 @@ def bridge_common_to_full_atlas(
         (atlas_region["product"].astype(str).str.lower() == "vcmslcfg")
         & atlas_region["month"].isin(MONTHS_TO_CORRECT)
         & atlas_region["paired_valid"].fillna(False).astype(bool)
-    ][["NUTS_ID", "month", "delta_nw", "flank_mean"]].copy()
+    ][
+        [
+            "NUTS_ID", "month", "delta_nw", "flank_mean",
+            "radiance_2021",
+        ]
+    ].copy()
+    full["viirs_log10_ratio_full"] = np.where(
+        (pd.to_numeric(full["radiance_2021"], errors="coerce") > 0)
+        & (pd.to_numeric(full["flank_mean"], errors="coerce") > 0),
+        np.log10(
+            pd.to_numeric(full["radiance_2021"], errors="coerce")
+            / pd.to_numeric(full["flank_mean"], errors="coerce")
+        ),
+        np.nan,
+    )
+
     merged = surface.merge(
         full,
         on=["NUTS_ID", "month"],
@@ -371,6 +469,18 @@ def bridge_common_to_full_atlas(
             data=g,
         ).fit(cov_type="HC3")
         slope = float(model.params["viirs_anomaly_abs_nw"])
+
+        lg = merged[merged["month"] == month][
+            ["viirs_log10_ratio_common", "viirs_log10_ratio_full"]
+        ].replace([np.inf, -np.inf], np.nan).dropna()
+        log_model = smf.ols(
+            "viirs_log10_ratio_full ~ viirs_log10_ratio_common",
+            data=lg,
+        ).fit(cov_type="HC3")
+        log_slope = float(
+            log_model.params["viirs_log10_ratio_common"]
+        )
+
         bridge_rows.append(
             {
                 "month": month,
@@ -379,22 +489,46 @@ def bridge_common_to_full_atlas(
                 "slope_full_per_common": slope,
                 "intercept_nw": float(model.params["Intercept"]),
                 "r2": float(model.rsquared),
-                "rmse_nw": float(np.sqrt(np.mean(model.resid.to_numpy(float) ** 2))),
+                "rmse_nw": float(
+                    np.sqrt(np.mean(model.resid.to_numpy(float) ** 2))
+                ),
+                "logratio_n": int(log_model.nobs),
+                "logratio_slope_full_per_common": log_slope,
+                "logratio_intercept": float(
+                    log_model.params["Intercept"]
+                ),
+                "logratio_r2": float(log_model.rsquared),
+                "logratio_rmse": float(
+                    np.sqrt(
+                        np.mean(log_model.resid.to_numpy(float) ** 2)
+                    )
+                ),
             }
         )
+
         idx = merged["month"].eq(month)
-        for stem in (
-            "primary", "snow", "combined", "albedo",
-        ):
+        for stem in ("primary", "snow", "combined", "albedo"):
             src = f"surface_component_common_{stem}_nw"
             if src in merged.columns:
-                merged.loc[idx, f"surface_component_full_{stem}_nw"] = (
-                    slope * merged.loc[idx, src]
-                )
+                merged.loc[
+                    idx, f"surface_component_full_{stem}_nw"
+                ] = slope * merged.loc[idx, src]
+
+            log_src = (
+                f"surface_component_common_logratio_{stem}_log10"
+            )
+            if log_src in merged.columns:
+                merged.loc[
+                    idx,
+                    f"surface_component_full_logratio_{stem}_log10",
+                ] = log_slope * merged.loc[idx, log_src]
 
     bridge = pd.DataFrame(bridge_rows)
     min_r2 = float(cfg["min_common_to_full_r2"])
-    if (bridge["r2"] < min_r2).any():
+    if (
+        (bridge["r2"] < min_r2).any()
+        or (bridge["logratio_r2"] < min_r2).any()
+    ):
         raise RuntimeError(
             "Common-support to full-month bridge failed validation:\n"
             + bridge.to_string(index=False)
@@ -657,11 +791,7 @@ def build_annual_corrections(
         f"weighted_{stem}_component_nw": "sum"
         for stem in stems
     }
-    agg_dict.update(
-        {
-            "month": "count",
-        }
-    )
+    agg_dict["month"] = "count"
     annual = (
         s.groupby("NUTS_ID", observed=True)
         .agg(agg_dict)
@@ -670,7 +800,9 @@ def build_annual_corrections(
     )
 
     beta_raw = float(
-        mapping.loc[mapping["outcome"].eq("radiance_mean_raw"), "slope"].iloc[0]
+        mapping.loc[
+            mapping["outcome"].eq("radiance_mean_raw"), "slope"
+        ].iloc[0]
     )
     beta_corr = float(
         mapping.loc[
@@ -680,13 +812,91 @@ def build_annual_corrections(
 
     for stem in stems:
         recon_col = f"weighted_{stem}_component_nw"
-        annual[f"annual_surface_correction_raw_{stem}_nw"] = beta_raw * annual[recon_col]
-        annual[f"annual_surface_correction_corrected_{stem}_nw"] = (
-            beta_corr * annual[recon_col]
+        annual[
+            f"annual_surface_correction_raw_{stem}_nw"
+        ] = beta_raw * annual[recon_col]
+        annual[
+            f"annual_surface_correction_corrected_{stem}_nw"
+        ] = beta_corr * annual[recon_col]
+
+    # Scale-aligned multiplicative candidate. Apply the predicted log-ratio
+    # component directly to the actual 2021 monthly rad*cf numerator for Jan
+    # and Feb, leave all other months unchanged, then rebuild the weighted
+    # annual monthly signal.
+    log_surface = surface[
+        [
+            "NUTS_ID", "month",
+            "surface_component_full_logratio_primary_log10",
+            "surface_component_full_logratio_snow_log10",
+            "surface_component_full_logratio_albedo_log10",
+        ]
+    ].copy()
+    wlog = w21[
+        ["NUTS_ID", "month", "cf_area_mean", "radcf_area_mean"]
+    ].merge(
+        log_surface,
+        on=["NUTS_ID", "month"],
+        how="left",
+        validate="one_to_one",
+    )
+
+    for stem in stems:
+        comp = wlog[
+            f"surface_component_full_logratio_{stem}_log10"
+        ].fillna(0.0)
+        factor = np.power(10.0, comp.to_numpy(float))
+        wlog[f"radcf_corrected_logratio_{stem}"] = (
+            wlog["radcf_area_mean"].to_numpy(float) / factor
         )
 
+    log_rows = []
+    for nuts_id, g in wlog.groupby("NUTS_ID", observed=True):
+        den = float(g["cf_area_mean"].sum())
+        orig_num = float(g["radcf_area_mean"].sum())
+        orig = orig_num / den if den > 0 else np.nan
+        row = {
+            "NUTS_ID": nuts_id,
+            "reconstructed_2021_raw_original_nw": orig,
+        }
+        for stem in stems:
+            corr_num = float(
+                g[f"radcf_corrected_logratio_{stem}"].sum()
+            )
+            corr = corr_num / den if den > 0 else np.nan
+            row[
+                f"reconstructed_2021_raw_logratio_{stem}_nw"
+            ] = corr
+            row[
+                f"reconstructed_2021_raw_logratio_delta_{stem}_nw"
+            ] = (
+                orig - corr
+                if np.isfinite(orig) and np.isfinite(corr)
+                else np.nan
+            )
+        log_rows.append(row)
+
+    log_annual = pd.DataFrame(log_rows)
+    annual = annual.merge(
+        log_annual,
+        on="NUTS_ID",
+        how="left",
+        validate="one_to_one",
+    )
+    for stem in stems:
+        delta = annual[
+            f"reconstructed_2021_raw_logratio_delta_{stem}_nw"
+        ]
+        annual[
+            f"annual_surface_correction_raw_logratio_{stem}_nw"
+        ] = beta_raw * delta
+        annual[
+            f"annual_surface_correction_corrected_logratio_{stem}_nw"
+        ] = beta_corr * delta
+
     method = (
-        s.groupby("NUTS_ID", observed=True)["surface_component_primary_method"]
+        s.groupby("NUTS_ID", observed=True)[
+            "surface_component_primary_method"
+        ]
         .agg(lambda x: "+".join(sorted(set(x.dropna().astype(str)))))
         .rename("surface_component_methods")
         .reset_index()
@@ -699,19 +909,44 @@ def apply_to_history(
     annual: pd.DataFrame,
     corrections: pd.DataFrame,
 ) -> pd.DataFrame:
-    d = annual.merge(corrections, on="NUTS_ID", how="left", validate="many_to_one")
+    d = annual.merge(
+        corrections, on="NUTS_ID", how="left", validate="many_to_one"
+    )
 
-    scenarios = ("primary", "snow", "albedo")
-    for scenario in scenarios:
+    for scenario in ("primary", "snow", "albedo"):
         raw_out = f"radiance_mean_raw_surface_{scenario}"
         corr_out = f"radiance_mean_corrected_surface_{scenario}"
         d[raw_out] = d["radiance_mean_raw"]
         d[corr_out] = d["radiance_mean_corrected"]
-
         idx = d["year"].eq(2021)
-        raw_c = d[f"annual_surface_correction_raw_{scenario}_nw"].fillna(0.0)
+        raw_c = d[
+            f"annual_surface_correction_raw_{scenario}_nw"
+        ].fillna(0.0)
         corr_c = d[
             f"annual_surface_correction_corrected_{scenario}_nw"
+        ].fillna(0.0)
+        d.loc[idx, raw_out] = (
+            d.loc[idx, "radiance_mean_raw"] - raw_c.loc[idx]
+        ).clip(lower=0.0)
+        d.loc[idx, corr_out] = (
+            d.loc[idx, "radiance_mean_corrected"] - corr_c.loc[idx]
+        ).clip(lower=1e-8)
+
+    for scenario in ("primary", "snow", "albedo"):
+        raw_out = (
+            f"radiance_mean_raw_surface_logratio_{scenario}"
+        )
+        corr_out = (
+            f"radiance_mean_corrected_surface_logratio_{scenario}"
+        )
+        d[raw_out] = d["radiance_mean_raw"]
+        d[corr_out] = d["radiance_mean_corrected"]
+        idx = d["year"].eq(2021)
+        raw_c = d[
+            f"annual_surface_correction_raw_logratio_{scenario}_nw"
+        ].fillna(0.0)
+        corr_c = d[
+            f"annual_surface_correction_corrected_logratio_{scenario}_nw"
         ].fillna(0.0)
         d.loc[idx, raw_out] = (
             d.loc[idx, "radiance_mean_raw"] - raw_c.loc[idx]
@@ -723,6 +958,12 @@ def apply_to_history(
     d["surface_correction_applied"] = (
         d["year"].eq(2021)
         & d["annual_surface_correction_corrected_primary_nw"].notna()
+    )
+    d["surface_logratio_correction_applied"] = (
+        d["year"].eq(2021)
+        & d[
+            "annual_surface_correction_corrected_logratio_primary_nw"
+        ].notna()
     )
     return d
 
@@ -744,7 +985,9 @@ def fit_corrected_trends(
         history[
             [
                 c for c in history.columns
-                if not c.startswith("radiance_mean_corrected_surface_")
+                if not c.startswith(
+                    "radiance_mean_corrected_surface_"
+                )
             ]
         ].copy(),
         reference,
@@ -752,11 +995,16 @@ def fit_corrected_trends(
     )
     t_pre, _ = fit_window(base, first_year, pre_last, config)
     t_orig, _ = fit_window(base, first_year, last_year, config)
-    for label, table in (("2014_2020_reference", t_pre), ("original_2014_2024", t_orig)):
+    for label, table in (
+        ("2014_2020_reference", t_pre),
+        ("original_2014_2024", t_orig),
+    ):
         x = table.copy()
         x["scenario"] = label
         tables.append(x)
-    trajectories["original"] = observed_trajectories(base, baseline_year=first_year)
+    trajectories["original"] = observed_trajectories(
+        base, baseline_year=first_year
+    )
 
     for scenario in ("primary", "snow", "albedo"):
         x = history.copy()
@@ -768,6 +1016,19 @@ def fit_corrected_trends(
         trends["scenario"] = f"corrected_{scenario}"
         tables.append(trends)
         trajectories[scenario] = observed_trajectories(
+            panel, baseline_year=first_year
+        )
+
+    for scenario in ("primary", "snow", "albedo"):
+        x = history.copy()
+        x["radiance_mean_corrected"] = x[
+            f"radiance_mean_corrected_surface_logratio_{scenario}"
+        ]
+        panel = prepare_analysis_panel(x, reference, config)
+        trends, _ = fit_window(panel, first_year, last_year, config)
+        trends["scenario"] = f"corrected_logratio_{scenario}"
+        tables.append(trends)
+        trajectories[f"logratio_{scenario}"] = observed_trajectories(
             panel, baseline_year=first_year
         )
 
@@ -788,19 +1049,41 @@ def correction_summary_by_density(
         y.groupby("density_band", observed=True)
         .agg(
             n_nuts3=("NUTS_ID", "nunique"),
-            mean_original_corrected_nw=("radiance_mean_corrected", "mean"),
-            median_original_corrected_nw=("radiance_mean_corrected", "median"),
+            mean_original_corrected_nw=(
+                "radiance_mean_corrected", "mean"
+            ),
+            median_original_corrected_nw=(
+                "radiance_mean_corrected", "median"
+            ),
             mean_primary_correction_nw=(
-                "annual_surface_correction_corrected_primary_nw", "mean"
+                "annual_surface_correction_corrected_primary_nw",
+                "mean",
             ),
             median_primary_correction_nw=(
-                "annual_surface_correction_corrected_primary_nw", "median"
+                "annual_surface_correction_corrected_primary_nw",
+                "median",
             ),
             mean_primary_corrected_2021_nw=(
                 "radiance_mean_corrected_surface_primary", "mean"
             ),
             median_primary_corrected_2021_nw=(
                 "radiance_mean_corrected_surface_primary", "median"
+            ),
+            mean_logratio_primary_correction_nw=(
+                "annual_surface_correction_corrected_logratio_primary_nw",
+                "mean",
+            ),
+            median_logratio_primary_correction_nw=(
+                "annual_surface_correction_corrected_logratio_primary_nw",
+                "median",
+            ),
+            mean_logratio_primary_corrected_2021_nw=(
+                "radiance_mean_corrected_surface_logratio_primary",
+                "mean",
+            ),
+            median_logratio_primary_corrected_2021_nw=(
+                "radiance_mean_corrected_surface_logratio_primary",
+                "median",
             ),
         )
         .reset_index()
@@ -821,7 +1104,8 @@ def plot_trajectories(
         ax = axes[i]
         for key, label, marker in (
             ("original", "Original", "o"),
-            ("primary", "2021 surface-corrected", "s"),
+            ("primary", "Additive correction", "s"),
+            ("logratio_primary", "Log-ratio correction", "^"),
         ):
             g = trajectories[key]
             g = g[g["density_band"].astype(str).eq(str(band))].sort_values("year")
@@ -840,7 +1124,9 @@ def plot_trajectories(
     axes[5].legend(handles, labs, loc="center", frameon=False)
     fig.supylabel("Calibrated VIIRS radiance index (2014 = 100)")
     fig.supxlabel("Year")
-    fig.suptitle("Fixed NUTS2016 trajectories before and after 2021 surface correction")
+    fig.suptitle(
+        "Fixed NUTS2016 trajectories: original, additive and log-ratio 2021 corrections"
+    )
     fig.tight_layout(rect=(0.02, 0.02, 1, 0.95))
     fig.savefig(output, dpi=300, bbox_inches="tight")
     plt.close(fig)
@@ -941,7 +1227,14 @@ def main():
         )
         h.write(
             "Only a copy of the fixed 2014-2024 panel is changed; original "
-            "production outputs remain untouched.\n\n"
+            "production outputs remain untouched.\n"
+        )
+        h.write(
+            "A second candidate correction is fitted in "
+            "log10(2021/flank) space. Its predicted Jan/Feb surface-state "
+            "component is removed multiplicatively before the same validated "
+            "monthly-to-annual propagation. The additive correction is "
+            "retained as a sensitivity analysis.\n\n"
         )
 
         h.write("COMMON-SUPPORT -> FULL-MONTH BRIDGE\n")
@@ -951,9 +1244,19 @@ def main():
         h.write("\n\nSURFACE MODEL COVERAGE\n")
         h.write(repr(primary_methods) + "\n")
         h.write(
-            f"Regions with annual primary correction: {len(primary_corr)}; "
+            f"Regions with annual additive primary correction: "
+            f"{len(primary_corr)}; "
             f"median={primary_corr.median():+.6g} nW; "
             f"mean={primary_corr.mean():+.6g} nW.\n"
+        )
+        log_primary_corr = corrections[
+            "annual_surface_correction_corrected_logratio_primary_nw"
+        ].dropna()
+        h.write(
+            f"Regions with annual log-ratio primary correction: "
+            f"{len(log_primary_corr)}; "
+            f"median={log_primary_corr.median():+.6g} nW; "
+            f"mean={log_primary_corr.mean():+.6g} nW.\n"
         )
         h.write("\n2021 CORRECTION BY FIXED DENSITY BAND\n")
         h.write(density.to_string(index=False, float_format=lambda x: f"{x:.6g}"))
