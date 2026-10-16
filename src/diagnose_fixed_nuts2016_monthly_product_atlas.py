@@ -699,7 +699,14 @@ def _summarise_group(group: pd.DataFrame) -> pd.Series:
     return pd.Series(
         {
             "n_nuts3": paired["NUTS_ID"].nunique(),
-            "n_countries": paired["CNTR_CODE"].nunique(),
+            # pandas excludes grouping columns from DataFrames passed to
+            # GroupBy.apply.  CNTR_CODE is therefore absent in the by-country
+            # summary, where the group necessarily represents one country.
+            "n_countries": (
+                paired["CNTR_CODE"].nunique()
+                if "CNTR_CODE" in paired.columns
+                else (1 if len(paired) else 0)
+            ),
             "mean_delta_nw": paired["delta_nw"].mean(),
             "median_delta_nw": paired["delta_nw"].median(),
             "mean_pct_change": paired["pct_change"].mean(),
