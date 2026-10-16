@@ -158,6 +158,29 @@ def load_inputs(config: dict, cfg: dict):
         if "NUTS_ID" in d.columns:
             d["NUTS_ID"] = d["NUTS_ID"].astype(str)
 
+    # CSV round-tripping strips the ordered categorical metadata that the
+    # established density-trend model relies on to keep <30 as the reference
+    # class.  Restore the locked category order explicitly before handing the
+    # table back to prepare_analysis_panel()/fit_band_model().
+    labels = list(
+        config["analysis"]["density_temporal_change"]["density_band_labels"]
+    )
+    reference["density_band"] = pd.Categorical(
+        reference["density_band"].astype(str),
+        categories=labels,
+        ordered=True,
+    )
+    if reference["density_band"].isna().any():
+        bad = sorted(
+            reference.loc[
+                reference["density_band"].isna(), "NUTS_ID"
+            ].astype(str).unique().tolist()
+        )
+        raise RuntimeError(
+            "Population-density reference contains labels outside the locked "
+            f"category set. First affected NUTS3 IDs: {bad[:20]}"
+        )
+
     return annual, albedo, atlas_region, atlas_monthly, reference
 
 
