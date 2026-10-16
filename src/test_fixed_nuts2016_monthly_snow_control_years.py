@@ -118,6 +118,10 @@ def build_control_table(
         categories=list(DENSITY_ORDER),
         ordered=True,
     )
+    d["month_name"] = d["month"].map(MONTH_NAME)
+    if d["month_name"].isna().any():
+        bad = sorted(d.loc[d["month_name"].isna(), "month"].unique().tolist())
+        raise RuntimeError(f"Unrecognised control month(s): {bad}")
     d["eligible_control"] = (
         d["radiance_diff_2020_minus_2022_nw"].notna()
         & d["snow_diff_2020_minus_2022_pp"].notna()
