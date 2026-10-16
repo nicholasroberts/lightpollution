@@ -465,6 +465,20 @@ analysis:
     selection_alpha: 0.05
     figure_dpi: 350
 
+  fixed_nuts2016_corrected_temporal_model:
+    # Minimum-model selection on the multiplicative/log-ratio corrected
+    # fixed-NUTS2016 annual history. This stage chooses the simplest temporal
+    # structure that improves both nested fit and blocked historical prediction.
+    corrected_history_file: fixed_nuts2016_2021_surface_correction/fixed_nuts2016_viirs_2014_2024_surface_corrected.parquet
+    corrected_radiance_column: radiance_mean_corrected_surface_logratio_primary
+    first_year: 2014
+    last_year: 2024
+    hinge_year: 2020
+    holdout_cutoffs: [2022, 2023]
+    selection_alpha: 0.05
+    min_bic_improvement: 2.0
+    min_holdout_rmse_improvement_pct: 2.0
+
   fixed_nuts2016_2021_surface_correction:
     # Candidate correction for the 2021 annual surface-state disturbance.
     # Jan/Feb only; primary uses combined snow + WSA visible albedo where
