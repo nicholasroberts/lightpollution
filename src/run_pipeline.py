@@ -61,6 +61,7 @@ STAGES = {
     "future-radiance-albedo-2021-test": PROJECT_ROOT / "src" / "test_fixed_nuts2016_albedo_viirs_2021.py",
     "future-radiance-2021-surface-correction": PROJECT_ROOT / "src" / "build_fixed_nuts2016_2021_surface_correction.py",
     "future-radiance-corrected-minimum-model": PROJECT_ROOT / "src" / "select_fixed_nuts2016_corrected_temporal_model.py",
+    "future-radiance-corrected-annual-nl333": PROJECT_ROOT / "src" / "analyse_fixed_nuts2016_corrected_annual_nl333.py",
     "future-radiance-corrected-endpoint-change": PROJECT_ROOT / "src" / "plot_fixed_nuts2016_corrected_endpoint_change.py",
     "future-radiance-presnow-density-h": PROJECT_ROOT / "src" / "analyse_fixed_nuts2016_presnow_density_h.py",
     "future-radiance-h-country-validation": PROJECT_ROOT / "src" / "validate_fixed_nuts2016_h_country_trends.py",
