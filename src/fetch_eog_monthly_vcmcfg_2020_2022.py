@@ -395,26 +395,10 @@ def main() -> None:
                 print("  already extracted and validated; skipping download", flush=True)
                 continue
 
-            listing_url = f"{base_url}/{year}/{year}{month:02d}/{PRODUCT}/"
-            if not access_mode_known:
-                bearer, first_archive = determine_access_mode(
-                    listing_url,
-                    auth,
-                    year=year,
-                    month=month,
-                    tile=tile,
-                )
-                access_mode_known = True
-            else:
-                html = read_url_text(listing_url, auth, bearer=bearer)
-                first_archive = find_archive_in_listing(
-                    listing_url,
-                    html,
-                    year=year,
-                    month=month,
-                    tile=tile,
-                )
-
+            # Prefer archives already downloaded manually.  This keeps the
+            # established browser-download workflow independent of EOG
+            # programmatic credentials and avoids any network/authentication
+            # attempt when the required .tgz is already in ~/Downloads.
             local = local_archive_candidates(year, month, tile, archive_dir)
             if len(local) > 1:
                 raise RuntimeError(
@@ -427,6 +411,26 @@ def main() -> None:
                 archive_source = "local_existing"
                 print(f"  reusing local archive: {archive}", flush=True)
             else:
+                listing_url = f"{base_url}/{year}/{year}{month:02d}/{PRODUCT}/"
+                if not access_mode_known:
+                    bearer, first_archive = determine_access_mode(
+                        listing_url,
+                        auth,
+                        year=year,
+                        month=month,
+                        tile=tile,
+                    )
+                    access_mode_known = True
+                else:
+                    html = read_url_text(listing_url, auth, bearer=bearer)
+                    first_archive = find_archive_in_listing(
+                        listing_url,
+                        html,
+                        year=year,
+                        month=month,
+                        tile=tile,
+                    )
+
                 archive_name, archive_url = first_archive
                 archive = archive_dir / archive_name
                 if not archive.exists():
