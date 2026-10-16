@@ -218,6 +218,12 @@ def month_name(month: int) -> str:
 
 
 def _extract_year_month(name: str) -> tuple[int, int] | None:
+    """Extract YYYY-MM from EOG paths containing YYYYMMDD date stamps.
+
+    Canonical monthly files are named like SVDNB_npp_20200101-20200131_...
+    so the year-month token is the first six digits of an eight-digit date.
+    Do not require a non-digit immediately after MM.
+    """
     match = YM_RE.search(name)
     if match is None:
         return None
