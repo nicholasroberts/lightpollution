@@ -1526,25 +1526,23 @@ def main() -> None:
             for month in range(1, 13)
         )
 
-    if not product_complete("vcmslcfg"):
+    incomplete = [product for product in PRODUCTS if not product_complete(product)]
+    if incomplete:
+        counts = {
+            product: sum(1 for p, _, _ in pairs if p == product)
+            for product in PRODUCTS
+        }
         raise FileNotFoundError(
-            "The canonical VCMSLCFG monthly series is incomplete. "
-            "All 36 2020-2022 product-month pairs are required."
+            "Monthly product atlas requires the complete paired series before "
+            "analysis: VCMCFG 36/36 and VCMSLCFG 36/36. "
+            f"Current counts: VCMCFG {counts['vcmcfg']}/36; "
+            f"VCMSLCFG {counts['vcmslcfg']}/36. "
+            "Run 'python src/run_pipeline.py "
+            "future-radiance-download-monthly-vcmcfg' to fill the missing "
+            "VCMCFG months, then rerun the inventory."
         )
-
-    active_products: tuple[str, ...]
-    if product_complete("vcmcfg"):
-        active_products = ("vcmcfg", "vcmslcfg")
-        print("Analysis products: VCMCFG + VCMSLCFG", flush=True)
-    else:
-        active_products = ("vcmslcfg",)
-        n_vcm = sum(1 for p, _, _ in pairs if p == "vcmcfg")
-        print(
-            f"Analysis products: VCMSLCFG only. VCMCFG is optional here and "
-            f"currently incomplete ({n_vcm}/36); the existing July VCM/VCMSL "
-            "pilot remains the product-comparison diagnostic.",
-            flush=True,
-        )
+    active_products = PRODUCTS
+    print("Analysis products: VCMCFG + VCMSLCFG (complete paired series)", flush=True)
 
     # Reuse the canonical locked fixed-NUTS2016 panel already established by
     # the future-radiance workflow.  Do not reconstruct or silently change the
