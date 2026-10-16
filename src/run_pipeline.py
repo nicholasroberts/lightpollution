@@ -63,6 +63,7 @@ STAGES = {
     "future-radiance-corrected-minimum-model": PROJECT_ROOT / "src" / "select_fixed_nuts2016_corrected_temporal_model.py",
     "future-radiance-corrected-endpoint-change": PROJECT_ROOT / "src" / "plot_fixed_nuts2016_corrected_endpoint_change.py",
     "future-radiance-presnow-density-h": PROJECT_ROOT / "src" / "analyse_fixed_nuts2016_presnow_density_h.py",
+    "future-radiance-h-country-validation": PROJECT_ROOT / "src" / "validate_fixed_nuts2016_h_country_trends.py",
     "habitability-fetch": PROJECT_ROOT / "src" / "fetch_habitability_inputs.py",
     "habitability-build": PROJECT_ROOT / "src" / "build_habitability_metric.py",
     "habitability-historical-validation": PROJECT_ROOT / "src" / "validate_habitability_historical_change.py",
