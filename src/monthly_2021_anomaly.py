@@ -9,11 +9,15 @@ products.
 
 Expected source data
 --------------------
-Place extracted EOG monthly GeoTIFFs recursively under:
+The script scans the existing VIIRS raw-data tree recursively:
 
-    data/raw/viirs/monthly/
+    data/raw/viirs/
 
-for all months of 2020, 2021 and 2022, for both vcmcfg and vcmslcfg.
+This accommodates the current project layout, including directories such as
+monthly_vcmslcfg_2020, monthly_vcmslcfg_2021 and monthly_vcmslcfg_2022, while
+leaving the annual global VIIRS files in the same raw-data root. For the full
+comparison it needs all months of 2020, 2021 and 2022 for both vcmcfg and
+vcmslcfg.
 For each product-month the script needs:
 
 * the average-radiance GeoTIFF (filename containing avg_rade9); and
@@ -219,7 +223,11 @@ def _extract_year_month(name: str) -> tuple[int, int] | None:
 
 
 def _classify_file(path: Path) -> tuple[str, int, int, str] | None:
-    name = path.name.lower()
+    # Use the full path, not only the filename.  The project stores monthly
+    # products in product/year-labelled directories, so parent-directory names
+    # are useful metadata and allow the inventory to scan data/raw/viirs
+    # directly without reorganising existing raw data.
+    name = str(path).lower()
     ym = _extract_year_month(name)
     if ym is None:
         return None
@@ -1428,7 +1436,7 @@ def main() -> None:
         "--input-dir",
         type=Path,
         default=None,
-        help="Monthly VIIRS input root. Default: <viirs_raw>/monthly.",
+        help="VIIRS raw-data root scanned recursively. Default: <viirs_raw>.",
     )
     parser.add_argument(
         "--cohort-file",
@@ -1478,7 +1486,7 @@ def main() -> None:
     processed = configured_path(config, "processed")
     figures = configured_path(config, "figures")
 
-    input_dir = args.input_dir or (viirs_raw / "monthly")
+    input_dir = args.input_dir or viirs_raw
     if not input_dir.is_absolute():
         input_dir = Path.cwd() / input_dir
 
