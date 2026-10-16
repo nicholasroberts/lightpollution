@@ -307,7 +307,7 @@ def discover_inputs(input_dir: Path) -> tuple[dict[tuple[str, int, int], RasterP
     pairs: dict[tuple[str, int, int], RasterPair] = {}
     missing: list[str] = []
 
-    for product in PRODUCTS:
+    for product in products:
         for year in YEARS:
             for month in range(1, 13):
                 key = (product, year, month)
@@ -582,6 +582,7 @@ def extract_product_month(
 
 def run_zonal_extraction(
     pairs: dict[tuple[str, int, int], RasterPair],
+    products: tuple[str, ...],
     nuts: gpd.GeoDataFrame,
     processed_out: Path,
     min_valid_fraction: float,
@@ -590,7 +591,7 @@ def run_zonal_extraction(
     zonal_dir = processed_out / "zonal"
     zonal_dir.mkdir(parents=True, exist_ok=True)
 
-    reference = pairs[(PRODUCTS[0], YEARS[0], 1)].radiance
+    reference = pairs[(products[0], YEARS[0], 1)].radiance
     region_area_path = processed_out / "locked_nuts2016_exact_area.parquet"
     if region_area_path.exists() and not force:
         region_area = pd.read_parquet(region_area_path)
@@ -625,7 +626,7 @@ def run_zonal_extraction(
                 gc.collect()
 
     combined = pd.concat(frames, ignore_index=True)
-    expected_rows = EXPECTED_COHORT_SIZE * len(PRODUCTS) * len(YEARS) * 12
+    expected_rows = EXPECTED_COHORT_SIZE * len(products) * len(YEARS) * 12
     if len(combined) != expected_rows:
         raise ValueError(
             f"Unexpected combined row count: {len(combined):,}; "
@@ -1239,6 +1240,7 @@ def plot_product_comparison_2021(
 
 def run_maps(
     pairs: dict[tuple[str, int, int], RasterPair],
+    products: tuple[str, ...],
     nuts: gpd.GeoDataFrame,
     figure_out: Path,
     bounds: tuple[float, float, float, float],
@@ -1262,7 +1264,7 @@ def run_maps(
         str, dict[tuple[int, int], np.ndarray]
     ] = {}
 
-    for product in PRODUCTS:
+    for product in products:
         arrays: dict[tuple[int, int], np.ndarray] = {}
         valids: dict[tuple[int, int], np.ndarray] = {}
 
@@ -1319,27 +1321,34 @@ def run_maps(
         print(f"Wrote: {delta_output}")
         print(f"Wrote: {pct_output}")
 
-    diff_output = (
-        figure_out
-        / "2021_vcmslcfg_minus_vcmcfg_common_coverage.pdf"
-    )
-    coverage_output = (
-        figure_out
-        / "2021_vcmslcfg_vs_vcmcfg_coverage_difference.pdf"
-    )
+    if {"vcmcfg", "vcmslcfg"}.issubset(product_arrays):
+        diff_output = (
+            figure_out
+            / "2021_vcmslcfg_minus_vcmcfg_common_coverage.pdf"
+        )
+        coverage_output = (
+            figure_out
+            / "2021_vcmslcfg_vs_vcmcfg_coverage_difference.pdf"
+        )
 
-    plot_product_comparison_2021(
-        product_arrays["vcmcfg"],
-        product_arrays["vcmslcfg"],
-        product_valid["vcmcfg"],
-        product_valid["vcmslcfg"],
-        countries,
-        bounds,
-        diff_output,
-        coverage_output,
-    )
-    print(f"Wrote: {diff_output}")
-    print(f"Wrote: {coverage_output}")
+        plot_product_comparison_2021(
+            product_arrays["vcmcfg"],
+            product_arrays["vcmslcfg"],
+            product_valid["vcmcfg"],
+            product_valid["vcmslcfg"],
+            countries,
+            bounds,
+            diff_output,
+            coverage_output,
+        )
+        print(f"Wrote: {diff_output}")
+        print(f"Wrote: {coverage_output}")
+    else:
+        print(
+            "Skipping full VCMCFG-vs-VCMSLCFG map comparison: "
+            "VCMCFG is not complete for all 36 months.",
+            flush=True,
+        )
 
 
 def write_summary_text(
@@ -1366,7 +1375,8 @@ def write_summary_text(
     lines.append(
         "- comparison: 2021 month vs mean of the same month in 2020 and 2022"
     )
-    lines.append("- products: VCMCFG and VCMSLCFG")
+    products_present = sorted(monthly["product"].dropna().astype(str).unique())
+    lines.append("- products analysed: " + ", ".join(products_present))
     lines.append(
         "- cf_cvg > 0 masks pixels without cloud-free observations"
     )
@@ -1509,10 +1519,31 @@ def main() -> None:
     if args.inventory_only:
         return
 
-    if missing:
+    def product_complete(product: str) -> bool:
+        return all(
+            (product, year, month) in pairs
+            for year in YEARS
+            for month in range(1, 13)
+        )
+
+    if not product_complete("vcmslcfg"):
         raise FileNotFoundError(
-            "Monthly input inventory is incomplete. Download/extract the missing "
-            "EOG monthly average-radiance and cf_cvg GeoTIFFs, then rerun."
+            "The canonical VCMSLCFG monthly series is incomplete. "
+            "All 36 2020-2022 product-month pairs are required."
+        )
+
+    active_products: tuple[str, ...]
+    if product_complete("vcmcfg"):
+        active_products = ("vcmcfg", "vcmslcfg")
+        print("Analysis products: VCMCFG + VCMSLCFG", flush=True)
+    else:
+        active_products = ("vcmslcfg",)
+        n_vcm = sum(1 for p, _, _ in pairs if p == "vcmcfg")
+        print(
+            f"Analysis products: VCMSLCFG only. VCMCFG is optional here and "
+            f"currently incomplete ({n_vcm}/36); the existing July VCM/VCMSL "
+            "pilot remains the product-comparison diagnostic.",
+            flush=True,
         )
 
     # Reuse the canonical locked fixed-NUTS2016 panel already established by
@@ -1567,6 +1598,7 @@ def main() -> None:
     if not args.skip_zonal:
         monthly = run_zonal_extraction(
             pairs,
+            active_products,
             nuts,
             processed_out,
             args.min_valid_area_fraction,
@@ -1595,6 +1627,7 @@ def main() -> None:
     if not args.skip_maps:
         run_maps(
             pairs,
+            active_products,
             nuts,
             figure_out,
             map_bounds,
