@@ -59,6 +59,7 @@ STAGES = {
     "future-radiance-snow-2021-test": PROJECT_ROOT / "src" / "test_fixed_nuts2016_snow_viirs_2021.py",
     "future-radiance-historical-snow-control": PROJECT_ROOT / "src" / "test_fixed_nuts2016_historical_snow_control.py",
     "future-radiance-albedo-2021-test": PROJECT_ROOT / "src" / "test_fixed_nuts2016_albedo_viirs_2021.py",
+    "future-radiance-2021-surface-correction": PROJECT_ROOT / "src" / "build_fixed_nuts2016_2021_surface_correction.py",
     "habitability-fetch": PROJECT_ROOT / "src" / "fetch_habitability_inputs.py",
     "habitability-build": PROJECT_ROOT / "src" / "build_habitability_metric.py",
     "habitability-historical-validation": PROJECT_ROOT / "src" / "validate_habitability_historical_change.py",
