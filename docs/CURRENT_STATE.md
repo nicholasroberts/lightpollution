@@ -5,6 +5,16 @@
 **Machine:** EcoVis  
 **Repository root:** \`/run/media/bznwr/data/lightpollution\`
 
+## Updated primary direction — evening 16 October 2026
+
+**Historical polarization-cue visibility across Europe (2014–2024) is now the first-paper objective**, rather than SSP forecasting. Begin by reproducing the original PRC relationship from site-level field data and **Light Pollution Map's `viirs_2019` radiance layer**; do not confuse it with modelled sky brightness. Re-extract 2019 EOG and Black Marble site radiance, then test annual, date-matched monthly and quality-screened daily measures.
+
+**Pipeline and decision diagram:** [`docs/historical_prc_pipeline.md`](historical_prc_pipeline.md). Full reasoning and prior figure/dataset references remain in the [16 October lab book](lab_notebook/2026-10-16.md). Primary historical PRC mapping and a dedicated branch are **not yet implemented**; the latter is proposed for Monday. Preserve the older annual NUTS3 forecast and NL333 diagnostics as previous results.
+
+---
+
+## Previous restart state, retained for provenance
+
 ## CURRENT PRIMARY DECISION — 2026-10-16
 
 Read the full dated [2026-10-16 laboratory notebook](lab_notebook/2026-10-16.md) for detailed tables, scientific reasoning, all figure paths, data provenance and commit references.
