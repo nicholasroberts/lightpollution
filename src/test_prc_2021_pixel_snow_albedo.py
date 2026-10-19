@@ -333,7 +333,7 @@ def main():
                     src, crs=rd[2021].crs, transform=rd[2021].transform,
                     width=rd[2021].width,height=rd[2021].height,
                     resampling=Resampling.nearest, src_nodata=255,
-                    nodata=np.nan))
+                    nodata=255))
             albedods={}
             for y in YEARS:
                 src = stack.enter_context(rasterio.open(albedo_paths[y,month]))
@@ -425,8 +425,10 @@ def main():
     diag=pd.DataFrame(diagnostics)
     diag.to_csv(out/"spatial_holdout_diagnostics.csv",index=False)
 
-    region=held.groupby(["model","NUTS_ID","month"],as_index=False).apply(
-        lambda g:pd.Series({
+    region_rows=[]
+    for (model, nuts_id, month), g in held.groupby(["model","NUTS_ID","month"]):
+        region_rows.append({
+            "model":model,"NUTS_ID":nuts_id,"month":month,
             "predicted_surface_component_nw":np.average(
                 g.surface_component_nw,weights=g.area_weight),
             "observed_month_anomaly_nw":np.average(
@@ -434,7 +436,8 @@ def main():
             "residual_after_surface_nw":np.average(
                 g.outcome_minus_surface,weights=g.area_weight),
             "n_groups":len(g),
-        }),include_groups=False).reset_index(drop=True)
+        })
+    region=pd.DataFrame(region_rows)
     region.to_csv(out/"regional_monthly_spatial_contrast.csv",index=False)
 
     fig,axs=plt.subplots(1,2,figsize=(12,5),layout="constrained")
