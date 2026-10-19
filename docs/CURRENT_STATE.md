@@ -5,6 +5,14 @@
 **Machine:** EcoVis  
 **Repository root:** \`/run/media/bznwr/data/lightpollution\`
 
+## Active 2021 snow-bias evaluation — 19 October 2026
+
+The existing post-2017 global **0.235 calibrated-pixel offset has already been applied**; do not add it again. Snow/albedo correction is a separate **2021-only** issue. First validate NUTS3-to-PRC translation using original 2021 regional snow-plus-albedo corrected radiance and per-pixel PRC recalculation, **not** PRC of region-mean radiance. Stage: \`python src/prc_2021_surface_bridge.py --limit 10\`, then \`python src/prc_2021_surface_bridge.py\`. No new satellite downloads. Outputs go to \`data/processed/historical_prc_2021_surface_bridge/\`; instructions and pixel-level extension in [2021 correction plan](prc_2021_surface_correction_plan.md). The NUTS factor is a spatially uniform *hypothesis*; it is **not** a validated pixel snow field. Independently test pixel-level snow/albedo effects before accepting a correction.
+
+The 2014→2024 PRC endpoint maps and regional ranks cannot change from a correction only to 2021; annual transitions around 2021 and temporal fits can change.
+
+---
+
 ## Next analysis stage — 2014–2024 VIIRS pixel PRC
 
 `python src/historical_prc_pixel_nuts3.py --pilot` for an initial 2014/2018/2019/2021/2024 check, then `python src/run_pipeline.py historical-prc` for all 11 years. Native EOG pixels are corrected and mapped through the selected PRC curve **before** aggregation to fixed NUTS2016 polygons. Annual and cumulative PRC absolute/% maps, Europe summaries and NUTS3 rankings are generated. Optional native-resolution five-band pixel GeoTIFF: `python src/historical_prc_pixel_nuts3.py --no-maps --pixel-year 2024`. See [analysis instructions](historical_prc_analysis.md). **No real mapping outputs generated yet.** 2021 snow adjustment remains unresolved at pixel level; 2021 annual changes are diagnostic.
