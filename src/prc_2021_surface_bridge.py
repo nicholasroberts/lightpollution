@@ -282,10 +282,19 @@ def main():
     fig, axs = plt.subplots(1, 2, figsize=(11, 4.6), layout="constrained")
     axs[0].scatter(valid.prc_2021_anomaly_original,
                    valid.prc_2021_anomaly_primary, s=7, alpha=.35)
-    axs[0].axline((0, 0), (1, 1), color="gray", linestyle="--")
+    # axline((0, 0), (1, 1)) expands axes to 0..1, hiding the ~0.001
+    # PRC-scale cloud; draw a bounded identity segment instead.
+    both = np.concatenate([
+        valid.prc_2021_anomaly_original.to_numpy(float),
+        valid.prc_2021_anomaly_primary.to_numpy(float),
+    ])
+    finite = both[np.isfinite(both)]
+    lim = (float(finite.min() - .001), float(finite.max() + .001))
+    axs[0].plot(lim, lim, color="gray", linestyle="--")
     axs[0].axhline(0, color="gray", linewidth=.6)
     axs[0].axvline(0, color="gray", linewidth=.6)
-    axs[0].set(xlabel="Original 2021 PRC anomaly vs 2020/22 flanks",
+    axs[0].set(xlim=lim, ylim=lim,
+               xlabel="Original 2021 PRC anomaly vs 2020/22 flanks",
                ylabel="2021 anomaly after regional correction")
     axs[1].scatter(valid.radiance_2021_observed_corrected,
                    valid.prc_correction_primary, s=7, alpha=.4)
