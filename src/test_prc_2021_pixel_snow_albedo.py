@@ -36,11 +36,11 @@ MONTHS = (1, 2, 3)
 MODEL_FORMULA = (
     "delta_radiance ~ snow_delta_pp + snow_delta_pp:np.log1p(baseline_radiance)"
     " + albedo_delta_pp + albedo_delta_pp:np.log1p(baseline_radiance)"
-    " + delta_cloudfree + C(month)"
+    " + delta_cloudfree + is_february"
 )
 SNOW_FORMULA = (
     "delta_radiance ~ snow_delta_pp + snow_delta_pp:np.log1p(baseline_radiance)"
-    " + delta_cloudfree + C(month)"
+    " + delta_cloudfree + is_february"
 )
 
 
@@ -61,12 +61,14 @@ def select_regions(geo, regional, limit):
         raise ValueError(f"Missing regional snow anomaly {key} in {regional}")
     d = d.drop_duplicates("NUTS_ID")
     geo = geo.copy()
-    geo["area_km2"] = geo.to_crs("EPSG:3035").area / 1e6
-    # Moderate-size mainland regions limit pilot cost and ensure broad contrasts.
+    projected = geo.to_crs("EPSG:3035")
+    geo["area_km2"] = projected.area / 1e6
+    # Centroids calculated in a projected CRS and transformed to lon/lat.
+    centres = projected.geometry.centroid.to_crs("EPSG:4326")
     geo = geo.loc[
         geo.area_km2.between(100, 2500) &
-        geo.geometry.centroid.x.between(-12, 32) &
-        geo.geometry.centroid.y.between(36, 72)
+        centres.x.between(-12, 32) &
+        centres.y.between(36, 72)
     ]
     d = geo.merge(d[["NUTS_ID", key]], on="NUTS_ID", how="inner")
     d = d[np.isfinite(d[key])].copy()
@@ -111,8 +113,10 @@ def equal_grid(sources):
             raise ValueError(f"Monthly VIIRS pixel grid differs: {ref.name} / {s.name}")
 
 
-def arrays_for_region(geom, rad, cf, snow, albedo):
+def arrays_for_region(geom, rad, cf, snow, albedo, native_snow_grid):
     ref = rad[2021]
+    if ref.crs is None or ref.crs.to_epsg() != 4326:
+        raise ValueError("MOD10CM mapping expects EPSG:4326 VIIRS pixels")
     try:
         w = geometry_window(ref, [geom], pad_x=0, pad_y=0)
     except rasterio.errors.WindowError:
@@ -151,12 +155,12 @@ def arrays_for_region(geom, rad, cf, snow, albedo):
     t = ref.transform
     lon = t.c + t.a * (cols + .5) + t.b * (rows + .5)
     lat = t.f + t.d * (cols + .5) + t.e * (rows + .5)
-    # Preserve the native 0.05-degree MOD10CM spatial support as cluster IDs.
-    snow_ref = snow[2021]
-    st = snow_ref.transform
+    # snow[2021] is a WarpedVRT on the VIIRS grid. Using its transform
+    # would spuriously define a separate snow observation per VIIRS pixel.
+    st, snow_width = native_snow_grid
     sr = np.floor((lat-st.f) / st.e).astype("int64")
     sc = np.floor((lon-st.c) / st.a).astype("int64")
-    cell = sr * snow_ref.width + sc
+    cell = sr * snow_width + sc
     flank = .5 * (data[2020]["r"]+data[2022]["r"])
     snow_delta = data[2021]["snow"] - .5*(data[2020]["snow"]+data[2022]["snow"])
     albedo_delta = 100 * (data[2021]["albedo"] -
@@ -303,9 +307,13 @@ def main():
             raise ValueError(f"Mixed-platform monthly product: {pairs[key].radiance}")
 
     snow_dir = configured_path(config,"processed") / "mod10cm_061_geotiff_cache"
-    snow_raw = discover_mod10cm(
-        configured_path(config,"processed").parent /
+    # Raw-path config is relative to PROJECT_ROOT, never processed/ parent.
+    modis_raw_dir = path(
         config["analysis"]["fixed_nuts2016_snow_viirs_test"]["mod10cm_raw_dir"])
+    if not modis_raw_dir.is_dir():
+        raise FileNotFoundError(f"MOD10CM directory not found: {modis_raw_dir}")
+    print(f"MOD10CM inventory: {modis_raw_dir}",flush=True)
+    snow_raw = discover_mod10cm(modis_raw_dir)
     albedo_dir = configured_path(config,"processed") / "vnp43ma3_002_monthly_composite_cache"
     albedo_paths = {(y,m):albedo_dir / f"vnp43ma3_002_{y}_{m:02d}_monthly.tif"
                     for y in YEARS for m in MONTHS}
@@ -325,10 +333,16 @@ def main():
                   for y in YEARS}
             equal_grid([*rd.values(),*cf.values()])
             snowds={}
+            native_snow_grid = None
             for y in YEARS:
                 hdf = snow_raw[(y,month)]
                 snowtif = ensure_snow_geotiff(hdf,snow_dir,"EPSG:4326")
                 src = stack.enter_context(rasterio.open(snowtif))
+                source_grid = (src.transform,src.width)
+                if native_snow_grid is None:
+                    native_snow_grid = source_grid
+                elif native_snow_grid != source_grid:
+                    raise ValueError("Native MOD10CM source grids differ by year")
                 snowds[y] = stack.enter_context(WarpedVRT(
                     src, crs=rd[2021].crs, transform=rd[2021].transform,
                     width=rd[2021].width,height=rd[2021].height,
@@ -346,7 +360,7 @@ def main():
             for n,row in enumerate(selected.itertuples(index=False),1):
                 try:
                     result = arrays_for_region(
-                        row.geometry,rd,cf,snowds,albedods)
+                        row.geometry,rd,cf,snowds,albedods,native_snow_grid)
                 except rasterio.errors.WindowError:
                     result=None
                 if result is None:
@@ -372,6 +386,9 @@ def main():
     if not record:
         raise RuntimeError("No matched VIIRS pixels: see spatial_support_quality.csv")
     groups = pd.concat(record,ignore_index=True)
+    # March is held-out: C(month) fitted to Jan/Feb cannot predict unseen
+    # March. Use a February indicator, with Jan as March's reference intercept.
+    groups["is_february"] = groups.month.eq(2).astype(int)
     groups.to_csv(out/"matched_snowcell_brightness_groups.csv",index=False)
 
     winter = groups[groups.month.isin([1,2])].copy()
@@ -469,7 +486,8 @@ def main():
         "to VIIRS grid. Reported apparent 500m values retain their source support.",
         "2022 J01 monthly products explicitly rejected; no monthly 0.235 subtracted.",
         "2017+ -0.235 annual VNL calibration remains part of original PRC histories.",
-        "Train January/February; evaluate March negative control; leave NUTS3 out.",
+        "Train Jan/Feb with February indicator; March uses January intercept.",
+        "March is a temporal negative control; leave whole NUTS3 regions out.",
         "The surface-effect regression is observational and not a causal correction.",
         "No monthly-to-annual correction or corrected PRC produced here.",
         "Do not select model solely for making 2021 anomaly smaller.",
