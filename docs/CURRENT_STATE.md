@@ -5,15 +5,23 @@
 **Machine:** EcoVis  
 **Repository root:** \`/run/media/bznwr/data/lightpollution\`
 
+## LOCKED WORKING PRC FUNCTION — 19 October 2026
+
+**Adopted provisionally for historical 2014–2024 analysis:** `PRC(R) = 0.144845 + 0.316330 * exp(-0.106483 * R)`, where `R` is the *project-calibrated* annual EOG VIIRS pixel radiance (nW cm^-2 sr^-1). Original R `SSasymp` functional form, refitted using **observation-year radiance** (2018 for three sites; 2019 for eleven). `n=16` provisional matches across the 14 Table S1 sites; `R²=0.949279`, `RMSE=0.027146`. Original source values and original fit are secondary comparisons. Parameters: `config/prc_transfer.yaml`. Research context and caveats: [19 October laboratory notebook](lab_notebook/2026-10-19.md).
+
+**Still unresolved:** two original plotted PRC observations have no confirmed site, four assignments remain provisional, and the original R file mapping is pending. Do not interpret PRC as a validated behavioural threshold. European maps have not yet been calculated; the NUTS3-level special 2021 correction is not a per-pixel map correction.
+
+---
+
 ## NEW ACTIVE RESTART — 19 October 2026
 
 **Branch now created:** `historical-polarization-visibility`. **Study:** observed 2014–2024 changes in locally modelled celestial polarization-receptor contrast (PRC) across Europe; forecasting remains later work. See [19 October lab notebook](lab_notebook/2026-10-19.md).
 
 **Completed first check:** all 14 experimental sites extracted from local EOG 2018 and 2019 **VNL V2.1** annual `average_masked` VIIRS rasters; the existing post-2017 **0.235 pixel calibration** has been applied. Note the V2.1 filenames despite earlier planning descriptions saying V2.2. Original Light Pollution Map values came from the **2019 VIIRS layer**, `viirs_2019`, which is spatially smoothed relative to pixel samples.
 
-**Latest user decision:** use **calibrated EOG 2018 annual pixel radiances** for the upcoming PRC fit and site-function comparison. Keep original website and calibrated 2019 values as sensitivity measures, not the primary predictor. Eleven sites were experimentally sampled in 2019, so year mismatch must be acknowledged and may later be tested; the raw PRC fitting code/data are not yet available.
+**Historical interim decision (superseded):** 2018 annual EOG at all sites was briefly proposed, then replaced by **observation-year calibrated EOG**: 2018 at the three 2018 field sites and 2019 at the eleven 2019 sites. This updated dataset was used for the provisional 16-observation SSasymp refit adopted above. The 18-entry R `sigg` vector is available but original file-to-site mapping is still pending.
 
-**Next action:** recover the original R script/site PRC measurements and test the fitted PRC relationship using 2018 corrected radiance. No Black Marble work is required now. The historical European study remains **2014–2024**, not just 2018.
+**Next action:** prepare historical per-pixel radiance/PRC reconstruction with the adopted function, while separately recovering the original R filename-to-site mapping and auditing calibration uncertainty. No Black Marble work is needed at this stage. The historical European study remains **2014–2024**.
 
 ---
 

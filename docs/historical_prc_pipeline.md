@@ -2,7 +2,7 @@
 
 **Decision:** 16 October 2026. **Status:** research plan only; site-data validation and European mapping have not been run.
 **Working geography:** Europe, 2014–2024, with local radiance analysis at approximately 500 m–1 km.
-**Branch:** a new research branch is proposed for Monday 19 October; not yet created.
+**Branch:** `historical-polarization-visibility` created on 19 October 2026.
 
 ## Pipeline overview
 
@@ -67,7 +67,7 @@ Explicitly assess blue/LED spectral under-response of VIIRS, non-local atmospher
 
 ## Restart instructions
 
-Begin with the original field-site PRC table and fitted function. Do not code a Europe-wide PRC mapper before the site-level predictor is reproduced and evaluated. Do not create the new branch until Monday as agreed.
+Begin with the original field-site PRC table and fitted function. Do not code a Europe-wide PRC mapper before the site-level predictor is reproduced and evaluated. The dedicated working branch was created on Monday 19 October.
 
 See [`lab_notebook/2026-10-16.md`](lab_notebook/2026-10-16.md) for the preceding VIIRS and density analyses, scientific reasoning, figure names and data provenance.
 
@@ -81,3 +81,16 @@ See [`lab_notebook/2026-10-16.md`](lab_notebook/2026-10-16.md) for the preceding
 **Actual input files audited:** existing local EOG annual VNL **V2.1** `average_masked` for 2018 and 2019; a number of earlier notes had described the EOG processing generally as V2.2. Confirm V2.1 product lineage and versions before methods write-up. The post-2017 pixel correction is applied before biological analysis.
 
 **Status:** the baseline PRC fitting code and site PRC responses have not yet been supplied; no PRC fits recalculated. The 2014–2024 historical mapping objective remains unchanged. See [19 October lab notebook](lab_notebook/2026-10-19.md).
+
+
+## Working transfer function confirmed — 19 October 2026
+
+The investigator adopted the **newly refitted observation-year EOG calibrated-radiance function** as the provisional default for subsequent historical PRC mapping:
+
+```text
+PRC(R) = 0.144845 + 0.316330 * exp(-0.106483 * R)
+```
+
+Here `R` is positive-pixel calibrated EOG annual radiance in nW cm^-2 sr^-1; the model is the original R `SSasymp` family. Source response: 16 provisional matches to 14 sites, `R² = 0.949279`, RMSE `0.027146`. This **supersedes the previous all-sites-2018 proposal**: site calibration uses **2018 for the 2018 observations and 2019 for the 2019 observations**. Original Light Pollution Map `viirs_2019` is kept for provenance and sensitivity. Preserve the two unresolved original PRC observations and the remaining ambiguous original filename assignments as open provenance work.
+
+Machine-readable parameters: `config/prc_transfer.yaml`. Fitting script: `src/fit_prc_observation_year.py`; [dated notebook](lab_notebook/2026-10-19.md). **No claim of a behavioural threshold or transfer outside the empirical calibration domain.** No European maps have yet been generated under this function.

@@ -1,0 +1,33 @@
+# Provisional working empirical PRC response function, selected 2026-10-19.
+# Method and limitations: docs/lab_notebook/2026-10-19.md.
+model_id: prc_eog_observation_year_2026_10_19
+status: provisional_working
+model_family: R_SSasymp_exponential
+response: polarization_receptor_contrast
+radiance:
+  source: EOG Annual VNL V2.1 average_masked
+  unit: nW cm-2 sr-1
+  pixel_calibration:
+    apply_from_year: 2017
+    positive_pixel_subtraction: 0.235
+  site_calibration_year_rule: field_observation_year
+  site_years: [2018, 2019]
+parameters:
+  y0: 0.461175
+  yf: 0.144845
+  k: 0.106483
+equation: "PRC = yf + (y0 - yf) * exp(-k * R)"
+fit:
+  matching_status: provisional
+  prc_n: 16
+  table_s1_distinct_sites: 14
+  original_plotted_observations: 18
+  unmatched_original_observations: 2
+  r_squared: 0.949279
+  rmse: 0.027146
+  site_grouped_holdout_rmse: 0.032101
+limitations:
+  - Provisional mapping of plotted PRC observations to the original sites
+  - Two plotted original PRC observations lack identified locations
+  - No established behavioural detectability threshold
+  - Transfer to novel regions/species or historical spectral mixes not validated
