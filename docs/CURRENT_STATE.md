@@ -1,9 +1,21 @@
 # Current research state / restart point
 
-**Updated:** 2026-10-16  
-**Branch:** \`future-population-models\`  
+**Updated:** 2026-10-19  
+**Branch:** `historical-polarization-visibility`  
 **Machine:** EcoVis  
 **Repository root:** \`/run/media/bznwr/data/lightpollution\`
+
+## NEW ACTIVE RESTART — 19 October 2026
+
+**Branch now created:** `historical-polarization-visibility`. **Study:** observed 2014–2024 changes in locally modelled celestial polarization-receptor contrast (PRC) across Europe; forecasting remains later work. See [19 October lab notebook](lab_notebook/2026-10-19.md).
+
+**Completed first check:** all 14 experimental sites extracted from local EOG 2018 and 2019 **VNL V2.1** annual `average_masked` VIIRS rasters; the existing post-2017 **0.235 pixel calibration** has been applied. Note the V2.1 filenames despite earlier planning descriptions saying V2.2. Original Light Pollution Map values came from the **2019 VIIRS layer**, `viirs_2019`, which is spatially smoothed relative to pixel samples.
+
+**Latest user decision:** use **calibrated EOG 2018 annual pixel radiances** for the upcoming PRC fit and site-function comparison. Keep original website and calibrated 2019 values as sensitivity measures, not the primary predictor. Eleven sites were experimentally sampled in 2019, so year mismatch must be acknowledged and may later be tested; the raw PRC fitting code/data are not yet available.
+
+**Next action:** recover the original R script/site PRC measurements and test the fitted PRC relationship using 2018 corrected radiance. No Black Marble work is required now. The historical European study remains **2014–2024**, not just 2018.
+
+---
 
 ## Updated primary direction — evening 16 October 2026
 

@@ -70,3 +70,14 @@ Explicitly assess blue/LED spectral under-response of VIIRS, non-local atmospher
 Begin with the original field-site PRC table and fitted function. Do not code a Europe-wide PRC mapper before the site-level predictor is reproduced and evaluated. Do not create the new branch until Monday as agreed.
 
 See [`lab_notebook/2026-10-16.md`](lab_notebook/2026-10-16.md) for the preceding VIIRS and density analyses, scientific reasoning, figure names and data provenance.
+
+
+## Decision update — 19 October 2026: calibrated 2018 annual site predictor
+
+**After completing the first 14-site comparison, the investigator chose the project's own corrected EOG 2018 annual VIIRS pixel radiance as the primary predictor for the next PRC site-function analysis.** The original `viirs_2019` website layer and corrected 2019 annual EOG values remain provenance/sensitivity comparators. The original website values exhibit high agreement at the level of the overall site-brightness gradient, notwithstanding processing and spatial-smoothing differences. Short-term natural variability and website smoothing are potential explanations; they are not yet quantitatively decomposed.
+
+**Year mismatch:** 11 of 14 field sites were recorded in 2019 and three in 2018. Preserve and disclose this. Later evaluate year-matched and observation-month radiance as robustness tests, not preconditions for the first fit.
+
+**Actual input files audited:** existing local EOG annual VNL **V2.1** `average_masked` for 2018 and 2019; a number of earlier notes had described the EOG processing generally as V2.2. Confirm V2.1 product lineage and versions before methods write-up. The post-2017 pixel correction is applied before biological analysis.
+
+**Status:** the baseline PRC fitting code and site PRC responses have not yet been supplied; no PRC fits recalculated. The 2014–2024 historical mapping objective remains unchanged. See [19 October lab notebook](lab_notebook/2026-10-19.md).
