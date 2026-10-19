@@ -12,6 +12,7 @@ from project_config import PROJECT_ROOT
 
 
 STAGES = {
+    "historical-prc": PROJECT_ROOT / "src" / "historical_prc_pixel_nuts3.py",
     "nuts": PROJECT_ROOT / "src" / "fetch_nuts_boundaries.py",
     "validate": PROJECT_ROOT / "src" / "validate_inputs.py",
     "weighting-test": PROJECT_ROOT / "src" / "validate_zonal_weighting.py",

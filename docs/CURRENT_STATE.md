@@ -5,6 +5,12 @@
 **Machine:** EcoVis  
 **Repository root:** \`/run/media/bznwr/data/lightpollution\`
 
+## Next analysis stage — 2014–2024 VIIRS pixel PRC
+
+`python src/historical_prc_pixel_nuts3.py --pilot` for an initial 2014/2018/2019/2021/2024 check, then `python src/run_pipeline.py historical-prc` for all 11 years. Native EOG pixels are corrected and mapped through the selected PRC curve **before** aggregation to fixed NUTS2016 polygons. Annual and cumulative PRC absolute/% maps, Europe summaries and NUTS3 rankings are generated. Optional native-resolution five-band pixel GeoTIFF: `python src/historical_prc_pixel_nuts3.py --no-maps --pixel-year 2024`. See [analysis instructions](historical_prc_analysis.md). **No real mapping outputs generated yet.** 2021 snow adjustment remains unresolved at pixel level; 2021 annual changes are diagnostic.
+
+---
+
 ## LOCKED WORKING PRC FUNCTION — 19 October 2026
 
 **Adopted provisionally for historical 2014–2024 analysis:** `PRC(R) = 0.144845 + 0.316330 * exp(-0.106483 * R)`, where `R` is the *project-calibrated* annual EOG VIIRS pixel radiance (nW cm^-2 sr^-1). Original R `SSasymp` functional form, refitted using **observation-year radiance** (2018 for three sites; 2019 for eleven). `n=16` provisional matches across the 14 Table S1 sites; `R²=0.949279`, `RMSE=0.027146`. Original source values and original fit are secondary comparisons. Parameters: `config/prc_transfer.yaml`. Research context and caveats: [19 October laboratory notebook](lab_notebook/2026-10-19.md).
