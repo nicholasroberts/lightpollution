@@ -8,6 +8,8 @@ spatial MOD10CM-cell aggregation to reduce 500m-pixel pseudoreplication.
 from __future__ import annotations
 
 import argparse
+import hashlib
+import json
 from contextlib import ExitStack
 from pathlib import Path
 
@@ -20,7 +22,7 @@ import pandas as pd
 import rasterio
 from rasterio.enums import Resampling
 from rasterio.features import geometry_mask, geometry_window
-from rasterio.vrt import WarpedVRT
+from rasterio.warp import reproject
 from scipy.stats import spearmanr
 import statsmodels.formula.api as smf
 
@@ -113,6 +115,44 @@ def equal_grid(sources):
             raise ValueError(f"Monthly VIIRS pixel grid differs: {ref.name} / {s.name}")
 
 
+CACHE_VERSION = "regional_windowed_reprojection_native_snow_grid_v1"
+
+
+def reproject_to_region(source, target, window):
+    """Reproject into an individual VIIRS window, not a global WarpedVRT.
+
+    Preserve MOD10CM's original resolution: nearest-neighbour repeats one
+    coarse snow observation across pixels; it does not add information.
+    """
+    if source.crs is None or source.nodata is None:
+        raise ValueError(f"Missing source CRS/nodata: {source.name}")
+    out = np.full((int(window.height), int(window.width)), np.nan, dtype=np.float32)
+    reproject(
+        source=rasterio.band(source, 1),
+        destination=out,
+        src_nodata=source.nodata,
+        dst_nodata=np.nan,
+        dst_transform=target.window_transform(window),
+        dst_crs=target.crs,
+        resampling=Resampling.nearest,
+        num_threads=1,
+        init_dest_nodata=True,
+    )
+    return out.astype(np.float64)
+
+
+def cache_fingerprint(nuts_id, month, geom, sources):
+    """Data provenance fingerprint, including source files and polygon."""
+    items = [CACHE_VERSION, str(nuts_id), str(month), geom.wkb_hex]
+    for kind in ("rad", "cf", "snow", "albedo"):
+        for year in YEARS:
+            src = sources[kind][year]
+            p = Path(src.name)
+            st = p.stat()
+            items.append(f"{kind}/{year}/{p.resolve()}/{st.st_size}/{st.st_mtime_ns}")
+    return hashlib.sha256("|".join(items).encode("utf-8")).hexdigest()
+
+
 def arrays_for_region(geom, rad, cf, snow, albedo, native_snow_grid):
     ref = rad[2021]
     if ref.crs is None or ref.crs.to_epsg() != 4326:
@@ -131,11 +171,12 @@ def arrays_for_region(geom, rad, cf, snow, albedo, native_snow_grid):
         b = cf[year].read(1, window=w, masked=True)
         r = np.ma.filled(a.astype("float64"), np.nan)
         c = np.ma.filled(b.astype("float64"), np.nan)
-        data[year] = {"r":r, "c":c,
-                      "snow":np.ma.filled(snow[year].read(1, window=w, masked=True)
-                                         .astype("float64"), np.nan),
-                      "albedo":np.ma.filled(albedo[year].read(1,window=w,masked=True)
-                                           .astype("float64"), np.nan)}
+        data[year] = {
+            "r": r,
+            "c": c,
+            "snow": reproject_to_region(snow[year], ref, w),
+            "albedo": reproject_to_region(albedo[year], ref, w),
+        }
     common = inside.copy()
     for year in YEARS:
         common &= (np.isfinite(data[year]["r"]) &
@@ -281,6 +322,8 @@ def main():
     ap.add_argument("--n-regions",type=int,default=18)
     ap.add_argument("--limit",type=int,default=0,help="Smoke-test subset")
     ap.add_argument("--self-test",action="store_true")
+    ap.add_argument("--no-cache",action="store_true",
+                    help="Force fresh per-region-month reprojections")
     ap.add_argument("--output-dir",default=
                     "data/processed/historical_prc_2021_pixel_snow_test")
     args = ap.parse_args()
@@ -343,26 +386,49 @@ def main():
                     native_snow_grid = source_grid
                 elif native_snow_grid != source_grid:
                     raise ValueError("Native MOD10CM source grids differ by year")
-                snowds[y] = stack.enter_context(WarpedVRT(
-                    src, crs=rd[2021].crs, transform=rd[2021].transform,
-                    width=rd[2021].width,height=rd[2021].height,
-                    resampling=Resampling.nearest, src_nodata=255,
-                    nodata=255))
+                snowds[y] = src
             albedods={}
             for y in YEARS:
                 src = stack.enter_context(rasterio.open(albedo_paths[y,month]))
                 if src.count < 1 or src.descriptions[0] != "wsa_qa01_mean":
                     raise ValueError("Albedo composite bands are not the expected QA0/1 WSA")
-                albedods[y] = stack.enter_context(WarpedVRT(
-                    src, crs=rd[2021].crs, transform=rd[2021].transform,
-                    width=rd[2021].width,height=rd[2021].height,
-                    resampling=Resampling.nearest, nodata=np.nan))
+                albedods[y] = src
+            month_cache = out / "monthly_region_cache" / f"{month:02d}"
+            month_cache.mkdir(parents=True, exist_ok=True)
+            opened = {"rad":rd, "cf":cf, "snow":snowds, "albedo":albedods}
             for n,row in enumerate(selected.itertuples(index=False),1):
-                try:
-                    result = arrays_for_region(
-                        row.geometry,rd,cf,snowds,albedods,native_snow_grid)
-                except rasterio.errors.WindowError:
-                    result=None
+                sig = cache_fingerprint(row.NUTS_ID, month, row.geometry, opened)
+                cached = month_cache / f"{row.NUTS_ID}.parquet"
+                meta = month_cache / f"{row.NUTS_ID}.json"
+                result = None
+                was_cached = False
+                if not args.no_cache and cached.is_file() and meta.is_file():
+                    try:
+                        old = json.loads(meta.read_text(encoding="utf-8"))
+                        if old.get("fingerprint") == sig:
+                            g = pd.read_parquet(cached)
+                            result = (g, int(old["n_inside"]),
+                                      int(old["n_common"]), float(old["support_frac"]))
+                            was_cached = True
+                    except (OSError, ValueError, KeyError):
+                        result = None
+                if result is None:
+                    try:
+                        result = arrays_for_region(
+                            row.geometry,rd,cf,snowds,albedods,native_snow_grid)
+                    except rasterio.errors.WindowError:
+                        result=None
+                    if result is not None and not args.no_cache:
+                        grp, ni, nc, frac0 = result
+                        temp = cached.with_name(cached.stem+".tmp.parquet")
+                        grp.to_parquet(temp, index=False)
+                        temp.replace(cached)
+                        meta_temp = meta.with_name(meta.name+".tmp")
+                        meta_temp.write_text(json.dumps({
+                            "fingerprint":sig, "n_inside":ni,
+                            "n_common":nc,"support_frac":frac0,
+                        }, indent=2), encoding="utf-8")
+                        meta_temp.replace(meta)
                 if result is None:
                     counts.append({"NUTS_ID":row.NUTS_ID,"month":month,
                                    "status":"no_snow_viirs_support"})
@@ -380,7 +446,8 @@ def main():
                                "common_viirs_support_fraction":frac,
                                "n_coarse_groups":len(g),"status":"ok"})
                 print(f"  {month:02d} {n:02d}/{len(selected)} {row.NUTS_ID}: "
-                      f"{n_common} pixels, {len(g)} coarse groups",flush=True)
+                      f"{n_common} pixels, {len(g)} coarse groups"
+                      f"{' [cached]' if was_cached else ''}",flush=True)
     coverage = pd.DataFrame(counts)
     coverage.to_csv(out/"spatial_support_quality.csv",index=False)
     if not record:
@@ -482,6 +549,8 @@ def main():
         f"NUTS2016 regions chosen from independent February snow anomaly: {len(selected)}",
         "VIIRS VCMSLCFG 2020/21/22 same calendar month, matched cf_cvg>0 pixels.",
         "MOD10CM at 0.05 degree: NOT 500m snow mapping; grouped by original cell.",
+        "Spatial reprojection is restricted to NUTS pixel windows, with a",
+        "source-fingerprinted per-region-month cache for resumable processing.",
         "Albedo: VNP43MA3 WSA visible monthly QA0/1, native sinusoidal warped nearest",
         "to VIIRS grid. Reported apparent 500m values retain their source support.",
         "2022 J01 monthly products explicitly rejected; no monthly 0.235 subtracted.",
