@@ -1,0 +1,15 @@
+site_id,location,date_as_printed,field_date,latitude,longitude,published_viirs_2019_nw_cm2_sr,date_note
+s01,"Worcester College, UK",14/05/2019,2019-05-14,51.755998,-1.267212,48.55,
+s02,"Oxford Business Park, UK",14/05/2019,2019-05-14,51.733143,-1.203624,41.83,
+s03,"Tesco Superstore Wolverhampton, UK",21/04/2109,2019-04-21,52.575667,-2.134707,35.36,Supplement prints 2109; provisional interpretation 2019
+s04,"St Anne's College, UK",14/05/2019,2019-05-14,51.761839,-1.26179,29.04,
+s05,"MINI Plant Oxford, UK",14/05/2019,2019-05-14,51.736334,-1.192975,25.19,
+s06,"Oxford University Department of Zoology, UK",14/05/2019,2019-05-14,51.75726,-1.250925,19.61,
+s07,"Church Hill Wolverhampton, UK",20/04/2019,2019-04-20,52.555609,-2.156873,13.6,
+s08,"Penn Cricket Club, UK",22/04/2019,2019-04-22,52.558887,-2.145724,10.09,
+s09,"Ounsdale, UK",20/04/2019,2019-04-20,52.536202,-2.194967,7.12,
+s10,"Skillinge, Sweden",21/08/2018,2018-08-21,55.47398,14.283457,5.56,
+s11,"South Horrington, UK",21/05/2019,2019-05-21,51.214399,-2.619168,2.89,
+s12,"Gavarnie, France",27/09/2018,2018-09-27,42.742301,-0.017742,0.56,
+s13,"East Horrington, UK",21/05/2019,2019-05-21,51.217176,-2.60055,0.51,
+s14,"Borrby Strandbad, Sweden",21/09/2018,2018-09-21,55.426041,14.231644,0.36,
