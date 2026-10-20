@@ -3,7 +3,7 @@
 # excludes it solely because original EOG annual 2018/2019 raw values are zero.
 # Do NOT modify the locked spider transfer at config/prc_transfer.yaml.
 model_id: prc_moth_eog_16sites_no_slabhouse_2026_10_20
-status: fitted_pending_review
+status: locked
 model_family: R_SSasymp_exponential
 response: moth_polarization_receptor_contrast
 radiance:
@@ -38,7 +38,7 @@ fit:
   pixel_grouped_holdout_rmse: 0.05835184663746997
 limitations:
   - Separate empirical moth contrast relation; do not reuse locked spider coefficients
-  - Candidate requires independent review before being treated as final biological transfer
+  - Empirical moth PRC response locked after investigator approval on 20 October 2026; revisit only for material scientific error
   - Original Open Square and Oxford Business Park historical radiance CSVs are identical but geolocations differ
   - Open Square and St Anne's College share an observation-year VIIRS native pixel
   - Spectral LED changes and weather are not explicitly calibrated in this transfer
