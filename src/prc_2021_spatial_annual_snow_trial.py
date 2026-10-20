@@ -136,6 +136,7 @@ def one_region(nuts_id,geom,ds_ann,monthly,snow,albedo,params,offset,output,
     winter_count=np.zeros(inside.shape,float)
     snow_affected=np.zeros(inside.shape,bool)
     qa_supported=np.zeros(inside.shape,bool)
+    qa_month_count=np.zeros(inside.shape,np.uint8)
     # NUTS2016 is always queried on the same fixed annual pixel grid.
     for m in MONTHS:
         p=monthly[m]
@@ -162,6 +163,7 @@ def one_region(nuts_id,geom,ds_ann,monthly,snow,albedo,params,offset,output,
             qa &= np.isfinite(sval[y])&(sval[y]>=0)&(sval[y]<=100)
             qa &= np.isfinite(aval[y])&(aval[y]>=0)&(aval[y]<=1)
         qa_supported|=qa
+        qa_month_count[qa]+=1
         sn=np.maximum(sval[2021]-.5*(sval[2020]+sval[2022]),0)/100
         al=np.maximum(aval[2021]-.5*(aval[2020]+aval[2022]),0)
         gain=1+BETA_SNOW*sn+BETA_ALBEDO*al
@@ -198,8 +200,10 @@ def one_region(nuts_id,geom,ds_ann,monthly,snow,albedo,params,offset,output,
         "NUTS_ID":nuts_id,"status":status,
         "n_inside":int(inside.sum()),"n_valid_annual":int(full.sum()),
         "n_lit_annual":int(valid_out.sum()),
-        "fraction_lit_with_both_winter_qa":float(np.mean(
+        "fraction_lit_with_any_winter_qa":float(np.mean(
             qa_supported[valid_out])) if valid_out.any() else np.nan,
+        "fraction_lit_with_both_winter_qa":float(np.mean(
+            qa_month_count[valid_out]==2)) if valid_out.any() else np.nan,
         "fraction_lit_with_positive_surface_anomaly":float(np.mean(
             snow_affected[valid_out])) if valid_out.any() else np.nan,
         "fraction_lit_actually_reduced":float(np.mean(
@@ -342,6 +346,8 @@ def main():
         "Annual VNL outlier month rejection NOT explicitly reproduced.",
         "",
         f"Lit pixels with winter QA (at least one month)=% "
+        f"{100*weighted_mean(valid.fraction_lit_with_any_winter_qa,weights):.2f}",
+        f"Lit pixels with BOTH Jan and Feb all-year QA=% "
         f"{100*weighted_mean(valid.fraction_lit_with_both_winter_qa,weights):.2f}",
         f"Lit pixels with positive snow/albedo anomaly=% "
         f"{100*weighted_mean(valid.fraction_lit_with_positive_surface_anomaly,weights):.2f}",
