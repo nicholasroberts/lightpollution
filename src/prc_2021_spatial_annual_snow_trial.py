@@ -29,7 +29,7 @@ from test_fixed_nuts2016_snow_viirs_2021 import (
     discover_mod10cm, ensure_snow_geotiff,
 )
 from test_prc_2021_pixel_snow_albedo import reproject_to_region
-from prc_2021_annual_monthly_bridge import source_platform
+from prc_2021_annual_monthly_bridge import source_platform, warp_window
 
 YEARS=(2020,2021,2022)
 MONTHS=tuple(range(1,13))
@@ -70,7 +70,21 @@ def self_test():
     assert np.isclose(1.626479*.25+3.788066*.1,
                       .78542635)
     assert source_platform("SVDNB_npp_20210101_x.tif")=="npp"
-    print("Spatial annual winter-gain arithmetic and no-brightening: PASS",flush=True)
+    # Regression test: a perfectly valid VIIRS-style GeoTIFF without an
+    # explicit nodata attribute must still reproject on the annual grid.
+    from rasterio.io import MemoryFile
+    from rasterio.transform import from_origin
+    from rasterio.windows import Window
+    src_values=np.array([[1.5,0.0],[4.25,10.0]],dtype="float32")
+    with MemoryFile() as memory:
+        with memory.open(driver="GTiff",height=2,width=2,count=1,
+                         dtype="float32",crs="EPSG:4326",
+                         transform=from_origin(-2,2,1,1)) as ds:
+            ds.write(src_values,1)
+            assert ds.nodata is None
+            regridded=warp_window(ds,ds,Window(0,0,2,2))
+            assert np.allclose(regridded,src_values,equal_nan=True),regridded
+    print("Spatial annual winter-gain arithmetic, no-nodata VIIRS warp and no-brightening: PASS",flush=True)
 
 
 def source_paths(config):
@@ -125,8 +139,12 @@ def one_region(nuts_id,geom,ds_ann,monthly,snow,albedo,params,offset,output,
     # NUTS2016 is always queried on the same fixed annual pixel grid.
     for m in MONTHS:
         p=monthly[m]
-        rm=reproject_to_region(p[0],ref,win)
-        cm=reproject_to_region(p[1],ref,win)
+        # Monthly VIIRS .avg_rade9h / .cf_cvg GeoTIFFs may have nodata=None.
+        # Use the same valid-pixel, CRS-aware warp verified by the completed
+        # annual/monthly source bridge; retain the QA-specific helper below
+        # for the snow and albedo rasters, which carry explicit nodata.
+        rm=warp_window(p[0],ref,win)
+        cm=warp_window(p[1],ref,win)
         valid=(inside & np.isfinite(rm)&(rm>=0)&
                np.isfinite(cm)&(cm>0))
         count_sum[valid]+=cm[valid]
