@@ -38,3 +38,22 @@ python src/prc_final_function_sanity_check.py
 \`\`\`
 
 Outputs: \`data/processed/prc_17site_final_sanity_check/final_prc_sanity_summary.txt\` and \`prc_2014_2024_function_sensitivity_nuts3.csv\`.
+
+
+## Closure — 20 October 2026: lock approved and implemented
+
+Completed the last 2014/2024 whole-Europe sanity check with \`n=17\` (Slabhouse excluded) against \`n=18\`. European 2014→2024 PRC change **−0.00140675 (−0.32110%)** for final 17 versus **−0.00140271 (−0.32038%)** for 18, 1522 NUTS3 regions, rank Spearman **0.9999996**, top 20 gain regions **20/20** identical. Regional ΔPRC differences median 0.000006729, max 0.000091882. Slabhouse original 2018/2019 VIIRS radiance both 0.0 (unverified missing cf_cvg), so the investigator excluded it from **the fit only**.
+
+**STATUS: LOCKED.** Final config is \`config/prc_transfer.yaml\`:
+\`\`\`text
+PRC(R) = 0.1453159020633674 + 0.31081245414383526 * exp(-0.1037115607084461*R)
+\`\`\`
+17 confirmed site-year observations; \`R²=0.938987991\`, fitting RMSE \`0.028410631\`. Preserve original 18 PRC field data and the published historic monthly radiance provenance. **No further calibration re-optimisation unless a material scientific error is discovered.**
+
+Regenerate full 11-year historical atlas once on EcoVis after pulling:
+\`\`\`bash
+python src/historical_prc_pixel_nuts3.py \\
+  --output-dir data/processed/historical_prc_2014_2024_locked17 \\
+  --figures-dir figures/historical_prc_2014_2024_locked17
+\`\`\`
+These output paths are intentionally separate from earlier provisional outputs. The 2021 annual VIIRS surface anomaly remains a **separate, unresolved satellite/input-data issue** and is not resolved by locking this calibration.

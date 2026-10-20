@@ -1,11 +1,14 @@
-# Provisional working empirical PRC response function, selected 2026-10-19.
-# Method and limitations: docs/lab_notebook/2026-10-19.md.
-model_id: prc_eog_observation_year_2026_10_19
-status: provisional_working
+# Locked empirical spider PRC transfer calibrated with 17 confirmed sites.
+# Slabhouse (site s17) excluded from FIT only: raw annual EOG zero in
+# both 2018 and 2019 contradicts nonzero original multi-year radiance.
+# Original 18 field observations and provenance remain preserved.
+# Selection, 2014/2024 sensitivity and limits: docs/lab_notebook/2026-10-20.md
+model_id: prc_eog_17sites_no_slabhouse_2026_10_20
+status: locked
 model_family: R_SSasymp_exponential
 response: polarization_receptor_contrast
 radiance:
-  source: EOG Annual VNL V2.1 average_masked
+  source: "EOG Annual VIIRS VNL average_masked (source file/version recorded per year)"
   unit: nW cm-2 sr-1
   pixel_calibration:
     apply_from_year: 2017
@@ -13,21 +16,36 @@ radiance:
   site_calibration_year_rule: field_observation_year
   site_years: [2018, 2019]
 parameters:
-  y0: 0.461175
-  yf: 0.144845
-  k: 0.106483
+  y0: 0.45612835620720266
+  yf: 0.1453159020633674
+  k: 0.1037115607084461
 equation: "PRC = yf + (y0 - yf) * exp(-k * R)"
 fit:
-  matching_status: provisional
-  prc_n: 16
-  table_s1_distinct_sites: 14
+  matching_status: confirmed_site_coordinates_and_field_dates
+  reference_site_file: data/reference/prc_spider_18_sites_verified.csv
+  observation_year_site_radiances: data/processed/prc_spider_18_site_refit_confirmed/spider18_site_eog_corrected_2018_2019.csv
   original_plotted_observations: 18
-  unmatched_original_observations: 2
-  r_squared: 0.949279
-  rmse: 0.027146
-  site_grouped_holdout_rmse: 0.032101
+  included_prc_observations: 17
+  included_2018_observations: 3
+  included_2019_observations: 14
+  distinct_eog_pixel_groups: 16
+  excluded_site_id: s17
+  excluded_source_filename: slabhouse.csv
+  exclusion_reason: "Raw EOG annual VIIRS reports 0.0 in both 2018 and 2019 at Slabhouse; independent historical monthly radiance is nonzero (mean 0.498235); annual cf_cvg coverage unavailable"
+  r_squared: 0.938987991
+  rmse: 0.028410631
+  pixel_grouped_holdout_rmse: 0.033926526
+  endpoint_sensitivity_2014_2024:
+    europe_prc_absolute_change: -0.00140675
+    europe_prc_percentage_change: -0.32110
+    18site_vs_17site_region_delta_spearman: 0.9999996
+    18site_vs_17site_top20_gain_overlap: 20
+    nuts3_regions_compared: 1522
 limitations:
-  - Provisional mapping of plotted PRC observations to the original sites
-  - Two plotted original PRC observations lack identified locations
-  - No established behavioural detectability threshold
-  - Transfer to novel regions/species or historical spectral mixes not validated
+  - Empirical radiance-to-receptor contrast calibration, not a behavioural detectability threshold
+  - Measurement nights and satellite annual composites differ in atmospheric and temporal support
+  - Varying cloud, humidity, precipitation, surface state and illumination can dominate minor fit differences
+  - Site Slabhouse retained in original reference but excluded from fit due to annual EOG zero of unknown cause
+  - Original Open Square and Oxford Business Park monthly radiance CSVs are identical despite distinct coordinates
+  - Transfer to novel regions/species or historical spectral mixes not independently validated
+  - 2021 snow/albedo anomaly is handled separately; this PRC parameter lock does not correct 2021 VIIRS

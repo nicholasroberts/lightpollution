@@ -284,6 +284,10 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--config", default="config/pipeline.yaml")
     parser.add_argument("--transfer-config", default="config/prc_transfer.yaml")
+    parser.add_argument("--output-dir", default="data/processed/historical_prc_2014_2024",
+                        help="Historical PRC output directory, relative to repository")
+    parser.add_argument("--figures-dir", default="figures/historical_prc_2014_2024",
+                        help="Historical PRC map/figure directory, relative to repository")
     parser.add_argument("--pilot", action="store_true",
                         help="2014/2018/2019/2021/2024 preliminary extraction")
     parser.add_argument("--pixel-year", action="append", type=int, default=[],
@@ -301,8 +305,12 @@ def main():
     years = [2014, 2018, 2019, 2021, 2024] if args.pilot else list(range(2014, 2025))
     rasters = discover_rasters(config, years)
     nuts = load_nuts(config)
-    output = PROJECT_ROOT / "data/processed/historical_prc_2014_2024"
-    figures = PROJECT_ROOT / "figures/historical_prc_2014_2024"
+    output = Path(args.output_dir)
+    figures = Path(args.figures_dir)
+    if not output.is_absolute():
+        output = PROJECT_ROOT / output
+    if not figures.is_absolute():
+        figures = PROJECT_ROOT / figures
     output.mkdir(parents=True, exist_ok=True)
     figures.mkdir(parents=True, exist_ok=True)
     parts = [extract_year(rasters[y], y, nuts, config, params, offset, from_year)

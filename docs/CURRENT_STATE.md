@@ -1,3 +1,13 @@
+## PRC transfer LOCKED — complete 17-site spider calibration (20 October 2026)
+
+**Final decision made and implemented** after original 18-site coordinate/date recovery, Slabhouse EOG annual raw pixel zero (both 2018/2019; cf_cvg unavailable) and one final pairwise 2014/2024 sensitivity. **Slabhouse is excluded from the calibration regression only**, not deleted from the original 18 measurement record.
+
+**\`config/prc_transfer.yaml\` now has \`status: locked\`:** \`PRC(R) = 0.1453159020633674 + 0.31081245414383526·exp(-0.1037115607084461 R)\`, with \`R\` calibrated EOG Annual VNL pixel radiance in nW cm⁻² sr⁻¹. Full 17-site fit R²=0.938988, RMSE=0.028411; 3 field observations from 2018 and 14 from 2019. The 2014–2024 native-pixel European comparison against the 18-site fit gave −0.32110% vs −0.32038%, 1522 NUTS3 region delta rank correlation 0.9999996, top-20 overlap 20/20. **No more tuning the PRC transfer for small numeric gains**.
+
+**Next EcoVis run** (after \`git pull --ff-only\`): \`python src/historical_prc_pixel_nuts3.py --output-dir data/processed/historical_prc_2014_2024_locked17 --figures-dir figures/historical_prc_2014_2024_locked17\`. This regenerates the full 2014–2024 NUTS3 PRC maps/trajectories with the locked function in **separate output directories**, preserving earlier provisional files. Then return to biological/geographical trends and the independently evaluated 2021 snow/albedo satellite issue. See \`docs/lab_notebook/2026-10-20.md\`.
+
+---
+
 ## FINAL PRC CALIBRATION CHOICE — 17 sites, Slabhouse excluded (20 October 2026)
 
 **Decision:** the EOG Annual VNL average_masked raster reports zero raw radiance for Slabhouse in BOTH 2018/2019 despite nonzero original historical CSV. Investigator excluded **that site only** from the final EOG→PRC calibration. All 18 original PRC observations retained as scientific provenance. New \`n=17\` fit:
