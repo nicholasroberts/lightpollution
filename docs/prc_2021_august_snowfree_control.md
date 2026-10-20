@@ -39,3 +39,10 @@ Acquire/build August **VNP43MA3.002** QA0/1 WSA visible albedo composites for al
 August does not automatically control for vegetation, clouds, atmosphere or real lighting changes. It is **an improved test of snow absence**, not an independent physical causal identification of the full calibration. Prior March results remain reported accurately but are **reclassified as an additional late-winter/early-spring sensitivity**, not the primary snow-free negative control.
 
 **No historical annual 2014–2024 VIIRS or PRC values have been modified.**
+
+
+### Implementation update — 20 October 2026
+
+The August control **source script is now actually committed** to this branch; the earlier version of this document described an intended script before its source existed in the repository. The script uses prior 18 pilot NUTS3 IDs, existing MOD10CM HDF/cached GeoTIFF August products and available EOG August monthly VCMSLCFG rasters. It groups radiance changes at native coarse MOD10CM-cell × VIIRS brightness-category level, requires 2020/21 common unmasked cloud-free VIIRS pixels, checks observed August snow fractions in all three years, and excludes 2022 VIIRS radiance **if sensor platform differs**. This is not a full snow+albedo independent placebo until August visible WSA albedo QA composites are obtained.
+
+The May–October 2026 scientific decision is NOT to force the 2021 anomaly to match 2020/22. Our January–February snow/albedo empirical gain is a candidate; use August to falsify residual year-wide VIIRS shifts under truly snow-free conditions before deciding whether and how to map winter gains to the *annual* 2021 EOG VNL pixel composite. Do not overwrite uncorrected PRC baselines.
