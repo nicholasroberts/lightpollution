@@ -2,14 +2,13 @@
 """Revisit the original spider PRC fit with all 18 individually located field sites.
 
 Use local calibrated 2018 and 2019 annual EOG VIIRS VNL average_masked pixels.
-Four extra sites have user-confirmed coordinates but unverified measurement dates:
-report both assumed-year alternatives, do not treat either as confirmed or
-replace the project's frozen PRC transfer function.
+All 18 sites now have dates confirmed by the investigator; 3 in 2018
+and 15 in 2019. Compare original multiyear VIIRS-website radiances against
+our calibrated, field-year EOG pixels. Do not overwrite the frozen transfer.
 """
 from __future__ import annotations
 
 import argparse
-import itertools
 from pathlib import Path
 
 import matplotlib
@@ -42,9 +41,14 @@ def read_records(path):
     if not d.sigg_index.tolist() == list(range(1, 19)):
         raise ValueError("Reference is not in original R sigg order")
     years = pd.to_numeric(d.field_year, errors="coerce")
-    if not years.dropna().isin([2018, 2019]).all() or years.isna().sum() != 4:
-        raise ValueError("Expected 14 recorded years and 4 date-unverified sites")
-    d["field_year"] = years
+    if years.isna().any() or not years.isin([2018, 2019]).all():
+        raise ValueError("Every site must have a confirmed field year of 2018 or 2019")
+    if (int(years.eq(2018).sum()), int(years.eq(2019).sum())) != (3, 15):
+        raise ValueError("Expected 3 field sites in 2018, 15 in 2019")
+    date_years = pd.to_datetime(d.field_date, errors="raise").dt.year
+    if not date_years.eq(years).all():
+        raise ValueError("field_date and field_year disagree")
+    d["field_year"] = years.astype(int)
     for field in ["latitude", "longitude", "prc_sigg",
                   "original_multiyear_monthly_radiance_mean"]:
         d[field] = pd.to_numeric(d[field], errors="raise")
@@ -69,15 +73,11 @@ def produce_comparisons(d, raster_paths, offset):
         d[f"eog_{year}_col"] = [
             samples[year][site_id][3] for site_id in d.site_id
         ]
-    known = d.field_year.notna()
-    d["eog_corrected_confirmed_field_year"] = np.where(
-        known, np.where(d.field_year.eq(2018), d.eog_2018_corrected,
-                        d.eog_2019_corrected), np.nan)
-    for assumption in [2018, 2019]:
-        field_year = d.field_year.fillna(assumption)
-        d[f"eog_corrected_unknown_assumed_{assumption}"] = np.where(
-            field_year.eq(2018), d.eog_2018_corrected, d.eog_2019_corrected)
-    d["date_status"] = np.where(known, "Table S1 year", "year not confirmed")
+    d["eog_corrected_field_year"] = np.where(
+        d.field_year.eq(2018), d.eog_2018_corrected, d.eog_2019_corrected)
+    d["date_status"] = "confirmed"
+    if not np.isfinite(d.eog_corrected_field_year.to_numpy(float)).all():
+        raise ValueError("One or more site-year calibrated EOG values are unavailable")
     return d
 
 
@@ -100,7 +100,7 @@ def main():
     ap.add_argument("--raster-2018")
     ap.add_argument("--raster-2019")
     ap.add_argument("--output-dir",
-        default="data/processed/prc_spider_18_site_refit")
+        default="data/processed/prc_spider_18_site_refit_confirmed")
     a = ap.parse_args()
     config = load_config()
     offset = float(config["calibration"]["pixel_offset_nW_cm2_sr"])
@@ -121,15 +121,19 @@ def main():
     out.mkdir(parents=True, exist_ok=True)
     d.to_csv(out/"spider18_site_eog_corrected_2018_2019.csv", index=False)
 
+    original = "original_multiyear_monthly_radiance_mean"
+    updated = "eog_corrected_field_year"
+    # Primary comparison fits the same 18 spider measurements twice.
+    # Published Table S1's 14 rows are supplementary sensitivity fits.
+    core14 = d.loc[d.site_id.isin(
+        [f"s{i:02d}" for i in range(1, 15)])].copy()
+    if len(core14) != 14:
+        raise ValueError("Could not identify all 14 Table S1 sites")
     specs = [
-        ("Original multiyear website CSV, 18", d,
-         "original_multiyear_monthly_radiance_mean"),
-        ("Corrected EOG, confirmed year, 14", d[d.field_year.notna()],
-         "eog_corrected_confirmed_field_year"),
-        ("Corrected EOG, all 18, undated assumed 2019", d,
-         "eog_corrected_unknown_assumed_2019"),
-        ("Corrected EOG, all 18, undated assumed 2018", d,
-         "eog_corrected_unknown_assumed_2018"),
+        ("Original multiyear website CSV, all 18", d, original),
+        ("Corrected EOG observation year, all 18", d, updated),
+        ("Original multiyear website CSV, Table S1 14", core14, original),
+        ("Corrected EOG observation year, Table S1 14", core14, updated),
     ]
     model_rows, fits = [], {}
     for name, frame, col in specs:
@@ -138,27 +142,8 @@ def main():
         fits[name] = info
     pd.DataFrame(model_rows).to_csv(out/"spider18_refit_comparison.csv",index=False)
 
-    # All 2^4 unknown-year assignments, without choosing one to maximise R2.
-    unknown_ids = d.loc[d.field_year.isna(), "site_id"].tolist()
-    alternate = []
-    for scenario in itertools.product([2018, 2019], repeat=len(unknown_ids)):
-        assumed = dict(zip(unknown_ids, scenario))
-        guessed_year = [
-            int(row.field_year) if np.isfinite(row.field_year)
-            else assumed[row.site_id] for row in d.itertuples()
-        ]
-        x = [float(row[f"eog_{year}_corrected"]) for row,year in
-             zip(d.to_dict("records"), guessed_year)]
-        info = fit(x, d.prc_sigg.to_numpy(float))
-        alternate.append({
-            "date_assumption": ";".join(f"{site}={assumed[site]}"
-                                       for site in unknown_ids),
-            "y0":info["y_0"],"yf":info["y_f"],"k":info["k"],
-            "R2":info["R2"],"RMSE":info["RMSE"],
-        })
-    pd.DataFrame(alternate).to_csv(
-        out/"spider18_unknown_year_sensitivity.csv",index=False)
-
+    # Field-year assignment is now confirmed for all 18 sites. Do not
+    # produce obsolete "unknown-year" sensitivity outputs.
     grid = np.linspace(0,65,500)
     fig, ax = plt.subplots(figsize=(10,6))
     for i, (name, frame, col) in enumerate(specs):
@@ -186,9 +171,13 @@ def main():
     lines = [
         "Original 18 distinct R filename/PRC observations now have site coordinates.",
         "Original x = multi-year monthly CSV mean; published S1 was rounded.",
+        "Original OpenSquare/BusinessPark monthly CSVs identical; audit source.",
+        "All pixels are sampled independently from 2018 and 2019 EOG rasters.",
         "18 EOG observations individually geolocated, not 14 duplicated locations.",
-        "Four sites without confirmed measurement year: s15, s16, s17, s18.",
-        "Confirmed 14 and all18 assumed-year scenarios reported separately.",
+        "All 18 measurement dates are confirmed: 3 sites in 2018, 15 in 2019.",
+        "Four formerly unlisted Table S1 sites now have exact locations and dates.",
+        "WClawn: (51.754256,-1.263855), distinct from WCpitch",
+        "  (51.755998,-1.267212) retained from Table S1.",
         "Only calibrated EOG annual pixel data used for new x; no NUTS3 means.",
         "The original Open Square csv and Oxford Business Park csv are identical",
         "but their independently sampled EOG annual pixels may differ.",

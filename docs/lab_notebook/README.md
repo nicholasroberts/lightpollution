@@ -16,7 +16,8 @@ changes of direction.
 - [2026-10-14 — Validated snow explanation of the January-February 2021 VIIRS pulse](2026-10-14.md)
 - [2026-10-15 — Pre-registered surface-albedo attenuation test and absolute/relative validation requirement](2026-10-15.md)
 - [2026-10-16 — Corrected endpoint ground truth, H/country negative tests, annual-data decision and NL333 audit](2026-10-16.md)
-- [2026-10-19 — Site-level VIIRS comparison and calibrated 2018 PRC-predictor decision](2026-10-19.md)
+- [2026-10-19 — Site-level VIIRS comparison and historical polarization-visibility methods](2026-10-19.md)
+- [2026-10-20 — Confirmed spider PRC sites, dates and revised Worcester College Lawn coordinates](2026-10-20.md)
 
 The current restart point is also mirrored in [`docs/CURRENT_STATE.md`](../CURRENT_STATE.md) so a new session does not have to reconstruct the last terminal state from chat history.
 

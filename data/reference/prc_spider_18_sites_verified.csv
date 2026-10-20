@@ -4,16 +4,16 @@ sigg_index,source_filename,site_id,location,latitude,longitude,field_date,field_
 3,EastHorrington.csv,s13,"East Horrington, UK",51.217176,-2.600550,2019-05-21,2019,Table S1,0.419,0.502291666667,0.159350270992,48,confirmed
 4,Gavarnie.csv,s12,"Gavarnie, France",42.742301,-0.017742,2018-09-27,2018,Table S1,0.47,0.5621875,0.51264167612,64,confirmed
 5,minifactory.csv,s05,"MINI Plant Oxford, UK",51.736334,-1.192975,2019-05-14,2019,Table S1,0.165,25.1982692308,10.3223024717,52,confirmed
-6,museum.csv,s15,"Museum, Oxford",51.758527,-1.256267,,,User-supplied coordinates,0.193,37.8711538462,7.93554961311,52,field observation year to confirm
-7,opensquare.csv,s16,"Open Square, Oxford",51.760605,-1.263631,,,User-supplied coordinates,0.149,41.8296153846,7.76407740098,52,distinct site; source CSV identical to oxfordbussinesspark.csv
+6,museum.csv,s15,"Museum, Oxford",51.758527,-1.256267,2019-05-14,2019,User confirmed Oxford same-night campaign,0.193,37.8711538462,7.93554961311,52,confirmed 2019-05-14 same night as other Oxford sites
+7,opensquare.csv,s16,"Open Square, Oxford",51.760605,-1.263631,2019-05-14,2019,User confirmed Oxford same-night campaign,0.149,41.8296153846,7.76407740098,52,distinct site; source CSV identical to oxfordbussinesspark.csv
 8,Ounsdale.csv,s09,"Ounsdale, UK",52.536202,-2.194967,2019-04-20,2019,Table S1,0.321,7.12395833333,1.39613256028,48,confirmed
 9,oxfordbussinesspark.csv,s02,"Oxford Business Park, UK",51.733143,-1.203624,2019-05-14,2019,Table S1,0.192,41.8296153846,7.76407740098,52,distinct site; source CSV identical to opensquare.csv
 10,PennCC.csv,s08,"Penn Cricket Club, UK",52.558887,-2.145724,2019-04-22,2019,Table S1,0.262,10.0991111111,1.80352662382,45,confirmed
 11,Skillinge.csv,s10,"Skillinge, Sweden",55.473980,14.283457,2018-08-21,2018,Table S1,0.276,5.555,3.23816391734,46,confirmed
-12,slabhouse.csv,s17,"Slabhouse, Wells",51.230935,-2.587688,,,User-supplied coordinates,0.455,0.498235294118,0.142249160031,51,field observation year to confirm; not East Horrington
+12,slabhouse.csv,s17,"Slabhouse, Wells",51.230935,-2.587688,2019-05-21,2019,User confirmed Wells same-night campaign,0.455,0.498235294118,0.142249160031,51,confirmed same night as East Horrington; separate location
 13,southhorrington.csv,s11,"South Horrington, UK",51.214399,-2.619168,2019-05-21,2019,Table S1,0.423,2.89480769231,0.922140498811,52,confirmed
 14,stannes.csv,s04,"St Anne's College, Oxford",51.761839,-1.261790,2019-05-14,2019,Table S1,0.157,29.0365384615,4.97725961479,52,confirmed
 15,Waitrose.csv,s03,Waitrose / Tesco Wolverhampton,52.575667,-2.134707,2019-04-21,2019,Table S1 + user confirmation,0.122,35.3615555556,6.23961280688,45,confirmed identical site; store changed names; S1 printed 2109 (typo)
-16,WClawn.csv,s18,"Worcester College Lawn, Oxford",51.755759,-1.267043,,,User-supplied coordinates,0.123,58.7311538462,10.4219616636,52,field observation year to confirm; distinct from WCpitch
+16,WClawn.csv,s18,"Worcester College Lawn, Oxford",51.754256,-1.263855,2019-05-14,2019,User corrected coordinates and confirmed Oxford same-night campaign,0.123,58.7311538462,10.4219616636,52,corrected lawn coordinates; distinct from WCpitch and Table S1 Worcester College position
 17,WCpitch.csv,s01,"Worcester College Pitch, Oxford",51.755998,-1.267212,2019-05-14,2019,Table S1,0.144,48.5480769231,10.4223496727,52,Table S1 generic Worcester College identification
 18,zoology.csv,s06,"Department of Zoology, Oxford",51.757260,-1.250925,2019-05-14,2019,Table S1,0.236,19.6107692308,5.70530776134,52,confirmed

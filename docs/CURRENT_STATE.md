@@ -1,3 +1,11 @@
+## Confirmed spider PRC original dataset — 20 October 2026
+
+**All 18 original spider PRC measurements now have actual field dates and independent coordinates** (3 sites in 2018, 15 in 2019). Updated reference file: `data/reference/prc_spider_18_sites_verified.csv`. Museum, Open Square and Worcester College Lawn were sampled **14 May 2019**; Slabhouse, Wells **21 May 2019**. **WClawn corrected coordinates are 51.754256, −1.263855; WCpitch remains 51.755998, −1.267212.** Their PRC values differ and the locations must never be merged. `Waitrose.csv` and paper's Tesco label are the same renamed supermarket site.
+
+Use `python src/refit_prc_spider18.py` on EcoVis; output under `data/processed/prc_spider_18_site_refit_confirmed/`. Compare all 18 original historical monthly website means vs all 18 corrected field-year EOG VIIRS pixels, plus Table S1 14-site sensitivity. No unknown-date scenario needed. Original Open Square / Oxford Business Park radiance CSVs were identical; retain as a source QA issue. **Do not replace provisional PRC transfer parameters before reviewing new 18-site results.** See [20 October laboratory notebook](lab_notebook/2026-10-20.md).
+
+---
+
 # Current research state / restart point
 
 **Updated:** 2026-10-19  
