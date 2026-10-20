@@ -81,22 +81,24 @@ def test():
     from rasterio.transform import from_origin
     p=(.145315902063,.456128356207,.103711560708)
     with MemoryFile() as x,MemoryFile() as y:
+        a=np.arange(16,dtype="float32").reshape(4,4)
         with x.open(driver="GTiff",height=4,width=4,count=1,
                     dtype="float32",crs="EPSG:4326",
                     transform=from_origin(0,4,1,1)) as old:
-            a=np.arange(16,dtype="float32").reshape(4,4)
             old.write(a,1)
-            with y.open(driver="GTiff",height=2,width=2,count=4,
-                        dtype="float32",nodata=np.nan,crs="EPSG:4326",
-                        transform=from_origin(1,3,1,1)) as patch:
-                patch.write(np.array([[1,2],[5,6]],dtype="float32"),1)
-                layer=OverlaySource(old,patch,1,1,p,.235)
-                v=layer.read_window(0,0,4,4)
-                baseline=prc_of_radiance(a,.235,*p)
-                assert np.isclose(v[1,1],prc_of_radiance(
-                    np.array([1]),.235,*p)[0])
-                assert np.isclose(v[0,0],baseline[0,0])
-                assert np.isclose(v[3,3],baseline[3,3])
+        with y.open(driver="GTiff",height=2,width=2,count=4,
+                    dtype="float32",nodata=np.nan,crs="EPSG:4326",
+                    transform=from_origin(1,3,1,1)) as patch:
+            patch.write(np.array([[1,2],[5,6]],dtype="float32"),1)
+        # Reopen in reading mode: a newly created GTiff dataset is write-only.
+        with x.open() as old,y.open() as patch:
+            layer=OverlaySource(old,patch,1,1,p,.235)
+            v=layer.read_window(0,0,4,4)
+            baseline=prc_of_radiance(a,.235,*p)
+            assert np.isclose(v[1,1],prc_of_radiance(
+                np.array([1]),.235,*p)[0])
+            assert np.isclose(v[0,0],baseline[0,0])
+            assert np.isclose(v[3,3],baseline[3,3])
     print("2021 patch pixel alignment/PRC overlay self-test: PASS")
 
 
@@ -177,7 +179,7 @@ def main():
     ax.set(title="Europe PRC: locked17 response and spatial 2021 snow/albedo candidate",
            xlabel="Year",ylabel="Area-weighted polarization-receptor contrast")
     ax.grid(alpha=.2);ax.legend()
-    fig.savefig(output/"europe_original_vs_candidate_PR C.pdf".replace(" ",""),bbox_inches="tight")
+    fig.savefig(output/"europe_original_vs_candidate_PRC.pdf",bbox_inches="tight")
     plt.close(fig)
     t=c.set_index("year")
     old=float(t.loc[2021,"area_weighted_prc_original"]-
