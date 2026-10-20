@@ -67,7 +67,7 @@ def prepare(prc,rad,minimum_baseline):
     b=d[d.year.eq(2024)].set_index("NUTS_ID")
     out=a[["CNTR_CODE","NUTS_NAME","coverage_stable",
            "radiance","prc_mean","valid_area_km2","area_rad"]].join(
-        b[["radiance","prc_mean","valid_area_km2","area_rad"]],
+        b[["coverage_stable","radiance","prc_mean","valid_area_km2","area_rad"]],
         lsuffix="_2014",rsuffix="_2024",validate="one_to_one")
     out=out.rename(columns={
         "CNTR_CODE":"country","NUTS_NAME":"name",
@@ -142,8 +142,14 @@ def self_test():
         "area_rad":[1.]*4})
     d=prepare(example,rr,.2)
     assert d.loc[d.NUTS_ID.eq("X"),"radiance_change_abs"].iloc[0]==2
+    assert d["coverage_stable"].all(), "Both endpoint coverage flags must join"
     assert np.isnan(d.loc[d.NUTS_ID.eq("Y"),"radiance_change_pct"].iloc[0])
-    print("End-point alignment and low-baseline percentage QA: PASS",flush=True)
+    bad=example.copy()
+    bad.loc[(bad.NUTS_ID=="X") & (bad.year==2024),"coverage_stable"]=False
+    checked=prepare(bad,rr,.2)
+    assert not checked.loc[checked.NUTS_ID.eq("X"),"coverage_stable"].iloc[0]
+    assert checked.loc[checked.NUTS_ID.eq("Y"),"coverage_stable"].iloc[0]
+    print("Both-year coverage, endpoint join and low-baseline QA: PASS",flush=True)
 
 
 def main():
