@@ -1,0 +1,28 @@
+# Approved 20 October 2026: standardized native-pixel 2021 annual VIIRS correction.
+# Snow/albedo model is fixed and applied only to 2021, upstream of both PRCs.
+# Stored GeoTIFF was generated while this was considered a candidate; this
+# later approval does not change its contents, QA, or the EOG source product.
+model_id: viirs_annual_2021_snow_albedo_2026_10_20
+status: locked
+applies_to_year: 2021
+correction_spatial_scale: original_annual_EOG_VNL_native_pixels
+method: annual_raw_times_one_minus_winter_monthly_excess_fraction
+beta_snow_fraction: 1.626479
+beta_albedo_fraction: 3.788066
+patch: data/processed/prc_2021_spatial_europe_candidate/vnl_2021_snow_albedo_europe_patch.tif
+patch_summary: data/processed/prc_2021_spatial_europe_candidate/europe_patch_summary.json
+source_2021: EOG_VNL_V2_average_masked
+annual_zero_nodata_preserved: true
+no_2021_brightening: true
+locked_prc_models:
+  spider: config/prc_transfer.yaml
+  moth: config/prc_transfer_moth.yaml
+raw_annual_radiance_offset_applied_in_patch: false
+downstream_prc_2017_onward_offset: 0.235
+limitations:
+  - Annual VNL median-based monthly outlier rejection cannot be exactly reversed from monthly composites.
+  - Empirical January-February snow and visible-albedo gain may leave residual 2021 discontinuity.
+  - Native Europe patch is overlaid on global original pixels, not an entire replacement world raster.
+  - 2021 snow correction is common to both taxa; their fitted PRC mappings differ.
+  - Do not alter the beta coefficients to enforce smoothness.
+approval_note: Investigator explicitly approved this previously tested spatial correction for both taxa.
