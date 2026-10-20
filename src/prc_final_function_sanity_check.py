@@ -151,16 +151,16 @@ def compare_endpoints(config, rasters, min_coverage):
     info=[
         "FINAL 17-site PRC sensitivity — excludes Slabhouse (raw EOG 0.0), same native pixels",
         f"NUTS3 regions with stable endpoint/available full-series coverage: {len(eligible)}",
-        f"2014 Europe mean PRC: provisional={europe[2014]['confirmed18']:.7f} "
-        f"confirmed={europe[2014]['selected17']:.7f}",
-        f"2024 Europe mean PRC: provisional={europe[2024]['confirmed18']:.7f} "
-        f"confirmed={europe[2024]['selected17']:.7f}",
+        f"2014 Europe mean PRC: 18site={europe[2014]['confirmed18']:.7f} "
+        f"17site={europe[2014]['selected17']:.7f}",
+        f"2024 Europe mean PRC: 18site={europe[2024]['confirmed18']:.7f} "
+        f"17site={europe[2024]['selected17']:.7f}",
         f"2014->2024 Europe absolute PRC change: "
-        f"provisional={delta_e['confirmed18']:+.8f} "
-        f"confirmed={delta_e['selected17']:+.8f}",
+        f"18site={delta_e['confirmed18']:+.8f} "
+        f"17site={delta_e['selected17']:+.8f}",
         f"2014->2024 Europe percent PRC change: "
-        f"provisional={pct_e['confirmed18']:+.5f}% "
-        f"confirmed={pct_e['selected17']:+.5f}%",
+        f"18site={pct_e['confirmed18']:+.5f}% "
+        f"17site={pct_e['selected17']:+.5f}%",
         f"Region absolute-delta Spearman rank correlation={spear:.7f}",
         f"Top-20 region PRC gain overlap={len(a_top & b_top)}/20",
         f"Median absolute difference in region 2014->2024 delta="
