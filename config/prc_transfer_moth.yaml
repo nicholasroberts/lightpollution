@@ -1,0 +1,44 @@
+# Independent moth (DRA PRC) empirical transfer, 20 October 2026.
+# The 17 original R moth observations include Slabhouse; the preferred fit
+# excludes it solely because original EOG annual 2018/2019 raw values are zero.
+# Do NOT modify the locked spider transfer at config/prc_transfer.yaml.
+model_id: prc_moth_eog_16sites_no_slabhouse_2026_10_20
+status: fitted_pending_review
+model_family: R_SSasymp_exponential
+response: moth_polarization_receptor_contrast
+radiance:
+  source: "EOG Annual VIIRS VNL average_masked"
+  unit: nW cm-2 sr-1
+  pixel_calibration:
+    apply_from_year: 2017
+    positive_pixel_subtraction: 0.235
+  site_calibration_year_rule: field_observation_year
+  site_years: [2018, 2019]
+parameters:
+  yf: 0.10128334523974113
+  y0: 0.6870948746846356
+  k: 0.0782312036944599
+equation: "PRC = yf + (y0 - yf) * exp(-k * R)"
+fit:
+  source_r_original: "list.files(path); filenames[-c(1,5)]; DRAc vector (moth)"
+  original_prc_file: data/reference/prc_moth_17_observations_from_original_r.csv
+  reference_sites: data/reference/prc_spider_18_sites_verified.csv
+  matched_eog_sites: data/processed/prc_spider_18_site_refit_confirmed/spider18_site_eog_corrected_2018_2019.csv
+  moth_r_csvs_excluded: [Bristol.csv, Gavarnie.csv]
+  original_plotted_observations: 17
+  included_prc_observations: 16
+  included_2018_observations: 2
+  included_2019_observations: 14
+  distinct_eog_pixel_groups: 15
+  excluded_site_id: s17
+  excluded_source_filename: slabhouse.csv
+  exclusion_reason: "Annual EOG raw radiance reports 0.0 at Slabhouse 2018 and 2019; historical monthly mean is nonzero."
+  r_squared: 0.9494476072593979
+  rmse: 0.04521687139018074
+  pixel_grouped_holdout_rmse: 0.05835184663746997
+limitations:
+  - Separate empirical moth contrast relation; do not reuse locked spider coefficients
+  - Candidate requires independent review before being treated as final biological transfer
+  - Original Open Square and Oxford Business Park historical radiance CSVs are identical but geolocations differ
+  - Open Square and St Anne's College share an observation-year VIIRS native pixel
+  - Spectral LED changes and weather are not explicitly calibrated in this transfer
