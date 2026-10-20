@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
-"""One command: full moth NUTS3 history, snow candidate, three-way maps/scatter.
+"""One command: full moth history, approved snow correction for BOTH taxa, three-way maps.
 
 Reuses already-generated spider locked17 history and calibrated radiance table,
 so only the new MOTH 2014–2024 EOG extraction is repeated. Original outputs
-are preserved. Candidate Jan/Feb 2021 correction is kept explicitly separate.
+are preserved. The locked 2021 VIIRS snow correction is applied to both taxa as the standard series.
 """
 from __future__ import annotations
 import argparse
@@ -23,12 +23,11 @@ def main():
     ap=argparse.ArgumentParser(description=__doc__)
     ap.add_argument("--self-test",action="store_true",
                     help="Run lightweight diagnostics without EU raster processing")
-    ap.add_argument("--no-2021-candidate",action="store_true",
-                    help="Skip optional provisional 2021 snow-overlay scenario")
     args=ap.parse_args()
     invoke("fit_prc_moth_observation_year.py","--self-test")
     invoke("plot_radiance_spider_moth_2014_2024.py","--self-test")
     invoke("prc_2021_locked_moth16_overlay_analysis.py","--self-test")
+    invoke("publish_prc_locked_snow.py","--self-test")
     if args.self_test:
         print("Moth calibration, endpoint and snow-overlay tests: PASS",flush=True)
         return
@@ -37,10 +36,11 @@ def main():
            "--output-dir","data/processed/historical_prc_2014_2024_locked_moth16",
            "--figures-dir","figures/historical_prc_2014_2024_locked_moth16")
     invoke("plot_radiance_spider_moth_2014_2024.py")
-    if not args.no_2021_candidate:
-        invoke("prc_2021_locked_moth16_overlay_analysis.py")
+    invoke("prc_2021_locked17_overlay_analysis.py")
+    invoke("prc_2021_locked_moth16_overlay_analysis.py")
+    invoke("publish_prc_locked_snow.py")
     print("\nMoth full 2014–2024 extraction, R/spider/moth maps and",
-          "2021 candidate scenario: COMPLETE.",flush=True)
+          "2021 LOCKED snow-corrected spider and moth series: COMPLETE.",flush=True)
 
 
 if __name__=="__main__":
