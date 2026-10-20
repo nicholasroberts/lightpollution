@@ -1,3 +1,16 @@
+## FINAL PRC CALIBRATION CHOICE — 17 sites, Slabhouse excluded (20 October 2026)
+
+**Decision:** the EOG Annual VNL average_masked raster reports zero raw radiance for Slabhouse in BOTH 2018/2019 despite nonzero original historical CSV. Investigator excluded **that site only** from the final EOG→PRC calibration. All 18 original PRC observations retained as scientific provenance. New \`n=17\` fit:
+
+\`\`\`text
+PRC(R)=0.1453159020633674 + 0.3108124541438353 * exp(-0.1037115607084461 R)
+R²=0.93898799; fit RMSE=0.02841063; unique VIIRS pixels=16
+\`\`\`
+
+Difference versus previous 18-fit \`<=0.000310\` over R=0–70, not biologically material. **Run one more 2014/2024 exact VIIRS/NUTS comparison** using \`python src/prc_final_function_sanity_check.py\` after pull, output \`data/processed/prc_17site_final_sanity_check/final_prc_sanity_summary.txt\`; then lock these coefficients in \`config/prc_transfer.yaml\` and regenerate 2014–2024 full atlas once. Do not repeat marginal calibration analysis. Full provenance in \`docs/lab_notebook/2026-10-20.md\`.
+
+---
+
 ## Confirmed spider PRC original dataset — 20 October 2026
 
 **All 18 original spider PRC measurements now have actual field dates and independent coordinates** (3 sites in 2018, 15 in 2019). Updated reference file: `data/reference/prc_spider_18_sites_verified.csv`. Museum, Open Square and Worcester College Lawn were sampled **14 May 2019**; Slabhouse, Wells **21 May 2019**. **WClawn corrected coordinates are 51.754256, −1.263855; WCpitch remains 51.755998, −1.267212.** Their PRC values differ and the locations must never be merged. `Waitrose.csv` and paper's Tesco label are the same renamed supermarket site.
