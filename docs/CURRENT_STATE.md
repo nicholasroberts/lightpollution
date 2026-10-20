@@ -1,3 +1,11 @@
+## PAPER NARRATIVE: two parts (20 October 2026)
+
+(1) Explain and where scientifically justified correct **2014–2024 European satellite radiance trends** for post-2017 background, 2021 winter surface/snow (still a candidate, ~48.5% of 2021 PRC anomaly removed), and VIIRS spectral insensitivity to LED blue emission (ISS B/G and G/R spectral transitions; model as bounded spectral inference rather than claimed exact visible flux). French municipal streetlight shutoffs, UK dimming+LED, German/Swiss policy contrasts, Italian/Milan early LED conversion, and independent electricity evidence offer real-world mechanisms; do not attribute our per-NUTS changes without spatial/temporal matching. Sources fully recorded in \`docs/literature_europe_nighttime_dimming_policy_led_2014_2024.md\`.
+
+(2) The paper's central contribution: **radiance trends vs modelled biological polarization receptor contrast are not interchangeable**. Use **BOTH spider and moth PRC(R)** datasets with independent calibration, mapped per pixel before NUTS2016 area averaging. Spider 17-site transfer remains LOCKED; **moth 17-observation DRAc original R vector preserved** in \`data/reference/prc_moth_17_observations_from_original_r.csv\` but no moth refit has yet occurred. Proposed NUTS3 **NL333** (large apparent radiance change with muted PRC) must pass independent source anomaly QA first. Explore population density × baseline radiance to locate largest **predicted** biological effects, not assume arthropod population counts from human density. See \`docs/paper_two_part_structure.md\`. Eleven annual observations from 2014 through 2024 span a ten-year interval. Neither snow-corrected 2021 nor ISS spectral adjustment has been locked as final European radiance history.
+
+---
+
 ## PRC transfer LOCKED — complete 17-site spider calibration (20 October 2026)
 
 **Final decision made and implemented** after original 18-site coordinate/date recovery, Slabhouse EOG annual raw pixel zero (both 2018/2019; cf_cvg unavailable) and one final pairwise 2014/2024 sensitivity. **Slabhouse is excluded from the calibration regression only**, not deleted from the original 18 measurement record.
