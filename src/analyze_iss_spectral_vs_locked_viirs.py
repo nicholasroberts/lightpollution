@@ -218,7 +218,7 @@ def self_test():
                       "delta_bg_median": [.1, .1, 0., -.1],
                       "n_common_valid_pixels": [100, 30, 50, 10]})
     r = pd.DataFrame([{"NUTS_ID": nid, "year": year,
-                       "radiance_mean_corrected": val * ((1.+delta)**(year-2014)/6.)}
+                       "radiance_mean_corrected": val * ((1.+delta)**((year-2014)/6.))}
                       for nid, val, delta in
                       [("DE001", 2., -.1), ("DE002", 3., -.2),
                        ("FR001", 1., .05), ("FR002", 5., -.1)]
