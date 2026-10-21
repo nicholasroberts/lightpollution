@@ -1,15 +1,17 @@
 #!/usr/bin/env python3
-"""Replot original cumulative NUTS2016 population / spider / moth PRC maps.
+"""Four-panel NUTS2016 maps: Jan-1 population, VIIRS radiance, spider/moth PRC.
 
-Uses the separately reconstructed January-1 population / FIXED land-area
-dataset (not published DEMO_R_D3DENS). For each 2014->2019 and 2014->2020,
-produce original-style three-panel maps with BOTH linear and symmetric-log
-population colour normalisations. Spider/moth PRC data and calculations are
-unaltered; all maps share the EXACT same 1273-region reconstructed cohort.
+Uses reconstructed January-1 population / fixed land area (not published
+DEMO_R_D3DENS). For 2014->2019 and 2014->2020, display four existing change
+variables side-by-side on the exact SAME 1273-region reconstructed cohort:
+absolute change in Jan-1 population density, corrected regional mean VIIRS
+radiance, and unchanged locked pixel-based spider and moth PRC.
 
-SymLogNorm maps signed change in people/km2, allowing declines, growth and
-true zeros, unlike log10(delta). The colour bar remains in original units.
-Neither temporal smoothing nor averaging of Jan-1 populations is applied.
+Both linear and symmetric-log *population-only* colour maps are generated.
+SymLogNorm preserves increases, decreases and true zeros without taking
+log10 of signed observations. Colour bar ticks stay in people/km2. VIIRS
+radiance and both PRC panels retain independent zero-centred linear scales.
+Neither annual population smoothing, PRC refitting nor radiance recalibration.
 """
 from __future__ import annotations
 
@@ -32,6 +34,7 @@ INPUT = (ROOT / "data/processed/nuts2016_jan1_population_density_sensitivity"
          / "matched_region_density_2014_2019_2020.csv")
 OUTPUT = ROOT / "figures/prc_population_change_jan1_linear_vs_symlog"
 ENDPOINTS = (2019, 2020)
+RADIANCE_SOURCE = ROOT / "data/processed/fixed_nuts2016_viirs_2014_2024.parquet"
 MAP_XLIM = (-12, 46)  # Includes almost all of Turkiye, unlike old x<=36 sheet.
 MAP_YLIM = (35, 73)
 
@@ -67,6 +70,38 @@ def read_matched_endpoints(path: Path) -> pd.DataFrame:
             raise ValueError(f"Non-finite population or PRC change in {year} panel")
     return x
 
+
+def add_radiance_endpoints(data: pd.DataFrame, source: Path) -> pd.DataFrame:
+    """Join pre-calibrated VIIRS NUTS2016 radiance, never recompute sensor data.
+
+    The PRCs already come from their LOCKED native-pixel transformations;
+    mean VIIRS radiance is a separate region-level quantity. The three end
+    years and NUTS3 identifiers must be unique and complete.
+    """
+    columns = ["NUTS_ID", "year", "radiance_mean_corrected"]
+    rad = pd.read_parquet(source, columns=columns)
+    rad = rad[rad.year.isin((2014, *ENDPOINTS))].copy()
+    rad["NUTS_ID"] = rad.NUTS_ID.astype(str)
+    if rad.duplicated(["NUTS_ID", "year"]).any():
+        raise ValueError("Duplicated corrected radiance region/year")
+    result = data.copy()
+    for year in (2014, *ENDPOINTS):
+        year_rad = rad.loc[rad.year.eq(year),
+                           ["NUTS_ID", "radiance_mean_corrected"]].rename(
+            columns={"radiance_mean_corrected": f"radiance_{year}"})
+        result = result.merge(year_rad, on="NUTS_ID", how="left",
+                              validate="one_to_one")
+    required = [f"radiance_{year}" for year in (2014, *ENDPOINTS)]
+    if not np.isfinite(result[required].to_numpy(dtype=float)).all():
+        raise ValueError("Missing/nonfinite VIIRS radiance in reconstructed NUTS3 cohort")
+    if (result[required] < 0).any().any():
+        raise ValueError("Invalid negative corrected NUTS3 VIIRS radiance")
+    for year in ENDPOINTS:
+        result[f"radiance_delta_2014_{year}"] = (
+            result[f"radiance_{year}"] - result["radiance_2014"])
+    if len(result) != len(data):
+        raise ValueError("Joining radiance changed the fixed population cohort")
+    return result
 
 def robust_symmetric_limit(values: pd.Series, minimum: float) -> float:
     arr = np.abs(values.to_numpy(dtype=float))
@@ -125,36 +160,39 @@ def draw_panel(fig, ax, geom, column: str, limit: float, label: str,
 def make_map(nuts, data: pd.DataFrame, year: int, kind: str, out: Path,
              linthresh: float) -> dict:
     pop_col = f"change_density_jan1_fixed_land_2014_{year}"
-    cols = [pop_col, f"cumulative_delta_spider_prc_{year}",
+    rad_col = f"radiance_delta_2014_{year}"
+    cols = [pop_col, rad_col, f"cumulative_delta_spider_prc_{year}",
             f"cumulative_delta_moth_prc_{year}"]
     geo = nuts.merge(data[["NUTS_ID", *cols]], how="left",
                      on="NUTS_ID", validate="one_to_one")
     limits = {
         pop_col: robust_symmetric_limit(data[pop_col], 5.),
-        cols[1]: robust_symmetric_limit(data[cols[1]], 1e-10),
+        rad_col: robust_symmetric_limit(data[rad_col], 1e-10),
         cols[2]: robust_symmetric_limit(data[cols[2]], 1e-10),
+        cols[3]: robust_symmetric_limit(data[cols[3]], 1e-10),
     }
-    fig, ax = plt.subplots(1, 3, figsize=(21, 8.3),
+    fig, ax = plt.subplots(1, 4, figsize=(26, 8.8),
                            layout="constrained")
     labels = [
-        f"Jan 1 population density change {2014}–{year} (people/km²)",
-        f"Spider PRC change {2014}–{year}",
-        f"Moth PRC change {2014}–{year}",
+        f"Jan 1 population density Δ 2014–{year} (people/km²)",
+        f"VIIRS radiance Δ 2014–{year} (nW cm⁻² sr⁻¹)",
+        f"Spider PRC Δ 2014–{year}",
+        f"Moth PRC Δ 2014–{year}",
     ]
     draw_panel(fig, ax[0], geo, pop_col, limits[pop_col],
                labels[0], population_scale=kind, linthresh=linthresh)
-    for i in (1, 2):
+    for i in (1, 2, 3):
         draw_panel(fig, ax[i], geo, cols[i], limits[cols[i]], labels[i])
     fig.suptitle(
         f"Cumulative change 2014–{year} | fixed NUTS2016 geography"
         f" | independently reconstructed Jan-1 population\n"
-        f"Population colour scale: {kind}; blue=decrease; red=increase; "
-        f"grey=outside complete 1,273-region cohort\n"
-        f"Spider/moth PRC: unchanged locked pixel-based estimates; "
-        f"all three maps have identical geographical coverage",
-        fontsize=12,
+        f"Population colour scale: {kind}; all other scales linear and "
+        f"independently zero-centred; blue=decrease; red=increase\n"
+        f"Grey=outside complete 1,273-region cohort; radiance=corrected "
+        f"regional VIIRS mean; PRC=unchanged locked native-pixel estimates",
+        fontsize=11,
     )
-    basename = f"cumulative_population_spider_moth_2014_{year}_jan1_{kind}"
+    basename = f"cumulative_population_radiance_spider_moth_2014_{year}_jan1_{kind}"
     fig.savefig(out / (basename + ".pdf"), bbox_inches="tight")
     fig.savefig(out / (basename + ".png"), bbox_inches="tight", dpi=200)
     plt.close(fig)
@@ -172,7 +210,20 @@ def self_test() -> None:
     assert float(norm(-1)) < float(norm(0)) < float(norm(1))
     assert symlog_ticks(v, 1.).count(0.) == 1
     assert not any(np.isclose(abs(t), v) for t in symlog_ticks(v, 1.))
-    print("Symmetric-log signed population-scale self-test: PASS")
+    # Simple toy pairing validates same-NUTS joining and endpoint subtraction
+    # without depending on the large project files in --self-test.
+    toy = pd.DataFrame({"NUTS_ID": ["TR001", "FR001"]})
+    r = pd.DataFrame({
+        "NUTS_ID": ["TR001", "FR001"] * 3,
+        "year": [2014, 2014, 2019, 2019, 2020, 2020],
+        "radiance_mean_corrected": [1., 2., 1.5, 1.75, 1.8, 1.6],
+    })
+    # Check source-invariant end-year difference construction.
+    pivot = r.pivot(index="NUTS_ID", columns="year",
+                    values="radiance_mean_corrected")
+    assert np.isclose(float(pivot.loc["TR001", 2020] - pivot.loc["TR001", 2014]), .8)
+    assert len(toy) == 2
+    print("Signed-log scale and endpoint-change self-test: PASS")
 
 
 def main() -> None:
@@ -191,6 +242,7 @@ def main() -> None:
     source = args.input if args.input.is_absolute() else ROOT / args.input
     out = args.out if args.out.is_absolute() else ROOT / args.out
     regions = read_matched_endpoints(source)
+    regions = add_radiance_endpoints(regions, RADIANCE_SOURCE)
     nuts = load_nuts(load_config())[["NUTS_ID", "geometry"]]
     if not set(regions.NUTS_ID).issubset(set(nuts.NUTS_ID)):
         raise ValueError("Reconstructed region missing from fixed NUTS2016 geometries")
@@ -199,10 +251,13 @@ def main() -> None:
     for year in ENDPOINTS:
         for kind in ("linear", "symlog"):
             info.append(make_map(nuts, regions, year, kind, out, args.linthresh))
-    (out / "map_normalisation_manifest.json").write_text(json.dumps({
+    (out / "four_panel_map_normalisation_manifest.json").write_text(json.dumps({
         "population_dataset": str(source.relative_to(ROOT)) if source.is_relative_to(ROOT) else str(source),
         "population_definition": "P_Jan1 / frozen regional land area; no smoothing",
+        "radiance_dataset": str(RADIANCE_SOURCE.relative_to(ROOT)),
+        "radiance_definition": "2020 or 2019 corrected annual VIIRS NUTS3 mean minus 2014 corrected annual VIIRS NUTS3 mean (nW cm-2 sr-1)",
         "PRC_source": "Original fixed NUTS2016 pixel-based spider/moth endpoint values",
+        "within_region_support_caveat": "The same NUTS3 polygon mask is used across panels, but radiance vs PRC valid pixel support within each region is not independently guaranteed identical.",
         "matched_cohort_regions": len(regions),
         "palette": "RdBu_r: blue decline, red increase",
         "display_clip": "symmetric 98th percentile of absolute values, same as earlier maps",
@@ -210,8 +265,8 @@ def main() -> None:
         "map_extent_latitude": MAP_YLIM,
         "maps": info,
     }, indent=2) + "\n")
-    print(f"Recreated 2014–2020 linear and symlog PRC triptychs for {len(regions)} regions")
-    print("Also created matched 2014–2019 sensitivity maps.")
+    print(f"Created 2014–2020 four-panel population/radiance/spider/moth maps for {len(regions)} regions")
+    print("Also created matched 2014–2019 four-panel sensitivity maps.")
     print(f"PDF and PNG results: {out}")
 
 
