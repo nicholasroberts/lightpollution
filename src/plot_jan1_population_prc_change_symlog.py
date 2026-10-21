@@ -84,7 +84,9 @@ def symlog_ticks(limit: float, linthresh: float) -> list[float]:
     while decade < limit:
         candidates.extend([-decade, decade])
         decade *= 10
-    candidates.extend([-limit, limit])
+    # Do not label the exact 98th-percentile end caps: these can nearly
+    # overlap the adjacent round-number decade ticks (e.g. 142 and 100).
+    # The extend='both' colourbar triangles already mark clipped extremes.
     return sorted({float(z) for z in candidates if abs(z) <= limit + 1e-10})
 
 
@@ -169,6 +171,7 @@ def self_test() -> None:
     assert float(norm(-10)) < .5 < float(norm(10))
     assert float(norm(-1)) < float(norm(0)) < float(norm(1))
     assert symlog_ticks(v, 1.).count(0.) == 1
+    assert not any(np.isclose(abs(t), v) for t in symlog_ticks(v, 1.))
     print("Symmetric-log signed population-scale self-test: PASS")
 
 
