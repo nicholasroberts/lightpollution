@@ -113,7 +113,8 @@ def population_source_qa(full: pd.DataFrame, path: Path) -> pd.DataFrame:
         if col not in raw:
             raw[col] = pd.NA
     raw = raw[["NUTS_ID", "year", "population_density", "status",
-               "population_density_source", "population_density_recovered"]]
+               "population_density_source", "population_density_recovered"]].rename(
+        columns={"population_density_source": "density_provenance"})
     panel = full.loc[full.year.isin(YEARS),
         ["NUTS_ID", "country", "year", "population_density"]].merge(
             raw, on=["NUTS_ID", "year"], how="left",
@@ -127,7 +128,7 @@ def population_source_qa(full: pd.DataFrame, path: Path) -> pd.DataFrame:
         raise ValueError("Current panel density differs from original source")
     panel["status"] = panel["status"].fillna("(not reported)").astype(str)
     panel["population_density_source_name"] = (
-        panel["population_density_source"].fillna("(not reported)").astype(str))
+        panel["density_provenance"].fillna("(not reported)").astype(str))
     panel["population_density_recovered"] = (
         panel["population_density_recovered"].fillna(False).astype(bool))
     return panel
