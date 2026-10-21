@@ -18,7 +18,7 @@ The ISS spectral comparison serves one bounded role: show that continental VIIRS
 
 **Observed night-light radiance trends are not interchangeable with their predicted biological consequences.** The first result creates the most defensible possible radiance history (including known instrument/weather/spectral biases); the second propagates changes through empirically measured **polarization-receptor contrast (PRC)** relationships for nocturnal arthropods, highlighting why the same absolute change in radiance can lead to different changes in the celestial polarization cue **when initial radiance levels differ**, with different responses for spiders and moths.
 
-Possible working title: *A decade of changing artificial light across Europe and its unequal consequences for celestial polarization cues*.
+**Investigator-selected title:** *A decade of changing artificial light at night across Europe and its unequal consequences for nocturnal celestial polarization cues*.
 
 ## Main result 1 — What happened to Europe's night-light radiance, 2014–2024?
 
