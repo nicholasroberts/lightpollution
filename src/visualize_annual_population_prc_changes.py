@@ -125,7 +125,7 @@ def calculate(panel):
 
 def correlation(data,period):
     rows=[]
-    for x_name in ("population_pct","population_density_absolute"):
+    for x_name in ("population_density_absolute","population_pct"):
         x=("pct_population_density" if period=="annual" else
            "cumulative_pct_population_density") if x_name=="population_pct" else (
            "delta_population_density" if period=="annual" else
@@ -181,8 +181,8 @@ def maps_for(d,nuts,cols,labels,output,title,scale,focus=None):
 
 
 def plot_annual_maps(annual,nuts,out):
-    cols=["pct_population_density","delta_spider_prc","delta_moth_prc"]
-    titles=["Population density Δ (%)","Spider ΔPRC (absolute)","Moth ΔPRC (absolute)"]
+    cols=["delta_population_density","delta_spider_prc","delta_moth_prc"]
+    titles=["Population density Δ (people/km²)","Spider ΔPRC (absolute)","Moth ΔPRC (absolute)"]
     scale=limits(annual,cols) # CONSISTENT limits across all six years
     with PdfPages(out/"population_vs_prc_annual_maps_2015_2020.pdf") as pdf:
         for year in range(2015,2021):
@@ -216,12 +216,12 @@ def scatter_axes(ax,d,x,y,taxon,period):
     else:ax.set_title(f"{taxon.capitalize()} PRC | n={len(use)}")
     ax.axhline(0,lw=.6,color="gray")
     ax.axvline(0,lw=.6,color="gray")
-    ax.set(xlabel="Population density change (%)",ylabel="Absolute ΔPRC")
+    ax.set(xlabel="Population density change (people/km²)",ylabel="Absolute ΔPRC")
     ax.grid(alpha=.16)
 
 
 def draw_scatter_pair(d,output,title,period):
-    x="pct_population_density" if period=="annual" else "cumulative_pct_population_density"
+    x="delta_population_density" if period=="annual" else "cumulative_delta_population_density"
     yprefix="delta_" if period=="annual" else "cumulative_delta_"
     fig,axs=plt.subplots(1,2,figsize=(14,5.8),layout="constrained")
     for taxon,ax in zip(("spider","moth"),axs):
@@ -271,16 +271,16 @@ def main():
     cum.to_csv(out/"cumulative_change_2014_2020.csv",index=False)
     nuts=load_nuts(load_config())[["NUTS_ID","geometry"]]
     # Produce six separate single-year map PDFs to enable immediate inspection.
-    annual_cols=["pct_population_density","delta_spider_prc","delta_moth_prc"]
-    annual_titles=["Annual population Δ (%)","Annual spider ΔPRC","Annual moth ΔPRC"]
+    annual_cols=["delta_population_density","delta_spider_prc","delta_moth_prc"]
+    annual_titles=["Annual density Δ (people/km²)","Annual spider ΔPRC","Annual moth ΔPRC"]
     annual_scale=limits(annual,annual_cols)
     for year in range(2015,2021):
         map_sheet(annual[annual.year.eq(year)],nuts,annual_cols,annual_titles,
            out/f"annual_population_spider_moth_{year-1}_{year}.pdf",
            f"Year-on-year change {year-1} → {year}",annual_scale)
-    cumulative_cols=["cumulative_pct_population_density",
+    cumulative_cols=["cumulative_delta_population_density",
                      "cumulative_delta_spider_prc","cumulative_delta_moth_prc"]
-    cumulative_titles=["Population change 2014–2020 (%)",
+    cumulative_titles=["Density change 2014–2020 (people/km²)",
                        "Spider PRC change 2014–2020",
                        "Moth PRC change 2014–2020"]
     cumulative_scale=limits(cum,cumulative_cols)
@@ -297,7 +297,7 @@ def main():
             z=annual[annual.year.eq(year)]
             fig,axs=plt.subplots(1,2,figsize=(14,5.8),layout="constrained")
             for taxon,ax in zip(("spider","moth"),axs):
-                scatter_axes(ax,z,"pct_population_density",
+                scatter_axes(ax,z,"delta_population_density",
                              "delta_"+taxon+"_prc",taxon,"annual")
             handles=[Line2D([],[],marker="o",linestyle="None",color=R_COLORS[i],
                             label=f"{lab} nW") for i,lab in enumerate(R_LABELS)]
