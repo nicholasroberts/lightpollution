@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Country-by-country directional population/PRC analysis (2014–2020).
+"""Country-by-country ABSOLUTE density change vs PRC analysis (2014–2020).
 
 Visualize whether population GROWTH accompanies PRC LOSS, whereas population
 DECLINE does not reliably accompany PRC GAIN. Preserve country baselines, both
@@ -24,10 +24,11 @@ from visualize_annual_population_prc_changes import inputs, calculate
 from historical_prc_pixel_nuts3 import load_nuts
 from project_config import PROJECT_ROOT as ROOT, load_config
 
-OUT = ROOT/"figures/prc_population_country_asymmetry_2014_2020"
+OUT = ROOT/"figures/prc_population_country_absolute_density_2014_2020"
 TAXA=("spider","moth")
 # Fixed visual sign thresholds, with an unthresholded sensitivity in tables.
-CUTS={"cumulative":(1.0,.001),"annual":(.25,.0005)}
+CUTS={"cumulative":(5.0,.001),"annual":(1.0,.0005)}
+# Main thresholds: people/km² and absolute PRC. Zero-only signs are also reported.
 QUAD={
  "population_up__prc_down": ("#ad3b35","Population ↑ / PRC ↓"),
  "population_down__prc_up": ("#2879a3","Population ↓ / PRC ↑"),
@@ -51,7 +52,7 @@ def exact_corr(x,y):
 
 
 def classify(pop,prc,pop_min=0,prc_min=0):
-    """Sign classifications use absolute magnitude of PERCENT population and ABSOLUTE PRC."""
+    """Sign classifications use absolute density change (people/km²) and absolute PRC."""
     pop=np.asarray(pop,float)
     prc=np.asarray(prc,float)
     category=np.full(len(pop),"near_zero_or_mixed",dtype=object)
@@ -73,8 +74,8 @@ def magnitude_subgroups(x,y,prc_min):
 
 
 def directional_summary(data,country,taxon,period,pop_min,prc_min):
-    x=("pct_population_density" if period=="annual"
-       else "cumulative_pct_population_density")
+    x=("delta_population_density" if period=="annual"
+       else "cumulative_delta_population_density")
     y=(("delta_" if period=="annual" else "cumulative_delta_")
        +taxon+"_prc")
     z=data[["NUTS_ID",x,y]].dropna().copy()
@@ -90,19 +91,19 @@ def directional_summary(data,country,taxon,period,pop_min,prc_min):
     nloss,loss_rho,ngain,gain_rho=magnitude_subgroups(z[x],z[y],prc_min)
     return {
         "country":country,"taxon":taxon,"period":period,
-        "n_regions":len(z),"pop_threshold_pct":pop_min,"prc_threshold_abs":prc_min,
+        "n_regions":len(z),"pop_threshold_people_per_km2":pop_min,"prc_threshold_abs":prc_min,
         "growth_count":int((z[x]>pop_min).sum()),
         "decline_count":int((z[x]<-pop_min).sum()),
         "prc_loss_count":nloss,"prc_gain_count":ngain,
         "n_growth_prc_loss":a,"n_growth_prc_gain":b,
         "n_decline_prc_loss":c,"n_decline_prc_gain":d,
         "n_signed_both":both,"n_neutral_or_mixed":len(z)-both,
-        "fraction_growth_given_prc_loss":a/(a+c) if a+c else np.nan,
-        "fraction_decline_given_prc_gain":d/(b+d) if b+d else np.nan,
+        "fraction_growth_given_prc_loss":a/nloss if nloss else np.nan,
+        "fraction_decline_given_prc_gain":d/ngain if ngain else np.nan,
         "fraction_prc_loss_given_growth":a/(a+b) if a+b else np.nan,
         "fraction_prc_gain_given_decline":d/(c+d) if c+d else np.nan,
-        "growth_baseline_fraction":(a+b)/both if both else np.nan,
-        "prc_loss_baseline_fraction":(a+c)/both if both else np.nan,
+        "growth_baseline_fraction":float((z[x]>pop_min).sum()/len(z)) if len(z) else np.nan,
+        "prc_loss_baseline_fraction":float(nloss/len(z)) if len(z) else np.nan,
         "expected_direction_fraction":(a+d)/both if both else np.nan,
         "fisher_odds_growth_vs_loss":float(fisher_exact([[a,b],[c,d]])[0])
             if min(a+b,c+d,a+c,b+d)>0 else np.nan,
@@ -153,7 +154,7 @@ def make_tables(annual,cumulative):
 def plot_country_scatter(cumulative,output):
     selected=["FR","TR","IS"]
     fig,axs=plt.subplots(len(selected),2,figsize=(15,15),layout="constrained")
-    x="cumulative_pct_population_density"
+    x="cumulative_delta_population_density"
     for ridx,country in enumerate(selected):
         region=cumulative[cumulative.country.eq(country)]
         for cidx,taxon in enumerate(TAXA):
@@ -170,7 +171,7 @@ def plot_country_scatter(cumulative,output):
                     if np.isfinite(r) else "correlation withheld: too few regions")
             ax.axhline(0,lw=.7,color="gray")
             ax.axvline(0,lw=.7,color="gray")
-            ax.set(xlabel="Population density change 2014–20 (%)",
+            ax.set(xlabel="Population density change 2014–20 (people/km²)",
                    ylabel="Absolute Δ"+taxon+" PRC",
                    title=f"{country} | {taxon} | n={len(region)} | {suffix}")
             ax.grid(alpha=.15)
@@ -186,7 +187,7 @@ def country_metric_plot(t,out):
         (t.country.ne("ALL"))&(t.n_regions.ge(8))].copy()
     for metric,name,caption in [
         ("spearman_rho_pop_vs_delta_prc","country_spearman",
-         "2014–20 within-country Spearman ρ: Δpopulation (%) vs ΔPRC"),
+         "2014–20 within-country Spearman ρ: Δpopulation density (people/km²) vs ΔPRC"),
         ("fraction_growth_given_prc_loss","loss_with_growth",
          "Fraction of PRC-loss regions with population growth"),
         ("fraction_decline_given_prc_gain","gain_with_decline",
@@ -231,7 +232,7 @@ def annual_heatmap(t,out):
         ax.set_yticks(np.arange(len(wide)),wide.index)
         ax.set_title(f"{taxon.capitalize()} PRC: within-country annual Spearman ρ vs population change\n"
                      "Countries with ≥8 matched NUTS3 regions; 2014–2020")
-        fig.colorbar(img,ax=ax,label="Spearman ρ (annual Δpopulation vs ΔPRC)")
+        fig.colorbar(img,ax=ax,label="Spearman ρ (annual Δdensity (people/km²) vs ΔPRC)")
         fig.savefig(out/(f"country_annual_correlations_{taxon}.pdf"),bbox_inches="tight")
         plt.close(fig)
 
@@ -239,8 +240,8 @@ def annual_heatmap(t,out):
 def agreement_map(cumulative,meta,taxon,out):
     import geopandas as gpd
     key="cumulative_delta_"+taxon+"_prc"
-    d=cumulative[["NUTS_ID","cumulative_pct_population_density",key]].copy()
-    d["category"]=classify(d.cumulative_pct_population_density,d[key],
+    d=cumulative[["NUTS_ID","cumulative_delta_population_density",key]].copy()
+    d["category"]=classify(d.cumulative_delta_population_density,d[key],
                            *CUTS["cumulative"])
     geo=meta.merge(d,on="NUTS_ID",how="left",validate="one_to_one")
     fig,ax=plt.subplots(figsize=(11,8),layout="constrained")
@@ -262,15 +263,15 @@ def audit(annual,cumulative,out):
     """Outliers must be investigated, not silently deleted or winsorised."""
     allrows=[]
     for period,frame,col,threshold in (
-        ("annual",annual,"pct_population_density",20.),
-        ("cumulative",cumulative,"cumulative_pct_population_density",40.)):
+        ("annual",annual,"delta_population_density",25.),
+        ("cumulative",cumulative,"cumulative_delta_population_density",100.)):
         ext=frame.loc[frame[col].abs().gt(threshold),
             ["NUTS_ID","country","year",col,"radiance_band_2014"]
             +["delta_spider_prc","delta_moth_prc"] if period=="annual" else
             ["NUTS_ID","country","year",col,"radiance_band_2014",
              "cumulative_delta_spider_prc","cumulative_delta_moth_prc"]].copy()
         ext["period"]=period
-        ext["extreme_cutoff_pct"]=threshold
+        ext["extreme_cutoff_people_per_km2"]=threshold
         allrows.append(ext)
     pd.concat(allrows,ignore_index=True).to_csv(
         out/"extreme_population_change_review.csv",index=False)
@@ -284,8 +285,8 @@ def synthetic_test():
       "population_up__prc_down","population_down__prc_up",
       "population_up__prc_up","population_down__prc_down","near_zero_or_mixed"]
     fake=pd.DataFrame({"NUTS_ID":list("ABCDE"),
-        "pct_population_density":pop,"delta_spider_prc":prc,
-        "cumulative_pct_population_density":pop,
+        "delta_population_density":pop,"delta_spider_prc":prc,
+        "cumulative_delta_population_density":pop,
         "cumulative_delta_spider_prc":prc})
     result=directional_summary(fake,"TR","spider","cumulative",.5,.0005)
     assert result["n_growth_prc_loss"]==1
@@ -309,7 +310,25 @@ def main():
     out=args.out if args.out.is_absolute() else ROOT/args.out
     out.mkdir(parents=True,exist_ok=True)
     result=make_tables(annual,cumulative)
+    # Side-by-side sensitivity: original population % vs absolute density change.
+    # Percentages are retained for audit but are no longer the main analysis.
+    comparison=[]
+    for period,frame in (("cumulative",cumulative),("annual",annual)):
+        intervals=[(2014,2020,frame)] if period=="cumulative" else [
+            (yr-1,yr,frame[frame.year.eq(yr)]) for yr in range(2015,2021)]
+        for start,end,part in intervals:
+            for country,g in [("ALL",part),*list(part.groupby("country"))]:
+                for taxon in TAXA:
+                    y=("delta_" if period=="annual" else "cumulative_delta_")+taxon+"_prc"
+                    for scale,field in (
+                        ("absolute_people_per_km2", "delta_population_density" if period=="annual" else "cumulative_delta_population_density"),
+                        ("percentage", "pct_population_density" if period=="annual" else "cumulative_pct_population_density")):
+                        p,rho=exact_corr(g[field],g[y])
+                        comparison.append({"start_year":start,"end_year":end,"country":country,
+                          "taxon":taxon,"population_measure":scale,"n_regions":len(g),
+                          "pearson_r":p,"spearman_rho":rho})
     result.to_csv(out/"country_directional_summary_annual_and_cumulative.csv",index=False)
+    pd.DataFrame(comparison).to_csv(out/"absolute_vs_percentage_correlation_sensitivity.csv",index=False)
     result[(result.period=="cumulative")&(result.threshold_case=="main")].to_csv(
         out/"country_directional_summary_2014_2020.csv",index=False)
     audit(annual,cumulative,out)
