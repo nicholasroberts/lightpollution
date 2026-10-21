@@ -2,6 +2,21 @@
 
 **Review date: 21 October 2026. Status: quantitative descriptive results, no spectral correction authorised.**  Reuses the locked 2017+ zero-point-calibrated fixed-NUTS2016 VIIRS series and the *previously prepared* ISS paired RGB spectral data. Does **not** reopen the frozen Jan1 population/radiance/spider/moth PRC analysis.
 
+## Investigator-defined scope: bounded evidence against LED-only dimming
+
+**Decision, 21 October 2026:** This ISS analysis is a **supporting validity / interpretation check**, not another mechanistic-model discovery study. Its sole immediate purpose is to establish, with spectral comparison *plus independent operational evidence*, that **European VIIRS radiance declines cannot all be ascribed to changes from sodium-like lamps to white LEDs and VIIRS's sensitivity to source spectra**. Do **not** use this stage to estimate a percent LED-vs-dimming partition, fit a spectral correction, develop new demographic models, or propose a large new set of tests unless required to assess this modest evidentiary claim.
+
+**Central illustrative example — France:**
+- Matched regional 2014→2024 median VIIRS log10 endpoint ratio **−0.3275**, equivalent to approximately **−53%** of the median regional ratio. This is **not** the national area-weighted total.
+- Paired ISS regional median Δ(G/R) **+0.0080**; within-France association of regional Δ(G/R) with VIIRS 2014→2024 change **Spearman ρ=+0.018**.
+- Thus large dimming in the corrected DNB record coexists with very little observed spectral change in the older ISS comparison. Neither Δ(G/R) nor the epochs alone proves an exact amount of true broadband emission reduction, especially because the post ISS epoch is an irregular 2014–2020 mosaic.
+- **Independent support:** French municipal overnight streetlight shut-offs and legal/operational controls are documented by Cerema and legislation; Enedis reports a **34.2% decline in mean streetlighting electrical power around 02:00 from May 2022 to May 2023**, as described in `docs/literature_europe_nighttime_dimming_policy_led_2014_2024.md`. This is independent of DNB spectral response, though not a NUTS3-matched optical flux measurement. The 2022–23 evidence helps interpret **2014→2024**, and must not be backdated into claims restricted to 2014→2020.
+- Therefore France is a compelling **counterexample to a universal LED-only account**, not proof that the 2014→2024 DNB decline is *entirely* due to switch-offs.
+
+**Secondary supporting contrasts:** UK has larger Δ(G/R) (+.064) alongside VIIRS declines and independent evidence for mixed LED/operational programmes; Belgium has large VIIRS declines but median Δ(G/R) slightly negative (−.016); Italy shows whitening without corresponding median national-region dimming. These reinforce that a single universal spectral explanation is inadequate, without requiring a quantitative apportionment.
+
+**Paper intent:** include a concise paragraph or compact illustrative comparison in the historical-radiance methods/results/discussion. Preserve the locked zero-point and snow corrections and two biological PRC transfers. Return to full figure/table selection only at manuscript-design stage.
+
 ## Source output files received
 
 Investigator uploaded `iss_viirs_between_country_associations.csv` (18 rows), `iss_viirs_sign_sensitivity.csv` (36), `iss_viirs_within_country_associations.csv` (312) and `iss_spectral_shift_vs_corrected_viirs_scatter.pdf` (one page; four panels). Calculated with `src/analyze_iss_spectral_vs_locked_viirs.py` and source `data/processed/iss_nuts3_spectral_shift.csv` from `src/validate_iss_spectral_shift.py`. The **1,302 eligible NUTS2016 regional** ISS/VIIRS matches are NOT the same 1,273-region Jan1 population cohort, and their membership depends on ISS common-pixel and VIIRS-positive mask eligibility. Türkiye is absent from the paper-country ISS inclusion list and therefore absent from these spectral associations.
@@ -70,11 +85,8 @@ An association between **historic pre/post ISS colour difference** and **2020–
 
 **Do not** convert these associations into a unique DNB→broadband-visible multiplier; two RGB ratios do not identify true source spectra, upward luminous flux, lamp shielding or skyglow. The script's `−log10(1.5)×Δ(G/R)` is illustrative at *fixed green output*, not an observed physical decomposition. The 2012/13 ISS baseline is also not matched to VIIRS's 2014 start date. The ISS raster mask requires raw annual VIIRS in 2013/2020 above 0.5, so selection may vary by region and light-change direction. Independent European NUTS3 spatial dependence and unequal ISS pixel support require further QA.
 
-## Next targeted validation (before any spectral correction)
+## Follow-up limited to manuscript evidentiary sufficiency
 
-1. Inspect `iss_viirs_matched_nuts3.csv`, `iss_viirs_country_medians.csv`, `iss_spectral_mask_validation.csv` and spectral source/manifest for masks, baseline-radiance distributions, leverage and the Romania colour-ratio discrepancy. Review common-pixel ISS support vs whole-region VIIRS means.
-2. Test **within-country association controlling for baseline radiance**, with country fixed effects and country/spatial-block clustered or permutation uncertainty. Use the time-mismatched 2020–24 comparison explicitly as a limitation; avoid treating country-level 23 observations as independent causal samples.
-3. Construct evidence-tiered region map: G/R-positive & VIIRS-decrease (spectral-confounded candidate); G/R-neutral and VIIRS-decrease (possible operational decrease, especially where independently corroborated); contradictory and mixed. Independent French electricity/municipal dates, UK authority schedules, Dutch horticultural lighting and Italian Milan spectral records are the external discriminators.
-4. Clarify the **approved 2021 snow overlay** separately before any full 11-year annual *radiance* trend attribution; the frozen 2014/2020/2024 endpoint test is unaffected.
+No additional regression, country-wide causal classification or spectral correction is required for the immediate claim. If a reviewer requests a stronger independent demonstration, use the cited French municipality/Enedis evidence with appropriate date and geography caveats. Previously listed expanded analyses are **deferred**, not active next steps.
 
-**Defensible interim conclusion:** geographically structured spectral change is correlated with part of the VIIRS dimming pattern, most clearly in G/R between countries, but the varying within-country results, weak B/G signal, temporal mismatch, and documented real lighting-policy/energy changes rule out attributing all dimming to spectral conversion. The result does not yet partition apparent versus genuine reductions quantitatively.
+**Defensible bounded conclusion:** some historical European DNB radiance decline is consistent with spectral changes, but the French contrast and independently documented reductions in lighting operation show that an LED spectral-response explanation **cannot be presumed to explain 100% of the observed dimming**. Neither the true optical amount nor a region-by-region partition is estimated.
