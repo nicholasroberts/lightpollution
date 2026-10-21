@@ -7,10 +7,10 @@ variables side-by-side on the exact SAME 1273-region reconstructed cohort:
 absolute change in Jan-1 population density, corrected regional mean VIIRS
 radiance, and unchanged locked pixel-based spider and moth PRC.
 
-Both linear and symmetric-log *population-only* colour maps are generated.
-SymLogNorm preserves increases, decreases and true zeros without taking
-log10 of signed observations. Colour bar ticks stay in people/km2. VIIRS
-radiance and both PRC panels retain independent zero-centred linear scales.
+Linear references, population-only symlog and combined population/radiance
+symlog colour maps are generated. SymLogNorm preserves positive, negative and
+zero changes while legends retain untransformed people/km2 and radiance units.
+Both PRC panels retain independently zero-centred linear scales.
 Neither annual population smoothing, PRC refitting nor radiance recalibration.
 """
 from __future__ import annotations
@@ -115,7 +115,9 @@ def robust_symmetric_limit(values: pd.Series, minimum: float) -> float:
 
 def symlog_ticks(limit: float, linthresh: float) -> list[float]:
     candidates = [0, -linthresh, linthresh]
-    decade = 10.
+    # Start decades at 10 × the linear threshold, so fractional-unit
+    # radiance change receives ticks at 0.1, 1, 10, ... rather than 10, 100.
+    decade = 10. * linthresh
     while decade < limit:
         candidates.extend([-decade, decade])
         decade *= 10
@@ -126,15 +128,19 @@ def symlog_ticks(limit: float, linthresh: float) -> list[float]:
 
 
 def draw_panel(fig, ax, geom, column: str, limit: float, label: str,
-               population_scale: str | None = None,
-               linthresh: float = 1.) -> None:
-    if population_scale == "symlog":
+               scale_mode: str = "linear", linthresh: float = 1.,
+               colourbar_label: str | None = None) -> None:
+    if scale_mode not in ("linear", "symlog"):
+        raise ValueError(f"Unknown panel scale: {scale_mode}")
+    if scale_mode == "symlog":
+        if linthresh <= 0:
+            raise ValueError("Symmetric-log threshold must be positive")
         norm = SymLogNorm(
             linthresh=linthresh, linscale=1.0, base=10,
             vmin=-limit, vmax=limit, clip=True)
     else:
         norm = TwoSlopeNorm(vmin=-limit, vcenter=0, vmax=limit)
-    cmap = "RdBu_r"  # Growth / improvement red, declines / losses blue.
+    cmap = "RdBu_r"  # Red=increasing quantity; blue=decreasing quantity.
     geom.plot(
         column=column, ax=ax, cmap=cmap, norm=norm, linewidth=0,
         missing_kwds={"color": "#d3d3d3"}, legend=False)
@@ -146,19 +152,17 @@ def draw_panel(fig, ax, geom, column: str, limit: float, label: str,
     mappable.set_array([])
     bar = fig.colorbar(mappable, ax=ax, shrink=0.67, pad=0.018,
                        fraction=0.04, extend="both")
-    if population_scale == "symlog":
+    if scale_mode == "symlog":
         ticks = symlog_ticks(limit, linthresh)
         bar.set_ticks(ticks)
         bar.set_ticklabels([f"{v:g}" for v in ticks])
-        bar.set_label("Population density change (people/km²) | symmetric log")
-    elif population_scale == "linear":
-        bar.set_label("Population density change (people/km²) | linear")
-    else:
-        bar.set_label(label)
+    scale_note = "symmetric log" if scale_mode == "symlog" else "linear"
+    bar.set_label(f"{colourbar_label} | {scale_note}" if colourbar_label else label)
 
 
-def make_map(nuts, data: pd.DataFrame, year: int, kind: str, out: Path,
-             linthresh: float) -> dict:
+def make_map(nuts, data: pd.DataFrame, year: int, pop_kind: str,
+             rad_kind: str, out: Path, pop_linthresh: float,
+             rad_linthresh: float) -> dict:
     pop_col = f"change_density_jan1_fixed_land_2014_{year}"
     rad_col = f"radiance_delta_2014_{year}"
     cols = [pop_col, rad_col, f"cumulative_delta_spider_prc_{year}",
@@ -179,26 +183,38 @@ def make_map(nuts, data: pd.DataFrame, year: int, kind: str, out: Path,
         f"Spider PRC Δ 2014–{year}",
         f"Moth PRC Δ 2014–{year}",
     ]
-    draw_panel(fig, ax[0], geo, pop_col, limits[pop_col],
-               labels[0], population_scale=kind, linthresh=linthresh)
-    for i in (1, 2, 3):
+    draw_panel(fig, ax[0], geo, pop_col, limits[pop_col], labels[0],
+               scale_mode=pop_kind, linthresh=pop_linthresh,
+               colourbar_label="Population density change (people/km²)")
+    draw_panel(fig, ax[1], geo, rad_col, limits[rad_col], labels[1],
+               scale_mode=rad_kind, linthresh=rad_linthresh,
+               colourbar_label="VIIRS radiance change (nW cm⁻² sr⁻¹)")
+    for i in (2, 3):
         draw_panel(fig, ax[i], geo, cols[i], limits[cols[i]], labels[i])
     fig.suptitle(
         f"Cumulative change 2014–{year} | fixed NUTS2016 geography"
         f" | independently reconstructed Jan-1 population\n"
-        f"Population colour scale: {kind}; all other scales linear and "
-        f"independently zero-centred; blue=decrease; red=increase\n"
+        f"Population colour scale: {pop_kind}; radiance: {rad_kind}; "
+        f"spider/moth PRC: linear, independently zero-centred\n"
         f"Grey=outside complete 1,273-region cohort; radiance=corrected "
         f"regional VIIRS mean; PRC=unchanged locked native-pixel estimates",
         fontsize=11,
     )
-    basename = f"cumulative_population_radiance_spider_moth_2014_{year}_jan1_{kind}"
+    # Preserve the original linear-radiance filenames and provide distinctly
+    # named symlog-radiance variants without overwriting reference figures.
+    basename = f"cumulative_population_radiance_spider_moth_2014_{year}_jan1_{pop_kind}"
+    if rad_kind == "symlog":
+        basename += "_rad_symlog"
     fig.savefig(out / (basename + ".pdf"), bbox_inches="tight")
     fig.savefig(out / (basename + ".png"), bbox_inches="tight", dpi=200)
     plt.close(fig)
-    return {"year": year, "scale": kind, "regions": int(len(data)),
+    return {"year": year, "population_scale": pop_kind,
+            "radiance_scale": rad_kind, "regions": int(len(data)),
             "colour_scale_max_abs_98pct": limits,
-            "symlog_linear_threshold_people_per_km2": linthresh if kind=="symlog" else None}
+            "population_symlog_threshold_people_per_km2":
+                pop_linthresh if pop_kind == "symlog" else None,
+            "radiance_symlog_threshold_nw_cm2_sr":
+                rad_linthresh if rad_kind == "symlog" else None}
 
 
 def self_test() -> None:
@@ -210,6 +226,14 @@ def self_test() -> None:
     assert float(norm(-1)) < float(norm(0)) < float(norm(1))
     assert symlog_ticks(v, 1.).count(0.) == 1
     assert not any(np.isclose(abs(t), v) for t in symlog_ticks(v, 1.))
+    # Signed, fractional-unit radiance with a 0.1 nW cm-2 sr-1 threshold.
+    radiance_limit = 12.
+    rad_norm = SymLogNorm(linthresh=.1, vmin=-radiance_limit,
+                          vmax=radiance_limit, base=10)
+    assert np.isclose(float(rad_norm(0.)), .5)
+    assert float(rad_norm(-1.)) < .5 < float(rad_norm(1.))
+    assert symlog_ticks(radiance_limit, .1) == [-10., -1., -.1, 0., .1, 1., 10.]
+    assert all(np.isfinite(rad_norm(np.array([-.1, 0., .1]))))
     # Simple toy pairing validates same-NUTS joining and endpoint subtraction
     # without depending on the large project files in --self-test.
     toy = pd.DataFrame({"NUTS_ID": ["TR001", "FR001"]})
@@ -233,9 +257,13 @@ def main() -> None:
     p.add_argument("--out", type=Path, default=OUTPUT)
     p.add_argument("--linthresh", type=float, default=1.0,
                    help="Linear part of SymLogNorm around zero (people/km2)")
+    p.add_argument("--rad-linthresh", type=float, default=0.1,
+                   help="SymLogNorm linear part for VIIRS change in nW cm-2 sr-1")
     args = p.parse_args()
-    if args.linthresh <= 0:
-        p.error("--linthresh must be positive")
+    if not np.isfinite(args.linthresh) or args.linthresh <= 0:
+        p.error("--linthresh must be positive and finite")
+    if not np.isfinite(args.rad_linthresh) or args.rad_linthresh <= 0:
+        p.error("--rad-linthresh must be positive and finite")
     self_test()
     if args.self_test:
         return
@@ -249,8 +277,12 @@ def main() -> None:
     out.mkdir(parents=True, exist_ok=True)
     info = []
     for year in ENDPOINTS:
-        for kind in ("linear", "symlog"):
-            info.append(make_map(nuts, regions, year, kind, out, args.linthresh))
+        for pop_kind, rad_kind in (("linear", "linear"),
+                                   ("symlog", "linear"),
+                                   ("symlog", "symlog")):
+            info.append(make_map(
+                nuts, regions, year, pop_kind, rad_kind, out,
+                args.linthresh, args.rad_linthresh))
     (out / "four_panel_map_normalisation_manifest.json").write_text(json.dumps({
         "population_dataset": str(source.relative_to(ROOT)) if source.is_relative_to(ROOT) else str(source),
         "population_definition": "P_Jan1 / frozen regional land area; no smoothing",
@@ -261,12 +293,15 @@ def main() -> None:
         "matched_cohort_regions": len(regions),
         "palette": "RdBu_r: blue decline, red increase",
         "display_clip": "symmetric 98th percentile of absolute values, same as earlier maps",
+        "radiance_symlog_default_threshold_nw_cm2_sr": args.rad_linthresh,
+        "population_symlog_default_threshold_people_per_km2": args.linthresh,
         "map_extent_longitude": MAP_XLIM,
         "map_extent_latitude": MAP_YLIM,
         "maps": info,
     }, indent=2) + "\n")
     print(f"Created 2014–2020 four-panel population/radiance/spider/moth maps for {len(regions)} regions")
     print("Also created matched 2014–2019 four-panel sensitivity maps.")
+    print("Three display versions per endpoint: all-linear, population-symlog, both-symlog.")
     print(f"PDF and PNG results: {out}")
 
 
