@@ -29,6 +29,7 @@ import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 from matplotlib.cm import ScalarMappable
+from matplotlib.patches import Patch
 from matplotlib.colors import SymLogNorm
 import numpy as np
 import pandas as pd
@@ -185,6 +186,11 @@ def publication_map(d: pd.DataFrame, geom: gpd.GeoDataFrame,
         g.loc[zero_baseline].plot(
             ax=ax, color="#8C75A2", edgecolor="none", linewidth=0
         )
+        ax.legend(
+            handles=[Patch(facecolor="#8C75A2",
+                           label="2014 radiance = 0; percentage undefined")],
+            loc="lower left", frameon=False, fontsize=7
+        )
     borders = g.dissolve(by="CNTR_CODE").boundary
     borders.plot(ax=ax, color="#555555", linewidth=0.25)
     x0, y0, x1, y1 = bounds
@@ -207,7 +213,11 @@ def publication_map(d: pd.DataFrame, geom: gpd.GeoDataFrame,
     )
     save_figure(fig, output, map_figure=True)
     plt.close(fig)
-    print(f"{output.name}: mapped {int(valid.sum())} polygons, ±{lim:.4g}", flush=True)
+    print(
+        f"{output.name}: mapped {int(valid.sum())} numeric polygons; "
+        f"{int(zero_baseline.sum())} zero-baseline polygons shown separately; "
+        f"colour limits ±{lim:.4g}", flush=True
+    )
 
 
 def get_locked_snow_2021(cache_csv: Path, *, rebuild: bool = False):
@@ -510,6 +520,13 @@ def main() -> None:
     data = validate_endpoint(pd.read_csv(endpoint, dtype={"NUTS_ID": str}))
     out.mkdir(parents=True, exist_ok=True)
     summary = endpoint_summary(data)
+    data[[
+        "NUTS_ID", "radiance_2014", "radiance_2024",
+        "radiance_change_abs", "radiance_change_pct",
+        "radiance_change_pct_all", "percent_baseline_zero"
+    ]].to_csv(
+        out / "fig1B_and_hist_all_nuts3_percent_changes.csv", index=False
+    )
     summary.update({
         "source_endpoint_csv": str(endpoint),
         "source_annual_parquet": str(annual_source),
