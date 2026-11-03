@@ -41,6 +41,7 @@ COUNTRIES = ("TR", "DE", "FR", "IE", "IT", "NL")
 COUNTRY_LABELS = {
     "TR": "Türkiye", "DE": "Germany", "FR": "France",
     "IE": "Ireland", "IT": "Italy", "NL": "Netherlands",
+    "UK": "United Kingdom",
 }
 DENSITY_COLS = {
     2014: "density_jan1_fixed_land_2014",
