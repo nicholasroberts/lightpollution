@@ -111,3 +111,59 @@ python src/inspect_ons_uk_jan1_2020_workbook.py
 **Download fallback** if ONS blocks non-browser retrieval: download XLSX from the ONS page in a browser, transfer to EcoVis using `scp` and place it at the exact file path above. A failed `wget` may leave an empty file; check `ls -lh` and `file` before running. The script uses only Python's standard library for workbook inspection, not `openpyxl`, and reports sheet names, exact 5-character UK NUTS3 codes, matching 2016 IDs, sample header rows, and every occurrence of Bristol UKK11. It writes only diagnostic CSV/JSON in `data/processed/publication_figures/uk_population_nuts2016_audit/`.
 
 After the sheet/identifier inspection, identify the exact 1 Jan 2020 **TOTAL population** cells (all ages, both sexes), check the NUTS release and total population against the ONS report, and cross-check against UK 2019 Jan1 data where comparable. Only after that can the 179 new UK regions be added to a **new versioned**, UK-inclusive 2014→2020 cohort and Figures 2/4 be regenerated. Never overwrite the earlier 1,273-region scientific table silently.
+
+
+## ONS workbook P02 inspection completed on EcoVis — 3 November 2026
+
+The investigator successfully downloaded the official ONS Jan-2020 workbook (`311030` bytes, XLSX) and ran the source-sheet inspection script; self-test PASS. **All 179/179 fixed NUTS2016 UK NUTS3 IDs were present exactly**, exclusively on the **P02** worksheet, with no unmatched geographic codes or absent IDs. P02's own row-2 heading says "Population by age, sex and region (NUTS 3) of residence." The workbook cover says "UNIFIED DEMOGRAPHIC DATA COLLECTION 2019"; this is the official **1 January 2020** extract as documented by the dated ONS web release, not a 2019 population endpoint. P02 Bristol UKK11 row 173 reports **467,617** total, comprising **234,568 males + 233,049 females**, versus **467,099** UKK11 Jan-2019 population in the previously archived Eurostat dataset. The 2020 Bristol increment is +518 (+0.11%).
+
+**Important source boundary:** All 179 codes matching is a geography success; prior to combining datasets, validate that **all 179 P02 column-C totals equal column-D males + column-E females**, verify nonmissing positive values, check national totals and retain the ONS file SHA-256. Also verify numerical consistency of the UK 2014–2019 archived Eurostat January values and all 2014–2020 NUTS3 corrected radiance/locked PRC years. The new script performs these checks on EcoVis; its execution is pending.
+
+### New versioned dataset builder and 1,452-region figure options
+
+Added **`src/build_uk_inclusive_jan1_cohort_2014_2020.py`**, using the ONS workbook ONLY for **2020** and archived Eurostat Jan1 **2014–2019**, fixed `reg_area3` NUTS2016 land areas, and original final VIIRS/spider/moth NUTS3 time series. It checks 179 specific IDs × all seven years, `P02 C=D+E` for all 179, the already inspected Bristol P02 2020 control value, PRC historical endpoint differences, nonnegative radiance and original old-cohort row equality. The outputs are separate files under **`data/processed/publication_figures/jan1_population_prc_with_uk_2014_2020/`**:
+
+- `uk_jan1_2020_ons_p02_179_validated.csv`: 179 ONS total and sex count measurements, worksheets rows and source indicator.
+- `uk_nuts3_annual_2014_2020_validated.csv`: UK 179 × 7 Jan1 densities, radiance and locked spider/moth PRCs.
+- `matched_region_change_2014_2020_with_uk.csv`: previously frozen 1,273 records untouched in memory + new 179 UK records, **1452 rows total**.
+- `within_country_correlations_2014_2020_with_uk.csv`: newly and *explicitly versioned descriptive Spearman statistics* for expanded cohort (especially changed ALL n=1452 and new UK n=179). These are not claims of spatial independence or causal effects.
+- `uk_inclusion_provenance.json`: official ONS source URL/hash, vintage warning, cohort counts, file references.
+
+The old `data/processed/jan1_population_radiance_prc_country_nl333/matched_region_change_2014_2020.csv` and original Figure 2/4 artwork are NEVER overwritten.
+
+Modified **only the optional plotting interfaces** of Figures 2 and 4 to accept a 1452-row input via `--expected-n 1452`; their 1273-region default remains unchanged. Figure 4 `--country-codes` can include UK in panel 4C; Figure 2 already accepts a country-code list in 2D. The extended country stats are passed explicitly to Figure 2 so its Spearman labels use n=1452 rather than incorrectly using frozen n=1273.
+
+**Run on EcoVis after pulling the branch:**
+
+```bash
+cd /run/media/bznwr/data/lightpollution
+git switch publication-figures
+git pull --ff-only
+source .venv/bin/activate
+
+python src/build_uk_inclusive_jan1_cohort_2014_2020.py --self-test
+python src/build_uk_inclusive_jan1_cohort_2014_2020.py
+```
+
+Only if the builder's summary confirms 179 valid ONS region records, 179×7 matched UK observations, exact preserved old 1273 and total 1452 should the new plotting commands be run:
+
+```bash
+EXP=data/processed/publication_figures/jan1_population_prc_with_uk_2014_2020
+
+python src/plot_publication_figure2_population_radiance.py \
+  --input "$EXP/matched_region_change_2014_2020_with_uk.csv" \
+  --country-stats "$EXP/within_country_correlations_2014_2020_with_uk.csv" \
+  --expected-n 1452 \
+  --country-codes TR DE FR IE IT NL UK \
+  --out figures/publication/figure2_population_radiance_with_uk
+
+python src/plot_publication_figure4_regional_contrasts.py \
+  --input "$EXP/matched_region_change_2014_2020_with_uk.csv" \
+  --expected-n 1452 \
+  --country-codes TR DE FR IE IT NL UK \
+  --out figures/publication/figure4_regional_contrasts_with_uk
+```
+
+Both new output directories have a `_with_uk` suffix and leave original 1273-region artwork untouched. Final publication decision requires comparing both versions, inspecting the 2020 source-vintage discontinuity risk and reviewing Illustrator editability.
+
+**Note on temporal consistency:** the ONS 1-Jan-2020 population was released March 2021 and the Eurostat 2014–2019 observations derive from a later archived dataset snapshot (August 2026). They are both on the same NUTS2016 regional codes, but source revisions could create small discontinuities. The build includes annual UK measurements so the 2019→2020 changes can be independently examined; do not automatically label them actual demographic shocks.
