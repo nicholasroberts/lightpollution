@@ -154,7 +154,7 @@ def save_figure(
                 f"{out} is {size_mib:.1f} MiB; target is {size_target_mib:.1f} MiB. "
                 "Inspect repeated artists and map path complexity; do not simplify "
                 "underlying scientific values or silently rasterise text.",
-                ResourceWarning,
+                UserWarning,
                 stacklevel=2,
             )
     return exported
