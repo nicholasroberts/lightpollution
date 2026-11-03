@@ -60,6 +60,7 @@ COUNTRIES = ("TR", "DE", "FR", "IE", "IT", "NL")
 COUNTRY_NAMES = {
     "TR": "Türkiye", "DE": "Germany", "FR": "France",
     "IE": "Ireland", "IT": "Italy", "NL": "Netherlands",
+    "UK": "United Kingdom",
 }
 # Order retained in all charts, map keys, output tables and manifests.
 CATEGORIES = (
@@ -90,7 +91,7 @@ def resolve(path: Path | str) -> Path:
     return p if p.is_absolute() else ROOT / p
 
 
-def frozen_endpoints(path: Path) -> pd.DataFrame:
+def frozen_endpoints(path: Path, *, expected_n: int = MATCHED_N) -> pd.DataFrame:
     if not path.is_file():
         raise FileNotFoundError(
             f"Missing frozen 2014–2020 Jan1/PRC source {path}. "
@@ -104,8 +105,8 @@ def frozen_endpoints(path: Path) -> pd.DataFrame:
     }
     if missing := required-set(d):
         raise ValueError(f"Frozen joined endpoints missing {sorted(missing)}")
-    if len(d) != MATCHED_N or not d.NUTS_ID.is_unique or d.NUTS_ID.isna().any():
-        raise ValueError(f"Expected {MATCHED_N} distinct NUTS2016 IDs; got {len(d)}")
+    if len(d) != expected_n or not d.NUTS_ID.is_unique or d.NUTS_ID.isna().any():
+        raise ValueError(f"Expected {expected_n} distinct NUTS2016 IDs; got {len(d)}")
     if not d.country.str.fullmatch(r"[A-Z]{2}").all():
         raise ValueError("Invalid country labels in frozen endpoints")
     for col in required-{"NUTS_ID", "country"}:
@@ -540,6 +541,10 @@ def main():
                    help="Optional Dutch case; default NL333")
     p.add_argument("--display-simplify-m", type=float, default=150.,
                    help="Vector map display-only EPSG:3035 simplify tolerance")
+    p.add_argument("--expected-n", type=int, default=MATCHED_N,
+                   help="Expected region count: 1273 (default) or verified 1452 UK extension")
+    p.add_argument("--country-codes", nargs="+", default=list(COUNTRIES),
+                   help="Countries to show in panel 4C (include UK for expanded cohort)")
     p.add_argument("--self-test", action="store_true")
     args = p.parse_args()
     self_test()
@@ -551,7 +556,8 @@ def main():
         p.error("Classification deadbands must be finite and nonnegative")
 
     source = resolve(args.input)
-    d = classified(frozen_endpoints(source), args.pop_deadband, args.prc_deadband)
+    d = classified(frozen_endpoints(source, expected_n=args.expected_n),
+                   args.pop_deadband, args.prc_deadband)
     counts = count_table(d)
     ids, chosen = example_ids(d, args)
     annual_sources = {
@@ -571,7 +577,10 @@ def main():
     annual.to_csv(out/"fig4D_selected_regional_annual_values.csv", index=False)
     plot_4a(counts, out/"fig4A_spider_moth_four_quadrant_counts", len(d))
     mapped = plot_4b(geom, bounds, d, out/"fig4B_europe_nuts3_sign_categories")
-    by_country = plot_4c(d, COUNTRIES, out/"fig4C_country_category_proportions")
+    if len(set(args.country_codes)) != len(args.country_codes):
+        p.error("Duplicated --country-codes")
+    by_country = plot_4c(d, tuple(args.country_codes),
+                         out/"fig4C_country_category_proportions")
     by_country.to_csv(out/"fig4C_country_category_proportions.csv", index=False)
     plot_4d(annual, ids, out/"fig4D_fr_tr_nl333_regional_trajectories")
     manifest = {
@@ -581,6 +590,8 @@ def main():
         "cohort": "NUTS2016 Jan1 fixed land area",
         "years": [2014,2020],
         "matched_nuts3": len(d),
+        "expected_nuts3_explicit": args.expected_n,
+        "panel_4c_country_codes": list(args.country_codes),
         "source_prc_transformation": "locked native-pixel VIIRS->PRC before NUTS3 averaging",
         "pop_deadband_people_per_km2": args.pop_deadband,
         "prc_deadband": args.prc_deadband,
