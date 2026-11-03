@@ -31,7 +31,6 @@ import matplotlib.pyplot as plt
 from matplotlib.backends.backend_pdf import PdfPages
 from matplotlib.cm import ScalarMappable
 from matplotlib.colors import SymLogNorm
-from matplotlib.patches import Patch
 import geopandas as gpd
 import numpy as np
 import pandas as pd
@@ -254,7 +253,7 @@ def make_figure(geom, countries, bounds, slice_: pd.DataFrame, year: int,
     g = geom.merge(vals, on="NUTS_ID", how="left", validate="one_to_one")
     shown = g.radiance_mean_corrected.notna()
     fig, ax = plt.subplots(figsize=(12.8, 7.2), facecolor="white")
-    fig.subplots_adjust(left=.02, right=.84, bottom=.12, top=.89)
+    fig.subplots_adjust(left=.02, right=.84, bottom=.035, top=.89)
 
     # Absent/unavailable NUTS3 stays grey; zero radiance is a genuine dark
     # value in the colourmap, NOT a missing observation.
@@ -283,12 +282,8 @@ def make_figure(geom, countries, bounds, slice_: pd.DataFrame, year: int,
     cb.set_label(f"VIIRS DNB radiance ({UNITS})", fontsize=11, labelpad=9)
     # Talk layout: no footer text. Retain only year/title and colourbar.
     missing = int((~shown).sum())
-    if missing:
-        fig.legend(
-            handles=[Patch(facecolor="#dedede", label="Missing annual NUTS3 record")],
-            loc="lower right", bbox_to_anchor=(.82, .075), frameon=False,
-            fontsize=8
-        )
+    # Missing values remain grey and are recorded in provenance. For the
+    # user-requested clean talk frame there is NO bottom legend or text.
     return fig, {
         "year": year,
         "n_nuts3_all_source": total_valid,
