@@ -24,7 +24,6 @@ from __future__ import annotations
 
 import argparse
 import json
-import warnings
 from pathlib import Path
 
 import matplotlib
@@ -242,14 +241,15 @@ def load_annual(path: Path, d: pd.DataFrame) -> tuple[pd.DataFrame, dict]:
                 f"99th percentile |Δ|={difference.quantile(.99):.5g} nW. "
                 "Inspect source provenance before producing Figure 1C."
             )
-    out = (
-        a.groupby("year", sort=True)
-        .apply(lambda x: np.average(
-            x.radiance_mean_corrected.to_numpy(float),
-            weights=x.valid_area_km2_2014.to_numpy(float)
-        ), include_groups=False)
-        .reset_index(name="area_weighted_radiance_nw")
+    a["radiance_times_area"] = (
+        a.radiance_mean_corrected * a.valid_area_km2_2014
     )
+    out = a.groupby("year", as_index=False).agg(
+        weighted_sum=("radiance_times_area", "sum"),
+        area_sum=("valid_area_km2_2014", "sum")
+    )
+    out["area_weighted_radiance_nw"] = out.weighted_sum / out.area_sum
+    out = out[["year", "area_weighted_radiance_nw"]]
     # Retain the 2021 legacy value only for QA export; NEVER draw it as
     # though corrected by the separately locked 2021 native-pixel patch.
     out["figure1c_approved"] = out.year.ne(2021)
@@ -412,6 +412,9 @@ def main() -> None:
     )
     # Do annual data only after endpoint plots are generated: if its older
     # annual cohort is unavailable/inconsistent the completed A/B/D survive.
+    (out / "fig1_provenance_and_summary.json").write_text(
+        json.dumps(summary, indent=2) + "\\n", encoding="utf-8"
+    )
     annual, annual_meta = load_annual(annual_source, data)
     summary.update(annual_meta)
     annual.to_csv(out / "fig1C_europe_annual_radiance_support.csv", index=False)
