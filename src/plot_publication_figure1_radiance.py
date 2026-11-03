@@ -249,7 +249,7 @@ def get_locked_snow_2021(cache_csv: Path, *, rebuild: bool = False):
         snow, audit = extract_locked_2021()
         cache_csv.parent.mkdir(parents=True, exist_ok=True)
         snow.to_csv(cache_csv, index=False)
-        audit_path.write_text(json.dumps(audit, indent=2) + "\\n",
+        audit_path.write_text(json.dumps(audit, indent=2) + "\n",
                               encoding="utf-8")
     necessary = {
         "NUTS_ID", "radiance_2021_original_calibrated",
