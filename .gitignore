@@ -51,3 +51,7 @@ figures/population_relationship/*
 # Temporary files
 *.tmp
 *.log
+
+# Publication-ready artwork (retain reproducible scripts and style in Git)
+figures/publication/*
+!figures/publication/.gitkeep
