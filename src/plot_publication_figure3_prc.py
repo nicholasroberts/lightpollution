@@ -286,7 +286,7 @@ def plot_3b(r: np.ndarray, changes: dict[str, np.ndarray],
         .97, .08, f"Fixed illustrative Δradiance = +{delta_r:g} {RAD_UNIT}",
         transform=ax.transAxes, ha="right", va="bottom", fontsize=8
     )
-    ax.legend(frameon=False, loc="lower right")
+    ax.legend(frameon=False, loc="upper left")
     fig.tight_layout()
     save_figure(fig, output_stem)
     plt.close(fig)
