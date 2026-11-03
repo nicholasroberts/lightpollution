@@ -77,3 +77,41 @@ All new outputs are added to the existing Figure 1 publication folder:
 The script prints numeric **2014 Europe mean**, the independent match to the existing Figure 1C, and each country 2014/2020/2024 mean radiance/ΔR at end. Generated plots are ignored by Git; script + production notes are committed on `publication-figures`.
 
 **Render and inspect the plot in EcoVis/Illustrator before using in the talk.** If the independent Fig1C comparator disagrees, do NOT relax QA tolerances or overwrite the original figure; inspect the source cohort and 2021 provenance.
+
+
+## Percentage-change companion (added 3 November 2026)
+
+The investigator requested Figure 1E **also as a percentage** without replacing the original absolute-change chart. The existing `src/plot_publication_fig1e_country_radiance_trajectories.py` now writes an additional **same-size, same-seven-country, same-colours, same-2021-source** plot:
+
+`fig1E_seven_country_radiance_percent_change_2014_2024.svg/.pdf/.png`
+
+Each point is calculated from already area-weighted country **mean** radiance:
+
+`percent_change_country(year) = 100 × [Rbar_country(year) − Rbar_country(2014)] / Rbar_country(2014)`.
+
+All lines begin at **0% in 2014** and use a **separate country-specific 2014 denominator**, not Europe's 2014 radiance. Crucial estimand distinction: this is the **percentage change of an area-weighted country mean**, NOT the area-weighted mean of individual NUTS3 percentage changes. Since dark NUTS3 regions may have near-zero 2014 baselines, the latter would be unstable and unrepresentative. A country with a zero/nonfinite baseline raises an error instead of defining an arbitrary percentage.
+
+The absolute figure remains `fig1E_seven_country_radiance_change_2014_2024.svg/.pdf/.png`, unchanged in meaning, and the original 7 × 11 values CSV already contains `pct_change_from_2014` and `baseline_2014_mean_nw`, so no new scientific input or sensor/model adjustment is needed.
+
+**Run the same command again on EcoVis after pulling GitHub:**
+
+```bash
+cd /run/media/bznwr/data/lightpollution
+git pull --ff-only
+source .venv/bin/activate
+python -m py_compile src/plot_publication_fig1e_country_radiance_trajectories.py
+python src/plot_publication_fig1e_country_radiance_trajectories.py --self-test
+python src/plot_publication_fig1e_country_radiance_trajectories.py
+```
+
+To transfer **only the newly added percentage SVG/PDF/PNG** to the original Mac folder, run from a local Mac terminal (VPN connected, with the same valid SSH host used previously):
+
+```bash
+rsync -avh --progress \
+  --include='fig1E_seven_country_radiance_percent_change_2014_2024.*' \
+  --exclude='*' \
+  bznwr@ECOVIS_HOST:/run/media/bznwr/data/lightpollution/figures/publication/figure1_radiance/ \
+  ~/Desktop/lightpollution-figures/publication/figure1_radiance/
+```
+
+The script still must be run and graphically inspected on EcoVis before those three plot files exist.
