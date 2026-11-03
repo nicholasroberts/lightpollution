@@ -307,6 +307,76 @@ def plot_figure(country: pd.DataFrame, path: Path, png_dpi: int):
     return saved
 
 
+
+def plot_percent_figure(country: pd.DataFrame, path: Path, png_dpi: int):
+    """Same seven locked series, normalised to each country's 2014 mean.
+
+    IMPORTANT: percent change of the country area-weighted mean, NOT an
+    arithmetic or area-weighted mean of NUTS3 percentage changes.
+    """
+    required = {"CNTR_CODE", "year", "baseline_2014_mean_nw",
+                "mean_radiance_nw", "pct_change_from_2014"}
+    if missing := required-set(country):
+        raise ValueError(f"Percentage trajectory inputs missing {sorted(missing)}")
+    d = country.copy()
+    cols = ["baseline_2014_mean_nw", "mean_radiance_nw", "pct_change_from_2014"]
+    if not np.isfinite(d[cols].to_numpy(float)).all() or (
+        d.baseline_2014_mean_nw <= 0
+    ).any():
+        raise ValueError("Invalid country baseline/percentage series")
+    expected = 100 * (
+        d.mean_radiance_nw - d.baseline_2014_mean_nw
+    ) / d.baseline_2014_mean_nw
+    if not np.allclose(d.pct_change_from_2014, expected,
+                       rtol=1e-11, atol=1e-9):
+        raise ValueError("Percentage change does not match fixed 2014 baseline")
+    zeros = d.loc[d.year.eq(2014)]
+    if len(zeros) != len(COUNTRIES) or not np.allclose(
+        zeros.pct_change_from_2014, 0., atol=1e-10
+    ):
+        raise ValueError("Country 2014 percentage-change baselines not zero")
+
+    fig, ax = plt.subplots(figsize=(12.8, 7.2), facecolor="white")
+    fig.subplots_adjust(left=.115, right=.965, top=.875, bottom=.255)
+    for code in COUNTRIES:
+        sub = d.loc[d.CNTR_CODE.eq(code)].sort_values("year")
+        if len(sub) != len(YEARS):
+            raise ValueError(f"Missing full 2014-2024 trajectory for {code}")
+        ax.plot(sub.year, sub.pct_change_from_2014,
+                color=COLOURS[code], linewidth=2.25,
+                marker="o", markersize=4, label=NAMES[code])
+    ax.axhline(0, color="#777777", linewidth=.9, zorder=0)
+    ax.axvline(2021, color="#999999", linewidth=.7,
+               linestyle=":", zorder=0)
+    ax.set_xlim(2013.8, 2024.2)
+    ax.set_xticks(YEARS)
+    ax.set_xlabel("Year", labelpad=8)
+    ax.set_ylabel("Change in country mean radiance since 2014 (%)")
+    ax.set_title(
+        "1E  |  Country percentage radiance change, 2014–2024",
+        loc="left", fontsize=16, pad=16
+    )
+    ax.grid(axis="y", linewidth=.6, color="#e7e7e7")
+    ax.legend(
+        loc="upper center", bbox_to_anchor=(.5, -.145),
+        ncol=4, frameon=False, fontsize=11,
+        handlelength=2.4, columnspacing=1.35
+    )
+    fig.text(
+        .115, .035,
+        "Percent change of each country's fixed-area weighted mean vs 2014; "
+        "2021 uses locked native-pixel snow correction.",
+        fontsize=8.8, color="#555555"
+    )
+    saved = save_figure(fig, path)
+    if png_dpi > 0:
+        png = path.with_suffix(".png")
+        fig.savefig(png, format="png", dpi=png_dpi, facecolor="white")
+        saved["png"] = png
+    plt.close(fig)
+    return saved
+
+
 def self_test():
     # A real land-area mean, not mean of NUTS units:
     # 1 km² at 10 nW and 9 km² at 0 nW => 1 nW, not 5.
@@ -314,6 +384,9 @@ def self_test():
     areas = np.array([1., 9.])
     assert np.isclose(np.average(means, weights=areas), 1.)
     assert not np.isclose(np.average(means), 1.)
+    # The correct denominator is each country's AREA-WEIGHTED 2014
+    # radiance, never an arithmetic mean of NUTS3 percentage changes.
+    assert np.isclose(100*(4.-2.)/2., 100.)
     assert len(YEARS) == 11 and len(COUNTRIES) == 7
     assert set(COUNTRIES) == {"TR","DE","FR","IE","IT","NL","UK"}
     print("Figure 1E seven-country area weighting and zero-baseline tests: PASS",
@@ -357,6 +430,8 @@ def main():
                   index=False)
     stem=out/"fig1E_seven_country_radiance_change_2014_2024"
     plots=plot_figure(country, stem, args.png_dpi)
+    pct_stem=out/"fig1E_seven_country_radiance_percent_change_2014_2024"
+    percent_plots=plot_percent_figure(country, pct_stem, args.png_dpi)
     europe2014=float(
         europe.loc[europe.year.eq(2014), "area_weighted_radiance_nw"].iloc[0]
     )
@@ -373,6 +448,12 @@ def main():
         "area_weight":"valid_area_km2_2014, fixed across all years",
         "2014_start_absolute_europe_mean_nw": europe2014,
         "2014_baseline_change_for_all_countries":0.,
+        "percentage_trajectory_definition": (
+            "100 * (area_weighted_country_R_year - area_weighted_country_R_2014)"
+            " / area_weighted_country_R_2014"
+        ),
+        "percentage_is_not_mean_of_NUTS3_percentages":True,
+        "percentage_and_absolute_version_created":True,
         "source_endpoint_csv":str(endpoints),
         "source_annual_parquet":str(annual_file),
         "2021_locked_snow_patch_audit":snow_meta,
@@ -396,7 +477,7 @@ def main():
           flush=True)
     print("\nOUTPUTS", flush=True)
     for filename in [
-        *plots.values(),
+        *plots.values(), *percent_plots.values(),
         out/"fig1E_seven_country_annual_radiance_changes.csv",
         out/"fig1E_europe_reference_area_weighted_qa.csv",
         out/"fig1E_seven_country_trajectories_provenance.json",
