@@ -281,20 +281,7 @@ def make_figure(geom, countries, bounds, slice_: pd.DataFrame, year: int,
     cb.set_ticks(ticks)
     cb.ax.set_yticklabels([f"{v:g}" for v in ticks], fontsize=9)
     cb.set_label(f"VIIRS DNB radiance ({UNITS})", fontsize=11, labelpad=9)
-    fig.text(
-        .035, .065,
-        "Annual NUTS3 radiance · fixed NUTS2016 geography · common nonlinear colour scale",
-        fontsize=10, ha="left", va="center"
-    )
-    source_note = (
-        "2021: approved native-pixel snow adjustment + calibrated VIIRS"
-        if year == 2021
-        else "2017+ VIIRS pixel zero-point calibration; no snow adjustment"
-        if year >= 2017
-        else "Annual VIIRS, fixed NUTS2016 regional means"
-    )
-    fig.text(.035, .036, source_note, fontsize=8.3, color="#555555",
-             ha="left", va="center")
+    # Talk layout: no footer text. Retain only year/title and colourbar.
     missing = int((~shown).sum())
     if missing:
         fig.legend(
