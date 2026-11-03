@@ -125,6 +125,7 @@ Added **`src/build_uk_inclusive_jan1_cohort_2014_2020.py`**, using the ONS workb
 
 - `uk_jan1_2020_ons_p02_179_validated.csv`: 179 ONS total and sex count measurements, worksheets rows and source indicator.
 - `uk_nuts3_annual_2014_2020_validated.csv`: UK 179 × 7 Jan1 densities, radiance and locked spider/moth PRCs.
+- `uk_2018_2020_population_source_vintage_check.csv`: each UK NUTS3 2018→2019 Eurostat population change vs 2019→2020 Eurostat-to-ONS change, flagging >5 percentage-point acceleration differences **for QA only**, never silently excluding them.
 - `matched_region_change_2014_2020_with_uk.csv`: previously frozen 1,273 records untouched in memory + new 179 UK records, **1452 rows total**.
 - `within_country_correlations_2014_2020_with_uk.csv`: newly and *explicitly versioned descriptive Spearman statistics* for expanded cohort (especially changed ALL n=1452 and new UK n=179). These are not claims of spatial independence or causal effects.
 - `uk_inclusion_provenance.json`: official ONS source URL/hash, vintage warning, cohort counts, file references.
