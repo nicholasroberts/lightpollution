@@ -356,7 +356,7 @@ def main():
             "\n".join(missing)
         )
     d, years, reasons, summary = audit(load_config(), SOURCES)
-    out = resolve = Path(args.out)
+    out = Path(args.out)
     if not out.is_absolute():
         out = ROOT / out
     out.mkdir(parents=True, exist_ok=True)
