@@ -210,58 +210,144 @@ def publication_map(d: pd.DataFrame, geom: gpd.GeoDataFrame,
     print(f"{output.name}: mapped {int(valid.sum())} polygons, ±{lim:.4g}", flush=True)
 
 
-def load_annual(path: Path, d: pd.DataFrame) -> tuple[pd.DataFrame, dict]:
-    """Use locked *baseline-calibrated* annual NUTS means for 2014–2024.
+def get_locked_snow_2021(cache_csv: Path, *, rebuild: bool = False):
+    """Read a verified cached 2021 zonal result or extract the locked patch.
 
-    Importantly, 2021 regional radiance in this older annual parquet has NOT
-    been confirmed to carry the separate locked native-pixel snow overlay.
-    Do not include its 2021 value in the published curve.
+    The cached table is reused ONLY if the original VIIRS and patch files,
+    their modification times and byte sizes, model ID and pixel offset agree
+    with the current locked sources.
+    """
+    cfg = load_config()
+    lock, offset = _lock_info(cfg)
+    patch = PROJECT_ROOT / lock["patch"]
+    original = discover_rasters(cfg, [2021])[2021]
+    expected = {
+        "status": "locked",
+        "correction_model": lock["model_id"],
+        "original_annual_vnl": str(original.resolve()),
+        "patch": str(patch.resolve()),
+        "patch_bytes": patch.stat().st_size,
+        "patch_mtime_ns": patch.stat().st_mtime_ns,
+        "original_annual_bytes": original.stat().st_size,
+        "original_annual_mtime_ns": original.stat().st_mtime_ns,
+        "pixel_offset_nw_cm2_sr": offset,
+    }
+    audit_path = cache_csv.with_suffix(".json")
+    if not rebuild and cache_csv.is_file() and audit_path.is_file():
+        audit = json.loads(audit_path.read_text(encoding="utf-8"))
+        if all(audit.get(k) == v for k, v in expected.items()):
+            snow = pd.read_csv(cache_csv, dtype={"NUTS_ID": str})
+            print("Reusing validated locked 2021 radiance cache:", cache_csv, flush=True)
+        else:
+            print("Locked 2021 sources changed; regenerating cached extraction", flush=True)
+            rebuild = True
+    else:
+        rebuild = True
+    if rebuild:
+        print("Extracting locked 2021 snow-patched VIIRS radiance on NUTS2016...",
+              flush=True)
+        snow, audit = extract_locked_2021()
+        cache_csv.parent.mkdir(parents=True, exist_ok=True)
+        snow.to_csv(cache_csv, index=False)
+        audit_path.write_text(json.dumps(audit, indent=2) + "\\n",
+                              encoding="utf-8")
+    necessary = {
+        "NUTS_ID", "radiance_2021_original_calibrated",
+        "radiance_2021_snow_corrected",
+        "valid_area_km2_2021_original", "valid_area_km2_2021_snow"
+    }
+    if len(snow) != 1522 or snow.NUTS_ID.duplicated().any() or not necessary.issubset(snow):
+        raise ValueError("2021 locked snow radiance cache has invalid cohort/columns")
+    for c in necessary - {"NUTS_ID"}:
+        if not np.isfinite(pd.to_numeric(snow[c], errors="coerce")).all():
+            raise ValueError(f"Non-finite cached 2021 snow input: {c}")
+    if (snow.radiance_2021_snow_corrected > snow.radiance_2021_original_calibrated+2e-6).any():
+        raise ValueError("Locked snow correction unexpectedly brightens a region")
+    if not np.allclose(
+        snow.valid_area_km2_2021_original,
+        snow.valid_area_km2_2021_snow,
+        rtol=1e-7, atol=.05
+    ):
+        raise ValueError("2021 locked snow extraction changed pixel-area support")
+    return snow, audit
+
+
+def load_annual(path: Path, d: pd.DataFrame,
+                snow_2021: pd.DataFrame) -> tuple[pd.DataFrame, dict]:
+    """Use previously calibrated annual NUTS means, replacing 2021 with
+    the extracted radiance of the EXISTING approved native-pixel snow patch.
+    Every other year remains untouched; 2021 original values are checked.
     """
     if not path.exists():
         raise FileNotFoundError(
-            f"Annual NUTS2016 radiance table missing: {path}. "
-            "Figure 1C cannot be rendered until this existing source is present."
+            f"Annual NUTS2016 radiance table missing: {path}."
         )
     cols = ["NUTS_ID", "year", "radiance_mean_corrected"]
     raw = pd.read_parquet(path, columns=cols)
     if raw.duplicated(["NUTS_ID", "year"]).any():
         raise ValueError("Duplicate NUTS3/year in annual radiance source")
+    raw["NUTS_ID"] = raw.NUTS_ID.astype(str)
     raw["year"] = pd.to_numeric(raw.year, errors="raise").astype(int)
-    raw = raw.loc[raw.year.isin(YEARS)]
+    raw = raw.loc[raw.year.isin(YEARS)].copy()
     if set(raw.year) != set(YEARS):
-        raise ValueError(f"Missing one or more annual years 2014–2024: {sorted(set(YEARS)-set(raw.year))}")
-    # Match with the same baseline NUTS3 and spatial weights as endpoint maps,
-    # but retain only regions complete in the older annual source.
+        raise ValueError(
+            f"Missing one or more annual years: {sorted(set(YEARS)-set(raw.year))}"
+        )
     common = set.intersection(*[
-        set(raw.loc[raw.year.eq(y), "NUTS_ID"].astype(str)) for y in YEARS
+        set(raw.loc[raw.year.eq(y), "NUTS_ID"]) for y in YEARS
     ])
     common &= set(d.NUTS_ID)
     if len(common) < 1400:
-        raise ValueError(f"Only {len(common)} annual NUTS3 have complete matched histories")
-    weights = d.loc[d.NUTS_ID.isin(common),
-                    ["NUTS_ID", "valid_area_km2_2014", "radiance_2014", "radiance_2024"]]
-    raw["NUTS_ID"] = raw.NUTS_ID.astype(str)
+        raise ValueError(f"Only {len(common)} annual regions have complete histories")
+    weights = d.loc[d.NUTS_ID.isin(common), [
+        "NUTS_ID", "valid_area_km2_2014", "radiance_2014", "radiance_2024"
+    ]]
     a = raw.merge(weights, on="NUTS_ID", how="inner", validate="many_to_one")
     a["radiance_mean_corrected"] = pd.to_numeric(
         a.radiance_mean_corrected, errors="coerce"
     )
     if len(a) != len(common) * len(YEARS):
-        raise ValueError("Annual matched NUTS3 cohort is not balanced")
-    if not np.isfinite(a.radiance_mean_corrected).all():
-        raise ValueError("Non-finite annual radiance source values")
-    if (a.radiance_mean_corrected < 0).any():
-        raise ValueError("Negative annual radiance source value")
-    # Check annual 2014 and 2024 levels against endpoint source. Do not
-    # silently draw historical series from a physically inconsistent table.
+        raise ValueError("Annual cohort not fully balanced")
+    if not np.isfinite(a.radiance_mean_corrected).all() or (
+        a.radiance_mean_corrected < 0
+    ).any():
+        raise ValueError("Invalid annual NUTS3 calibrated radiance")
+    # Endpoint QA: compare archived annual table against independently
+    # extracted final 2014 and 2024 source (no recalibration).
     for yr, col in ((2014, "radiance_2014"), (2024, "radiance_2024")):
         sl = a.loc[a.year.eq(yr)]
-        difference = (sl.radiance_mean_corrected - sl[col]).abs()
-        if difference.quantile(0.99) > 0.025:
+        diff = (sl.radiance_mean_corrected - sl[col]).abs()
+        if diff.quantile(.99) > .025:
             raise ValueError(
-                f"Annual vs published endpoint radiance mismatch in {yr}: "
-                f"99th percentile |Δ|={difference.quantile(.99):.5g} nW. "
-                "Inspect source provenance before producing Figure 1C."
+                f"Annual vs published endpoint mismatch in {yr}: "
+                f"99th % |difference|={diff.quantile(.99):.5g} nW; inspect sources."
             )
+    # 2021 must use locked native patch and the identical once-only offset.
+    z = snow_2021[[
+        "NUTS_ID", "radiance_2021_original_calibrated",
+        "radiance_2021_snow_corrected"
+    ]]
+    a = a.merge(z, how="left", on="NUTS_ID", validate="many_to_one")
+    idx = a.year.eq(2021)
+    if not np.isfinite(a.loc[idx, "radiance_2021_snow_corrected"]).all():
+        raise ValueError("Locked 2021 snow radiance is missing for annual cohort")
+    # The old annual NUTS2016 extraction and the overlay's unmodified
+    # original radiance must agree. If they do not, do not splice curves.
+    original_gap = (
+        a.loc[idx, "radiance_mean_corrected"]
+        - a.loc[idx, "radiance_2021_original_calibrated"]
+    ).abs()
+    rel_tolerance = 2e-5 * np.maximum(
+        1.0, a.loc[idx, "radiance_mean_corrected"].abs()
+    )
+    if (original_gap > rel_tolerance).any():
+        raise ValueError(
+            f"Old 2021 table vs identical-grid corrected extraction mismatch "
+            f"(max={original_gap.max():.6g} nW); do not silently splice histories."
+        )
+    a.loc[idx, "radiance_mean_corrected"] = (
+        a.loc[idx, "radiance_2021_snow_corrected"].to_numpy()
+    )
     a["radiance_times_area"] = (
         a.radiance_mean_corrected * a.valid_area_km2_2014
     )
@@ -271,27 +357,38 @@ def load_annual(path: Path, d: pd.DataFrame) -> tuple[pd.DataFrame, dict]:
     )
     out["area_weighted_radiance_nw"] = out.weighted_sum / out.area_sum
     out = out[["year", "area_weighted_radiance_nw"]]
-    # Retain the 2021 legacy value only for QA export; NEVER draw it as
-    # though corrected by the separately locked 2021 native-pixel patch.
-    out["figure1c_approved"] = out.year.ne(2021)
-    out["unapproved_reason"] = np.where(
-        out.year.eq(2021), "2021 native-pixel snow overlay not present", ""
+    out["snow_correction_applied"] = out.year.eq(2021)
+    # Export original 2021 Europe mean alongside the corrected one for QA.
+    pre = a.loc[idx].copy()
+    original_europe = float(np.average(
+        pre.radiance_2021_original_calibrated,
+        weights=pre.valid_area_km2_2014
+    ))
+    new_europe = float(out.loc[out.year.eq(2021),
+                               "area_weighted_radiance_nw"].iloc[0])
+    if new_europe > original_europe + 2e-6:
+        raise ValueError("2021 European mean unexpectedly increased after snow correction")
+    out["2021_original_area_weighted_radiance_nw"] = np.where(
+        out.year.eq(2021), original_europe, np.nan
     )
     meta = {
         "annual_nuts3_balanced_cohort": len(common),
         "endpoint_nuts3_cohort": len(d),
-        "annual_complete_cohort_note": "May differ from 1,522 endpoint cohort; shown explicitly",
-        "2021_annual_radiance_status": "Not plotted; this file lacks the locked native-pixel 2021 snow correction",
         "area_weight": "fixed valid_area_km2_2014 of matched endpoint NUTS3",
+        "2021_annual_radiance_status": "LOCKED native-pixel snow overlay then −0.235 pixel correction",
+        "2021_uncorrected_area_weighted_radiance_nw": original_europe,
+        "2021_snow_corrected_area_weighted_radiance_nw": new_europe,
+        "2021_snow_effect_area_weighted_nw": new_europe-original_europe,
+        "2021_annual_unmodified_source_match_max_error_nw": float(original_gap.max()),
     }
     return out, meta
 
 
 def publication_annual(annual: pd.DataFrame, output: Path, n: int) -> None:
-    values = annual.area_weighted_radiance_nw.where(annual.figure1c_approved)
     fig, ax = plt.subplots(figsize=figure_size("double", height_ratio=0.64))
     ax.plot(
-        annual.year, values, color=SERIES_COLOURS["radiance"],
+        annual.year, annual.area_weighted_radiance_nw,
+        color=SERIES_COLOURS["radiance"],
         marker="o", markersize=4, linewidth=1.6
     )
     ax.set_xticks(YEARS)
@@ -300,18 +397,19 @@ def publication_annual(annual: pd.DataFrame, output: Path, n: int) -> None:
     ax.set_xlabel("Year")
     ax.set_title("European annual corrected VIIRS DNB radiance, 2014–2024", loc="left")
     ax.grid(axis="y", color="#e5e5e5", linewidth=0.65)
-    ax.axvspan(2020.65, 2021.35, color="#efefef", zorder=-1)
-    ymax = float(np.nanmax(values))
-    ymin = float(np.nanmin(values))
-    margin = max((ymax-ymin)*.18, .025)
-    ax.set_ylim(ymin-margin, ymax+margin*1.4)
-    ax.annotate("2021 excluded\n(snow correction not in annual radiance table)",
-                xy=(2021, ymax+margin*.12), ha="center", va="top",
-                fontsize=7, color="#555555")
+    # 2021 value explicitly identifies the locked correction.
+    y2021 = float(annual.loc[annual.year.eq(2021),
+                             "area_weighted_radiance_nw"].iloc[0])
+    ax.annotate(
+        "2021 snow-adjusted",
+        xy=(2021, y2021), xytext=(2021.25, y2021),
+        fontsize=8, ha="left", va="bottom",
+        arrowprops={"arrowstyle": "-", "linewidth": .7, "color": "#555555"}
+    )
     fig.text(
         .14, .02,
-        f"Area-weighted mean of {n:,} fixed NUTS2016 regions with complete annual "
-        "records; 2021 not interpreted as corrected.",
+        f"Area-weighted mean of {n:,} fixed NUTS2016 regions with complete "
+        "annual records; 2021 uses locked native-pixel snow correction.",
         fontsize=7
     )
     fig.tight_layout(rect=(0, .055, 1, 1))
@@ -392,6 +490,9 @@ def main() -> None:
     parser.add_argument("--endpoint-csv", default=DEFAULT_ENDPOINT)
     parser.add_argument("--annual-parquet", default=DEFAULT_ANNUAL)
     parser.add_argument("--out", default=DEFAULT_OUT)
+    parser.add_argument("--snow-2021-cache", default=DEFAULT_SNOW_OUTPUT)
+    parser.add_argument("--rebuild-snow-2021", action="store_true",
+                        help="Repeat approved 2021 overlay extraction even if cache verified")
     parser.add_argument("--simplify-map-m", type=float, default=150.0,
                         help="Vector map display-only simplification, projected metres")
     parser.add_argument("--self-test", action="store_true")
@@ -439,7 +540,11 @@ def main() -> None:
     (out / "fig1_provenance_and_summary.json").write_text(
         json.dumps(summary, indent=2) + "\n", encoding="utf-8"
     )
-    annual, annual_meta = load_annual(annual_source, data)
+    snow, snow_audit = get_locked_snow_2021(
+        as_repo_path(args.snow_2021_cache), rebuild=args.rebuild_snow_2021
+    )
+    summary["locked_2021_snow_source"] = snow_audit
+    annual, annual_meta = load_annual(annual_source, data, snow)
     summary.update(annual_meta)
     annual.to_csv(out / "fig1C_europe_annual_radiance_support.csv", index=False)
     publication_annual(
