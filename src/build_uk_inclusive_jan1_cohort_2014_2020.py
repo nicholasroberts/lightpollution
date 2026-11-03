@@ -362,8 +362,13 @@ def main():
     expanded=pd.concat([old,uk],ignore_index=True)
     if len(expanded)!=MATCHED_NEW or not expanded.NUTS_ID.is_unique:
         raise ValueError("Expanded matching cohort must have exactly 1,452 unique regions")
-    pd.testing.assert_frame_equal(old,expanded.iloc[:len(old)][old.columns],
-                                  check_exact=True)
+    # Appending NA-only legacy fields may upcast an original integer column
+    # without changing its values. Preserve *every* original cell exactly,
+    # rather than rejecting an in-memory NumPy dtype promotion.
+    pd.testing.assert_frame_equal(
+        old, expanded.iloc[:len(old)][old.columns].reset_index(drop=True),
+        check_dtype=False, check_exact=True
+    )
     # Validate all 1,452 using the same published endpoint relationships.
     popvar="change_density_jan1_fixed_land_2014_2020"
     if not np.allclose(
