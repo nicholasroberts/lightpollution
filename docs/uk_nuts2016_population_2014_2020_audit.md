@@ -70,3 +70,44 @@ Only after looking at the actual audit results:
 5. Only then produce a revised Figure 4 set. The existing figures remain valid descriptive products for their declared 1,273-region cohort until then.
 
 **Current state:** structural reason for lack of UK in reconstructed cohort verified; the original raw-Eurostat-vs-processed reason still awaits EcoVis source-trace output.
+
+
+## EcoVis audit results — 3 November 2026, observed
+
+The user ran the frozen-source audit with successful self-test. The **original exclusion reason is now established**:
+
+| Observed UK NUTS2016 NUTS3 numeric values | 2014–2018 | 2019 | 2020 |
+|---|---:|---:|---:|
+| Raw and processed `DEMO_R_D3DENS` | 179/179 per year | **0/179** | **0/179** |
+| Raw `DEMO_R_PJANAGGR3` Jan-1 population | 179/179 per year | **179/179** | **0/179** |
+| Frozen `reg_area3` land area | 179/179 per year | 179/179 | 179/179 |
+| Locked spider/moth native-pixel PRC | 179/179 per year | 179/179 | 179/179 |
+| Original 1,317-matched cohort, new 1,273 | 0 UK included | 0 | 0 |
+
+All **179** UK regions have valid, matching, locked NUTS2016 polygon identifiers; sensor-derived spider/moth PRC and frozen land-area measurements are complete. This is not a geography or PRC-data failure. The original cohort was lost because **2019 (and 2020) annual Eurostat density entries are absent/non-numeric**. The Jan1 reconstruction architecture then could not reinstate UK, because it starts from the old already-excluded 1,317-region panel. The remaining single obstacle for 2014→2020 (after bypassing old density filter in a *new* cohort) is **1 January 2020 UK NUTS3 population**, absent from archived `demo_r_pjanaggr3`.
+
+**Bristol UKK11**: 2019 January population 467,099; 2018 462,938; 2019/2020 `DEMO_R_D3DENS` blank, 2020 `DEMO_R_PJANAGGR3` blank; fixed land area 110.0 km². These are audit values, not interpolations.
+
+**Consequence:** UK-inclusive **2014→2019** is supported by the archived January population, fixed area and PRC datasets for all 179 UK NUTS3. For 2014→2020, retrieve and validate official **1 Jan 2020** UK NUTS counts (e.g. the following ONS workbook). Do **not** reuse 2019, interpolate, or substitute mid-2020 values.
+
+### ONS January-2020 workbook inventory: next read-only step
+
+The [ONS official source](https://www.ons.gov.uk/peoplepopulationandcommunity/populationandmigration/populationestimates/adhocs/13079populationestimatesfor1january2020onnutsboundariesunifieddemographiccollectionforeurostat), released **31 March 2021**, provides a downloadable **311 kB XLSX**: `unidemopublishing.xlsx`. Reference date **1 January 2020**. The detailed worksheet structure and correspondence of its codes to the **exact 179 NUTS2016 regions** have **not yet been inspected**; this is a required gate before combining it with the other years.
+
+Added dependency-free XML-in-XLSX inventory script `src/inspect_ons_uk_jan1_2020_workbook.py` (read-only). Download the official workbook on EcoVis using the *quoted* URL (the question mark and slash are meaningful):
+
+```bash
+cd /run/media/bznwr/data/lightpollution
+git switch publication-figures
+git pull --ff-only
+source .venv/bin/activate
+mkdir -p data/raw/eurostat
+wget -O data/raw/eurostat/ons_jan1_2020_nuts_unidemo.xlsx \
+  'https://www.ons.gov.uk/file?uri=/peoplepopulationandcommunity/populationandmigration/populationestimates/adhocs/13079populationestimatesfor1january2020onnutsboundariesunifieddemographiccollectionforeurostat/unidemopublishing.xlsx'
+python src/inspect_ons_uk_jan1_2020_workbook.py --self-test
+python src/inspect_ons_uk_jan1_2020_workbook.py
+```
+
+**Download fallback** if ONS blocks non-browser retrieval: download XLSX from the ONS page in a browser, transfer to EcoVis using `scp` and place it at the exact file path above. A failed `wget` may leave an empty file; check `ls -lh` and `file` before running. The script uses only Python's standard library for workbook inspection, not `openpyxl`, and reports sheet names, exact 5-character UK NUTS3 codes, matching 2016 IDs, sample header rows, and every occurrence of Bristol UKK11. It writes only diagnostic CSV/JSON in `data/processed/publication_figures/uk_population_nuts2016_audit/`.
+
+After the sheet/identifier inspection, identify the exact 1 Jan 2020 **TOTAL population** cells (all ages, both sexes), check the NUTS release and total population against the ONS report, and cross-check against UK 2019 Jan1 data where comparable. Only after that can the 179 new UK regions be added to a **new versioned**, UK-inclusive 2014→2020 cohort and Figures 2/4 be regenerated. Never overwrite the earlier 1,273-region scientific table silently.
