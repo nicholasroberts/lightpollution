@@ -69,6 +69,7 @@ The first full run creates the locked 2021 radiance overlay extraction cache; su
 - `fig1D_nuts3_percentage_change_distribution_2014_2024.svg` + PDF
 - `fig1C_europe_annual_radiance_support.csv` (includes original 2021 European mean for audit)
 - `fig1_provenance_and_summary.json` (includes full 2021 source audit and percentage counts).
+- `fig1B_and_hist_all_nuts3_percent_changes.csv` (all 1,522 source endpoints, legacy masked %, expanded %, and zero-baseline flags).
 
 The separately ignored `data/processed/publication_figures/` cache contains the 1,522-region **original and snow-corrected 2021** regional radiance table plus its provenance JSON.
 
