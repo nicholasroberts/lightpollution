@@ -413,7 +413,7 @@ def main() -> None:
     # Do annual data only after endpoint plots are generated: if its older
     # annual cohort is unavailable/inconsistent the completed A/B/D survive.
     (out / "fig1_provenance_and_summary.json").write_text(
-        json.dumps(summary, indent=2) + "\\n", encoding="utf-8"
+        json.dumps(summary, indent=2) + "\n", encoding="utf-8"
     )
     annual, annual_meta = load_annual(annual_source, data)
     summary.update(annual_meta)
