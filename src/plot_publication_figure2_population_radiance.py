@@ -333,6 +333,8 @@ def main():
                    help="Signed-log change x-axis linear region, people/km²")
     p.add_argument("--radiance-linthresh", type=float, default=.1,
                    help="Signed-log change y-axis linear region, nW cm^-2 sr^-1")
+    p.add_argument("--expected-n", type=int, default=COHORT_N,
+                   help="Expected unique region count (1273 frozen; 1452 explicit UK extension)")
     p.add_argument("--self-test", action="store_true")
     args = p.parse_args()
     self_test()
@@ -344,7 +346,7 @@ def main():
     if not countries or len(countries) != len(set(countries)):
         p.error("Provide distinct country codes")
     source, stats_file, out = resolve(args.input), resolve(args.country_stats), resolve(args.out)
-    d = load_frozen(source)
+    d = load_frozen(source, expected_n=args.expected_n)
     log = matched_log_data(d)
     rho = frozen_rho(stats_file, d)
     fits = {
@@ -372,6 +374,7 @@ def main():
         "frozen_input": str(source),
         "frozen_correlations": str(stats_file) if stats_file.is_file() else None,
         "n_nuts3_all_signed_changes": len(d),
+        "expected_nuts3_explicit": args.expected_n,
         "n_nuts3_matched_log_positive_radiance": len(log),
         "n_nuts3_not_log_plotted": len(d)-len(log),
         "years": [2014, 2020],
