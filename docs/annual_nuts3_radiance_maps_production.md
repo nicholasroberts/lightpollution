@@ -83,3 +83,57 @@ rsync -avh --progress \
   bznwr@ECOVIS_HOST:/run/media/bznwr/data/lightpollution/figures/publication/annual_nuts3_radiance_2014_2024/ \
   ~/Desktop/annual_nuts3_radiance_2014_2024/
 ```
+
+
+## Talk timelapse and clean frame revision — 3 November 2026
+
+At the investigator's request, **removed both footer lines from all annual maps**:
+
+- `Annual NUTS3 radiance · fixed NUTS2016 geography · common nonlinear colour scale`
+- `Annual VIIRS, fixed NUTS2016 regional means` (and the year-specific 2017+/2021 substitute footer captions)
+
+The annual map generator now shows **only the year/title, geographic radiance map and shared radiance colourbar**. Any conditional bottom grey/missing-region legend was also removed for a clean presentation frame; missing NUTS3 polygons remain grey in the visual and are explicitly recorded in `annual_radiance_map_provenance.json`. Footer removal and slightly expanded bottom map margin are **layout-only**. The same source correction details remain in CSV/JSON provenance, not burned into frames. Full 2014–2024 maps are **re-rendered** locally by running the atlas generator again; otherwise existing PNGs retain old text.
+
+Added `src/make_annual_nuts3_radiance_timelapse.py`, which uses FFmpeg to encode the existing **eleven rendered PNGs** (`radiance_nuts3_2014.png` through `radiance_nuts3_2024.png`) at **1 second per year**, total **11 seconds**. Video is **1920×1080**, 30 fps H.264/yuv420p for cross-platform slide playback, 330 frames in total, no interpolation between calendar years. Each input still is held unchanged for one second; all colour/extent/scale comparisons remain as produced by the annual atlas. The original PNGs, SVGs and PDFs are not modified by video creation.
+
+### EcoVis commands (run in this exact order)
+
+```bash
+cd /run/media/bznwr/data/lightpollution
+git switch publication-figures
+git pull --ff-only
+source .venv/bin/activate
+
+python src/plot_publication_annual_nuts3_radiance_maps.py --self-test
+python src/plot_publication_annual_nuts3_radiance_maps.py
+
+python src/make_annual_nuts3_radiance_timelapse.py --self-test
+python src/make_annual_nuts3_radiance_timelapse.py
+```
+
+The first full command **replaces the previously rendered annual PNGs/SVGs/PDFs** with cleaned, footer-free versions. The video command then reads those new PNGs. `ffmpeg` and, for duration/frame verification, `ffprobe` must be installed on EcoVis; check `ffmpeg -version` or install with `sudo apt install ffmpeg` as appropriate.
+
+### New outputs (same atlas folder)
+
+```
+figures/publication/annual_nuts3_radiance_2014_2024/
+  radiance_nuts3_2014.png             # clean footer-free map
+  ...
+  radiance_nuts3_2024.png
+  annual_nuts3_radiance_timelapse_2014_2024.mp4
+  annual_nuts3_radiance_timelapse_2014_2024.json
+```
+
+The JSON reports all PNG source dimensions, 11 × 1-second hold, frame count, 1080p encode and the actual `ffprobe` duration when available. The MP4 must be visually reviewed before presentation (year labels, colourbar size and absence of footer text); successful encoding cannot be claimed until EcoVis runs it.
+
+### Transfer ONLY the MP4 to the home Mac
+
+From **local Mac Terminal** with the university VPN connected:
+
+```bash
+rsync -avh --progress \
+  bznwr@137.222.175.129:/run/media/bznwr/data/lightpollution/figures/publication/annual_nuts3_radiance_2014_2024/annual_nuts3_radiance_timelapse_2014_2024.mp4 \
+  ~/Desktop/annual_nuts3_radiance_2014_2024/
+```
+
+Create the destination folder first if absent, using `mkdir -p ~/Desktop/annual_nuts3_radiance_2014_2024/`.
