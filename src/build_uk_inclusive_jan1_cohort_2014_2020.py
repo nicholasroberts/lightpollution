@@ -316,7 +316,7 @@ def self_test():
     })
     year_region_validation(toy,ids,"toy")
     assert MATCHED_OLD+N_UK==MATCHED_NEW==1452
-    print("UK ONS C=D+E numeric validation and year-region join tests: PASS")
+    print("UK numeric-cell and unique region-year self-tests: PASS")
 
 
 def main():
@@ -390,6 +390,31 @@ def main():
     out.mkdir(parents=True,exist_ok=True)
     ons.to_csv(out/"uk_jan1_2020_ons_p02_179_validated.csv",index=False)
     uk_annual.to_csv(out/"uk_nuts3_annual_2014_2020_validated.csv",index=False)
+    popwide=uk_annual.loc[
+        uk_annual.year.isin((2018,2019,2020)),
+        ["NUTS_ID","year","population_jan1"]
+    ].pivot(index="NUTS_ID",columns="year",values="population_jan1")
+    vintage=pd.DataFrame({
+        "NUTS_ID":popwide.index,
+        "population_2018_eurostat":popwide[2018].values,
+        "population_2019_eurostat":popwide[2019].values,
+        "population_2020_ons":popwide[2020].values,
+    })
+    vintage["pct_change_2018_2019_eurostat"] = (
+        100*(vintage.population_2019_eurostat/vintage.population_2018_eurostat-1)
+    )
+    vintage["pct_change_2019_2020_ons_vs_eurostat"] = (
+        100*(vintage.population_2020_ons/vintage.population_2019_eurostat-1)
+    )
+    vintage["pct_change_acceleration_points"] = (
+        vintage.pct_change_2019_2020_ons_vs_eurostat -
+        vintage.pct_change_2018_2019_eurostat
+    )
+    vintage["source_break_large_change_flag"] = (
+        vintage.pct_change_acceleration_points.abs()>5
+    )
+    vintage.to_csv(out/"uk_2018_2020_population_source_vintage_check.csv",
+                   index=False)
     expanded.to_csv(
         out/"matched_region_change_2014_2020_with_uk.csv",index=False
     )
@@ -417,6 +442,12 @@ def main():
             source["ons"].read_bytes()
         ).hexdigest(),
         "ons_2020_total_uk":int(ons.population_jan1.sum()),
+        "original_frozen_matched_csv_sha256":hashlib.sha256(
+            source["old_frozen"].read_bytes()
+        ).hexdigest(),
+        "uk_2019_2020_potential_source_break_region_count":int(
+            vintage.source_break_large_change_flag.sum()
+        ),
         "uk_landed_fixed_area_source":str(source["area"]),
         "uk_radiance_source":str(RADIANCE),
         "uk_taxon_prc_sources":{t:str(f) for t,f in PRC.items()},
@@ -444,6 +475,9 @@ def main():
     print(f"  Expanded region cohort: {len(expanded):,}",flush=True)
     print(f"  UK Jan1 2020 total: {int(ons.population_jan1.sum()):,}",flush=True)
     print(f"  Bristol UKK11 2019->2020: 467099 -> 467617",flush=True)
+    print("  Potential UK source-vintage outliers (>5 percentage-point "
+          "change acceleration):",
+          int(vintage.source_break_large_change_flag.sum()),flush=True)
     print("  Country correlation sample size:",
           country.loc[country.country.eq("UK"),["outcome","n","spearman_rho"]].
           to_string(index=False),flush=True)
