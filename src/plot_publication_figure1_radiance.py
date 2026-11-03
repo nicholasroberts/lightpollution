@@ -7,15 +7,14 @@ fixed-NUTS2016 annual radiance parquet. Does not extract rasters, recalculate
 sensor corrections, refit models, or alter any scientific source tables.
 
 A. Absolute corrected VIIRS radiance change, 2014–2024 (NUTS3).
-B. Percentage corrected VIIRS radiance change, 2014–2024; respects the
-   pre-established 0.2 nW cm-2 sr-1 minimum 2014 baseline.
-C. European area-weighted annual radiance: 2021 deliberately *omitted*,
-   because the older regional radiance parquet does not contain the LOCKED
-   native-pixel 2021 snow/albedo patch. Do not pass an older provisional
-   surface-corrected history as though it were the final native-pixel patch.
-D. Distribution of valid NUTS3 percentage changes with arithmetic
-   (equal-NUTS3) mean and median; a different estimand from the
-   area-weighted Europe endpoint change.
+B. Percentage corrected VIIRS radiance change, 2014–2024, recalculated
+   from the LOCKED endpoints for EVERY region with positive baseline,
+   including those previously excluded at <0.2 nW. Regions with exactly
+   zero baseline are explicitly identified as undefined percentage, not grey.
+C. European area-weighted annual radiance, now including 2021 via the
+   EXISTING LOCKED native VIIRS snow patch and 0.235 pixel offset once.
+D. Full mathematically defined NUTS3 percentage-change histogram with
+   equal-NUTS3 mean and median; zero-baseline exclusions reported explicitly.
 
 SVG (editable text) and PDF (embedded TrueType) exported with figure_style.
 """
@@ -38,6 +37,8 @@ from shapely.geometry import box
 
 from project_config import PROJECT_ROOT, load_config
 from historical_prc_pixel_nuts3 import load_nuts
+from figure1_2021_locked_snow_radiance import extract_locked_2021, _lock_info
+from extract_nuts3_radiance import discover_rasters
 from figure_style import (
     apply_figure_style, figure_size, save_figure, CHANGE_CMAP, SERIES_COLOURS
 )
@@ -49,7 +50,8 @@ DEFAULT_ENDPOINT = (
 DEFAULT_ANNUAL = "data/processed/fixed_nuts2016_viirs_2014_2024.parquet"
 DEFAULT_OUT = "figures/publication/figure1_radiance"
 YEARS = tuple(range(2014, 2025))
-MIN_BASELINE_NW = 0.2
+EPS_ZERO = 0.0  # Only a literal zero starting radiance makes % mathematically undefined.
+DEFAULT_SNOW_OUTPUT = "data/processed/publication_figures/fig1_2021_locked_snow_radiance.csv"
 RADIANCE_UNIT = r"nW cm$^{-2}$ sr$^{-1}$"
 EUROPE_EXTENT_LONLAT = (-12.0, 34.0, 36.0, 73.0)
 
@@ -87,22 +89,32 @@ def validate_endpoint(data: pd.DataFrame) -> pd.DataFrame:
     expected_abs = d.radiance_2024 - d.radiance_2014
     if not np.allclose(expected_abs, d.radiance_change_abs, atol=1e-6, rtol=1e-7):
         raise ValueError("Endpoint absolute differences disagree with source columns")
-    eligible = d.radiance_2014 >= MIN_BASELINE_NW
-    valid_pct = d.radiance_change_pct.notna()
-    if not valid_pct.equals(eligible):
-        raise ValueError(
-            "Published percentage mask disagrees with frozen baseline threshold "
-            f"{MIN_BASELINE_NW}; eligible={eligible.sum()}, supplied={valid_pct.sum()}"
-        )
-    expected_pct = 100.0 * expected_abs[eligible] / d.radiance_2014[eligible]
-    if not np.allclose(expected_pct, d.loc[eligible, "radiance_change_pct"],
-                       atol=1e-5, rtol=1e-6):
-        raise ValueError("Endpoint percentage changes disagree with source columns")
+    # The archival % column intentionally suppressed R2014 < 0.2. That
+    # display policy was NOT missing endpoint data, so reconstruct % from
+    # unmodified 2014/2024 values for every strictly positive baseline.
+    positive = d.radiance_2014 > EPS_ZERO
+    d["percent_baseline_zero"] = ~positive
+    d["radiance_change_pct_all"] = np.nan
+    d.loc[positive, "radiance_change_pct_all"] = (
+        100.0 * expected_abs[positive] / d.loc[positive, "radiance_2014"]
+    )
+    if not np.isfinite(d.loc[positive, "radiance_change_pct_all"]).all():
+        raise ValueError("Invalid recalculated percentage for positive starting radiance")
+    # Independently check the already-reported values wherever present.
+    valid_archived = d.radiance_change_pct.notna()
+    if (valid_archived & ~positive).any():
+        raise ValueError("Original source reports a percentage at zero radiance")
+    if not np.allclose(
+        d.loc[valid_archived, "radiance_change_pct_all"],
+        d.loc[valid_archived, "radiance_change_pct"],
+        atol=1e-5, rtol=1e-6
+    ):
+        raise ValueError("Recalculated percentages disagree with original published values")
     return d
 
 
 def endpoint_summary(d: pd.DataFrame) -> dict:
-    valid = d.radiance_change_pct.dropna().to_numpy(dtype=float)
+    valid = d.radiance_change_pct_all.dropna().to_numpy(dtype=float)
     weights = d.valid_area_km2_2014.to_numpy(dtype=float)
     # Distinct estimands: equal-region mean/median vs covered-area-weighted
     # percentage change of the *European mean radiance*.
@@ -111,8 +123,11 @@ def endpoint_summary(d: pd.DataFrame) -> dict:
     return {
         "n_nuts3_all_endpoints": len(d),
         "n_nuts3_valid_percent_change": int(len(valid)),
-        "n_excluded_percent_baseline_below_0p2": int(len(d) - len(valid)),
-        "minimum_2014_radiance_for_percentage_nw_cm2_sr": MIN_BASELINE_NW,
+        "n_undefined_percent_exact_zero_baseline": int(len(d) - len(valid)),
+        "n_reinstated_positive_baseline_below_0p2": int(
+            ((d.radiance_2014 > 0) & (d.radiance_2014 < .2)).sum()
+        ),
+        "percentage_definition": "100 * (R2024-R2014) / R2014, only if R2014 > 0",
         "mean_nuts3_percent_change_equal_region_weight": float(valid.mean()),
         "median_nuts3_percent_change_equal_region_weight": float(np.median(valid)),
         "n_regions_radiance_increase": int((d.radiance_change_abs > 0).sum()),
@@ -153,7 +168,7 @@ def publication_map(d: pd.DataFrame, geom: gpd.GeoDataFrame,
         vmin=-lim, vmax=lim, base=10, clip=False
     )
     g = geom.merge(
-        d[["NUTS_ID", metric]], on="NUTS_ID",
+        d[["NUTS_ID", metric, "percent_baseline_zero"]], on="NUTS_ID",
         how="left", validate="one_to_one"
     )
     fig, ax = plt.subplots(figsize=figure_size("double", height_ratio=0.91))
@@ -164,6 +179,12 @@ def publication_map(d: pd.DataFrame, geom: gpd.GeoDataFrame,
         ax=ax, column=metric, cmap=CHANGE_CMAP, norm=norm,
         edgecolor="none", linewidth=0
     )
+    # Zero starting radiance has undefined %, NOT missing geographic data.
+    zero_baseline = g["percent_baseline_zero"] if metric == "radiance_change_pct_all" else pd.Series(False, index=g.index)
+    if zero_baseline.any():
+        g.loc[zero_baseline].plot(
+            ax=ax, color="#8C75A2", edgecolor="none", linewidth=0
+        )
     borders = g.dissolve(by="CNTR_CODE").boundary
     borders.plot(ax=ax, color="#555555", linewidth=0.25)
     x0, y0, x1, y1 = bounds
@@ -180,7 +201,7 @@ def publication_map(d: pd.DataFrame, geom: gpd.GeoDataFrame,
     fig.text(
         0.02, 0.035,
         f"Fixed NUTS2016; n={len(d):,} regions. "
-        f"Grey: no available percentage change or outside study extent. "
+        f"Purple = exactly zero 2014 radiance; percentage undefined. "
         f"Display saturation beyond ±98th percentile (±{lim:.3g}).",
         fontsize=6.8, va="bottom"
     )
@@ -307,7 +328,7 @@ def signed_inverse(x: np.ndarray, linear: float = 10.0) -> np.ndarray:
 
 
 def publication_hist(d: pd.DataFrame, summary: dict, output: Path) -> None:
-    vals = d.radiance_change_pct.dropna().to_numpy(dtype=float)
+    vals = d.radiance_change_pct_all.dropna().to_numpy(dtype=float)
     t = signed_transform(vals)
     # Log-spaced tails ensure that every valid region is represented despite
     # the long positive percentage-change tail. Counts, not densities.
@@ -331,9 +352,9 @@ def publication_hist(d: pd.DataFrame, summary: dict, output: Path) -> None:
     ax.grid(axis="y", alpha=.18)
     fig.text(
         .14, .015,
-        f"n={len(vals):,} of {len(d):,} NUTS3; excludes "
-        f"{len(d)-len(vals)} regions with 2014 radiance <{MIN_BASELINE_NW} "
-        "nW cm⁻² sr⁻¹. Signed-log x axis; counts per transformed-width bin.",
+        f"n={len(vals):,} of {len(d):,} NUTS3; "
+        f"{len(d)-len(vals)} have exactly zero baseline, so % undefined. "
+        "Signed-log x axis; counts per transformed-width bin.",
         fontsize=7
     )
     fig.tight_layout(rect=(0, .06, 1, 1))
@@ -350,14 +371,17 @@ def self_test() -> None:
         "radiance_change_pct": [-30.0, np.nan, 20.0],
         "valid_area_km2_2014": [1., 2., 3.],
     })
-    # Test core definitions without bypassing the cohort validator.
-    eligible = trial.radiance_2014.ge(MIN_BASELINE_NW)
-    assert (eligible == trial.radiance_change_pct.notna()).all()
+    # The original threshold is a source-figure display mask, not % math.
+    eligible = trial.radiance_2014.gt(0)
+    assert eligible.all()
     expected = 100 * (
         trial.loc[eligible, "radiance_2024"] /
         trial.loc[eligible, "radiance_2014"] - 1
     )
-    assert np.allclose(expected, trial.loc[eligible, "radiance_change_pct"])
+    assert np.allclose(expected, [-30, 100, 20])
+    zero = trial.copy()
+    zero.loc[0, "radiance_2014"] = 0
+    assert not zero.radiance_2014.gt(0).iloc[0]
     t = np.array([-99., -10., 0., 1., 20., 300.])
     assert np.allclose(signed_inverse(signed_transform(t)), t)
     print("Figure 1 endpoints, baseline mask and signed-histogram test: PASS")
@@ -401,7 +425,7 @@ def main() -> None:
         linthresh=.1
     )
     publication_map(
-        data, geom, bounds, "radiance_change_pct",
+        data, geom, bounds, "radiance_change_pct_all",
         "B  |  Percentage radiance change, 2014–2024",
         "Radiance change (%)",
         out / "fig1B_percent_radiance_change_2014_2024",
