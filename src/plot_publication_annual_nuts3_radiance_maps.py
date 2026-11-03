@@ -390,10 +390,10 @@ def main():
             if args.png_dpi:
                 fig.savefig(
                     base.with_suffix(".png"), format="png",
-                    dpi=args.png_dpi, facecolor="white",
-                    bbox_inches="tight", pad_inches=.06
+                    dpi=args.png_dpi, facecolor="white"
                 )
-            deck.savefig(fig, bbox_inches="tight", pad_inches=.06)
+            # Do not crop slide bitmap/PDF; retain exact 16:9 pages.
+            deck.savefig(fig, facecolor="white")
             plt.close(fig)
             maps.append(m)
             print(f"{year}: {len(a):,} NUTS3 values; "
