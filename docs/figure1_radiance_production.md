@@ -1,58 +1,79 @@
-# Figure 1A–C and added NUTS3 histogram: first vector export
+# Figure 1A–C and NUTS3 histogram — illustrator-ready exports
 
-## Script
+**Current revision: 3 November 2026. Branch: `publication-figures`.**
 
-`src/plot_publication_figure1_radiance.py` on branch `publication-figures`.
+## Objective and rules
 
-**All outputs use the pre-existing finished data tables and mapping definitions; this script never reruns radiance extractions, calibration, population models or PRC fits.**
+Render **four** standalone vector figures with `src/plot_publication_figure1_radiance.py`, from existing established VIIRS annual data, the frozen NUTS2016 geography, and the already **LOCKED** snow/albedo raster patch for 2021. No re-fitting, spectral adjustment, population analysis, pixel-offset recalibration, or alteration of the original satellite files.
 
-From the repository root on EcoVis, after `git switch publication-figures && git pull --ff-only`:
+The first version had (1) a gap at 2021 and (2) 57 grey NUTS3 percentage-map polygons caused by a **deliberate `2014 radiance >=0.2 nW cm^-2 sr^-1` threshold in the existing `src/plot_prc_radiance_2014_2024.py` output.** Those were an earlier display/QA rule, not loss of the endpoint measurements. Both are addressed now.
+
+## Sources
+
+1. **Final 2014/2024 endpoints**:
+   `figures/prc_radiance_spider_moth_2014_2024/nuts3_radiance_spider_moth_cumulative_change_2014_2024.csv`; full **1,522 fixed NUTS2016 NUTS3**. The calibrated `radiance_2014`, `radiance_2024`, and `radiance_change_abs` columns are reused unchanged.
+2. **European annual history 2014–2024**:
+   `data/processed/fixed_nuts2016_viirs_2014_2024.parquet`, field `radiance_mean_corrected`. This has the 2017+ 0.235 pixel background correction already applied, but 2021 needs the separate native-pixel snow overlay.
+3. **Locked 2021 source**:
+   `config/viirs_2021_snow_correction.yaml`; its `patch` and `patch_summary` locate `data/processed/prc_2021_spatial_europe_candidate/vnl_2021_snow_albedo_europe_patch.tif` and the matching manifest. The filename retains `candidate` from its original generation; the **config status is now `locked`**.
+4. **Boundaries**: the original fixed NUTS2016 level-3 geometry, with optional 150 m simplification for **vector display only** in EPSG:3035, never for extraction.
+
+## Exactly how 2021 is now included
+
+`src/figure1_2021_locked_snow_radiance.py` uses the same original VIIRS 2021 global annual raster and native-grid patch alignment/validation method as the previously locked spider PRC correction. For each window:
+
+- Read the original 2021 annual **raw** VNL pixel values.
+- Substitute band 1 of the already locked Europe-window patch only where valid and positive original pixels overlap. Preserve NoData and zero background, reject any brightening.
+- **After** overlay, subtract the existing baseline calibration offset **0.235** from positive pixels **once only**, with lower bound 0. Do not subtract it from the regional mean or from the patch a second time.
+- Use `exactextract` with `mean(coverage_weight=area_spherical_m2)` on the original 1,522 NUTS2016 regions. Independently extract unpatched 2021 calibrated radiance in the same pass and verify that the patch never increases any NUTS mean or changes valid coverage.
+- Compare original/unpatched 2021 extraction with the corresponding rows in the existing annual history, **before replacing** just that year's radiance. If they disagree outside the specified tolerance, the script stops rather than mixing incompatible sources.
+- Apply the corrected 2021 regional means to the existing balanced annual cohort, then calculate the European area-weighted 2014–2024 history using **fixed 2014 area weights**. All other years stay unchanged.
+- Cache the 1,522-region overlay extraction under `data/processed/publication_figures/fig1_2021_locked_snow_radiance.csv` with JSON provenance. Cache is reused only if the locked model, original raster and patch paths/size/mtime and baseline offset match; `--rebuild-snow-2021` forces re-extraction.
+
+**The source parquet's complete annual cohort may be smaller than the full 1,522 endpoint cohort** (historically 1,514 in a model-specific matched stage). The Figure 1C series reports the actual cohort; the maps and distribution use all 1,522 endpoints. No additional selection is made for the population dataset.
+
+## All-region percentage-change map and histogram
+
+The older published joined endpoint CSV has `radiance_change_pct` missing for **57 regions** because of the optional 0.2-nW baseline threshold. Figure 1 recalculates from the existing endpoints into the new *display-only* field:
+
+`radiance_change_pct_all = 100 * (radiance_2024 - radiance_2014) / radiance_2014`
+
+- **Every region with genuinely positive 2014 radiance is included**, even when its baseline is below 0.2. Reconstructed percentages must agree with the original archived percentages wherever they existed.
+- **If and only if the original 2014 mean is exactly zero**, percentage change cannot be calculated (0 denominator). Such regions remain **visible in purple** in the percentage map, explicitly marked *percentage undefined*. Do **not** give them invented `0%`, `+infinity%` or an arbitrary denominator.
+- The histogram includes every mathematically defined regional percentage, even very large increases from extremely dim starting values. It uses a signed-log x axis and shows the **equal-NUTS3 arithmetic mean and median**. The sample count and exactly-zero exceptions are reported dynamically in `fig1_provenance_and_summary.json`.
+- **Mean of regional percentage changes is not the same as percentage change of the whole-Europe area-weighted mean radiance**; the latter is included separately in the summary. Expect a highly skewed histogram when very dim baselines are included.
+
+## Production commands on EcoVis
+
+From the root of the `lightpollution` clone:
 
 ```bash
+git switch publication-figures
+git pull --ff-only
 source .venv/bin/activate
+
+python src/figure1_2021_locked_snow_radiance.py --self-test
 python src/plot_publication_figure1_radiance.py --self-test
 python src/plot_publication_figure1_radiance.py
 ```
 
-If the environment is already activated, omit the `source` line.
+The first full run creates the locked 2021 radiance overlay extraction cache; subsequent unchanged runs reuse it. If there is an existing `fig1_2021_locked_snow_radiance.csv` but the original raster or patch changed, it will be re-extracted.
 
-## Exact inputs
-
-1. **Figures 1A, 1B and histogram:**
-   `figures/prc_radiance_spider_moth_2014_2024/nuts3_radiance_spider_moth_cumulative_change_2014_2024.csv`.
-
-   This is the archived 1,522-region NUTS2016 source of final corrected-band VIIRS DNB 2014/2024 radiance estimates (2017 onward pixel baseline correction already applied), produced by the existing radiance/spider/moth comparison. The endpoints are unaffected by the separate 2021 snow patch. The script validates 1,522 rows, duplicate-free NUTS IDs, numeric 2014/2024 radiance and equality of the archived absolute and percentage changes to the endpoints. **Do not replace this input with the old population-restricted 1,273-region cohort or the older 1,514-region diagnostic cohort.**
-
-2. **Geographic display:**
-   `historical_prc_pixel_nuts3.load_nuts(load_config())` using fixed NUTS2016 level-3 polygons. The continental map window is [-12, 34, 36, 73] in lon/lat (outlying study territories retained in calculation tables but not displayed in mainland map window). The graphics transform to EPSG:3035. Display-only 150 m polygon simplification reduces SVG size; no changes to NUTS boundaries used in any scientific computation.
-
-3. **Figure 1C annual history:**
-   `data/processed/fixed_nuts2016_viirs_2014_2024.parquet` using its **already calibrated** `radiance_mean_corrected` column. The script joins the fixed 2014 geographical area weights from the final endpoint table and uses the *balanced intersection of NUTS3 regions available every year*; the resulting cohort n is given in the plot and provenance summary. Before rendering, it checks 2014 and 2024 NUTS values against the final endpoint source and stops for investigation if discrepancies are excessive. The available annual source may have a different complete-coverage cohort from the final 1,522 endpoint regions. This difference is not hidden or reweighted to make it look like the same table.
-
-   **2021 restriction:** the locked 2021 snow/albedo native-pixel patch is applied to the finished spider/moth PRC histories, but the older annual NUTS3 `radiance_mean_corrected` column has not been demonstrated to contain the same corrected 2021 radiance field. Therefore **Figure 1C omits 2021 (a visible gap)** rather than presenting the known uncorrected 2021 anomaly as a final radiance estimate. The QA CSV retains the original 2021 value labelled `figure1c_approved=False`, not for plotting. Producing a genuinely corrected full 2014–2024 radiance curve including 2021 would first require the **already locked 2021 native-pixel patch to be propagated through the radiance zonal statistics**; no alternate model or approximate correction is to be invented for this figure.
-
-## Output
+## Outputs
 
 `figures/publication/figure1_radiance/` (ignored by Git):
 
-- `fig1A_absolute_radiance_change_2014_2024.svg`, `.pdf`
-- `fig1B_percent_radiance_change_2014_2024.svg`, `.pdf`
-- `fig1C_europe_annual_radiance_2014_2024.svg`, `.pdf`
-- `fig1D_nuts3_percentage_change_distribution_2014_2024.svg`, `.pdf`
-- `fig1C_europe_annual_radiance_support.csv`
-- `fig1_provenance_and_summary.json`
+- `fig1A_absolute_radiance_change_2014_2024.svg` + PDF
+- `fig1B_percent_radiance_change_2014_2024.svg` + PDF
+- `fig1C_europe_annual_radiance_2014_2024.svg` + PDF, **with corrected 2021 point**
+- `fig1D_nuts3_percentage_change_distribution_2014_2024.svg` + PDF
+- `fig1C_europe_annual_radiance_support.csv` (includes original 2021 European mean for audit)
+- `fig1_provenance_and_summary.json` (includes full 2021 source audit and percentage counts).
 
-Figure 1A and B use signed, zero-centred symmetric-log maps with blue = decreasing and red = increasing radiance, 98th-percentile colour saturation and correctly labelled physical units. The maps are vector (including country borders).
+The separately ignored `data/processed/publication_figures/` cache contains the 1,522-region **original and snow-corrected 2021** regional radiance table plus its provenance JSON.
 
-**Histogram:** The existing final 2014 radiance cutoff is **≥ 0.2 nW cm⁻² sr⁻¹**, so 57 of the 1,522 regions have undefined/suppressed endpoint percentages in the archived source and are also excluded from this histogram. **1,465** NUTS3 percentage changes are expected in the histogram. Vertical lines mark the **unweighted arithmetic mean and median across these eligible individual NUTS3 regions**; these statistics must not be confused with the separately reported **European area-weighted mean radiance percentage change** (in the report JSON), or the average over human population. All eligible data points are counted, with a symmetric-log horizontal axis to show the full positive/negative tails.
+## QA notes
 
-## Quality and provenance checks
+Check the new histogram mean and median with the expanded sample. With nearly zero 2014 means, the unweighted mean may be extremely sensitive; don't silently truncate data, winsorise or replace denominators to make the result look reasonable. Confirm every NUTS2016 region is displayed either by its finite percentage or the explicit zero-baseline category; grey should not mean an intentionally dropped nonzero region.
 
-- Confirm the output summary reports n=1,522 endpoints, 1,465 valid percentages and 57 unavailable low-baseline percentages.
-- Verify that the endpoint area-weighted European change is consistent with the previously published 2014/2024 result (+1.37% for the locked endpoint table); if it differs substantially, verify area weighting/source definitions before using the output.
-- Confirm the annual table's matched cohort and endpoint cross-check, and **do not describe the 2021 gap as a zero radiance value**.
-- Open both vector versions in Illustrator: text should remain editable, and no map boundaries or clipped ticks should be missing. Font compatibility is controlled by `src/figure_style.py`.
-- Export settings, all figures and descriptive summaries are reproducible; generated images are deliberately not committed.
-- Print output list at end of the run; retain source provenance in JSON.
-
-**Current state:** script and instructions committed to GitHub. The large EcoVis processed data are not available in the assistant's container, so the scientific exports must be rendered with the command above on EcoVis before they can be visually inspected.
+**Status:** source code and documentation committed. These scripts must still be run on EcoVis, where the original VNL TIFFs and locked native 2021 patch are stored; no successful actual render is claimed before that run.
