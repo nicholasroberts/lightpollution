@@ -471,9 +471,7 @@ def plot_4d(annual: pd.DataFrame, ids: dict[str, str], out: Path):
     axes[2,0].set_xlabel("Year")
     axes[2,1].set_xlabel("Year")
     fig.supylabel(LABEL_POP, x=.012, y=.55, fontsize=9)
-    fig.text(.51, .52, LABEL_PRC, ha="center", va="center", rotation=90,
-             fontsize=9, transform=fig.transFigure) if False else None
-    # Explicit compact per-axis labels avoid ambiguous dual-axis plotting.
+     # Explicit per-axis labels avoid ambiguous dual-axis plotting.
     for ax in axes[:,0]:
         ax.set_ylabel("Δpeople km⁻²", fontsize=8)
     for ax in axes[:,1]:
@@ -498,7 +496,10 @@ def plot_4d(annual: pd.DataFrame, ids: dict[str, str], out: Path):
 def self_test():
     p = np.array([2., 3., -2., -3., 0., 1.])
     y = np.array([-1., 1., -1., 1., 2., 0.])
-    assert categories(p, y, 0., 0.).tolist() == list(CATEGORIES)
+    assert categories(p, y, 0., 0.).tolist() == [
+        "growth_prc_loss", "growth_prc_gain", "decline_prc_loss",
+        "decline_prc_gain", "neutral", "neutral"
+    ]
     strict = categories(np.array([4., 6.]), np.array([.0009, -.002]), 5., .001)
     assert strict.tolist() == ["neutral", "growth_prc_loss"]
     toy = pd.DataFrame({
