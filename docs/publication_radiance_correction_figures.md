@@ -33,6 +33,34 @@ Source: original processed monthly archive `data/processed/fixed_nuts2016_monthl
 
 All images are **SVG + vector PDF** with editable Illustrator text; the new directory does not overwrite the existing Fig1C or PRC outputs.
 
+
+## Companion eight-month difference maps (4 November 2026 update)
+
+The investigator additionally requested a **second 3 × 3 grid with precisely the same eight dates, order, geography and blank bottom-right cell**, but with each month's **difference from the same calendar month's mean in 2020 and 2022**, matching the original 2021 anomaly comparison method.
+
+For NUTS3 region `i`, calendar month `m` and display year `y`:
+
+```
+reference(i,m) = [R(i,2020,m) + R(i,2022,m)] / 2
+difference(i,y,m) = R(i,y,m) - reference(i,m)
+```
+
+The first map is therefore `January 2020 − mean(January 2020, January 2022)`, **not** `January 2020 minus January 2021`; correspondingly January 2020 and January 2022 are exact opposite halves of their difference, as are February 2020 and February 2022, where coverage is valid. The Jan/Feb 2021 maps use exactly the same 2020/2022 baseline. **March 2020 and March 2022 and December 2022 are also read as reference measurements**, even though they are not separately displayed.
+
+### Output (new, in addition to the existing absolute eight-map file)
+
+- `CW_eight_winter_monthly_minus_2020_2022_flank_mean_3x3.svg`
+- `CW_eight_winter_monthly_minus_2020_2022_flank_mean_3x3.pdf`
+- `CW_eight_monthly_flank_difference_values.csv` with original monthly `radiance_mean` values, both flanking observations, their paired mean and the unrounded difference per NUTS3/month.
+
+**Colour interpretation:** one shared, centred diverging `RdBu_r` scale across all eight maps (blue for negative radiance anomalies, red for positive), with symmetric log compression for plotting small and large differences. The visual colour bar is capped at the **pooled 98.5th percentile absolute anomaly**, and outliers display saturated colours with `extend=both`; importantly, actual CSV data are not clipped. All observations require the existing cloud-free valid-area criterion (minimum 50% of a NUTS3 polygon) for the target month AND both 2020/2022 same-month flanks. Incomplete areas are grey, never silently assigned zero.
+
+The underlying monthly values are original `VCMSLCFG` radiance, **not the annual native-pixel snow-adjusted product**. This grid is diagnostic evidence of winter anomalies; it does not claim a corrected monthly VIIRS series.
+
+The original `CW_eight_winter_monthly_radiance_2020_2022_3x3.svg/.pdf` still shows **absolute radiance**. The baseline and annual-snow correction figures C1 and C2 are unchanged. The 2021 Jan–Mar triptych is not regenerated.
+
+Re-run the existing plotting command after `git pull --ff-only` to produce **both 3 × 3 grids**; the source monthly parquet must be present. Inspect actual colour scale and coverage on EcoVis and review the CSV values before presentation. No successful final render claimed before running.
+
 ## Replication and QA
 
 Source 2014–2024 annual table: `data/processed/fixed_nuts2016_viirs_2014_2024.parquet`, columns `radiance_mean_raw`, `radiance_mean_corrected`, `year`, `NUTS_ID`. 2014–2016 must satisfy raw = calibrated. For all 2017–2024 NUTS3 values, raw minus corrected must fall in **0 to 0.235 nW** (the mean of a clipped pixel offset can never exceed that pixel offset). Do not fabricate `raw = corrected + 0.235`; pixels below the zero threshold and original zero pixels make this false.
@@ -59,6 +87,9 @@ C2_2021_snow_before_after_trajectory_and_nuts3_map.svg
 C2_2021_snow_before_after_trajectory_and_nuts3_map.pdf
 CW_eight_winter_monthly_radiance_2020_2022_3x3.svg
 CW_eight_winter_monthly_radiance_2020_2022_3x3.pdf
+CW_eight_winter_monthly_minus_2020_2022_flank_mean_3x3.svg
+CW_eight_winter_monthly_minus_2020_2022_flank_mean_3x3.pdf
+CW_eight_monthly_flank_difference_values.csv
 correction_demo_annual_area_weighted_2014_2024.csv
 correction_demo_nuts3_source_values.csv
 correction_demo_provenance.json
