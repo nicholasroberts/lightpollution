@@ -5,8 +5,10 @@ Figure C1: original annual VIIRS radiance versus independently calibrated
 2017+ native-pixel baseline correction (0.235 nW), across 2014–2024.
 Figure C2: baseline-calibrated annual trajectory before/after the *locked*
 2021 native-pixel snow/albedo adjustment and NUTS3 map of the 2021 reduction.
-Supplement W: original Jan–Mar 2021 monthly anomaly relative to identical
-months of 2020/2022 (VCMSLCFG; DIAGNOSTIC, not a corrected monthly product).
+Supplement W: eight actual monthly VCMSLCFG NUTS3 radiance maps:
+Jan/Feb/Dec 2020, Jan/Feb/Mar 2021, Jan/Feb 2022; fixed scale, 3x3
+grid, ninth bottom-right panel empty. Original monthly radiance (not
+2021-minus-flank differences and not monthly snow-corrected radiance).
 
 All science is from existing archived NUTS2016 annual table, locked 2021
 native pixel overlay and monthly anomaly atlas. Read-only scientific inputs,
@@ -40,7 +42,7 @@ from project_config import PROJECT_ROOT as ROOT, load_config
 YEARS=tuple(range(2014,2025))
 ANNUAL_YEARS=set(YEARS)
 OUT=ROOT/"figures/publication/radiance_correction_demonstrations"
-MONTHLY=ROOT/"data/processed/fixed_nuts2016_monthly_product_atlas/monthly_region_2021_vs_flanks.csv"
+MONTHLY=ROOT/"data/processed/fixed_nuts2016_monthly_product_atlas/monthly_nuts2016_radiance_2020_2022.parquet"
 FIG1C=ROOT/"figures/publication/figure1_radiance/fig1C_europe_annual_radiance_support.csv"
 REGION_COLS=["NUTS_ID","year","radiance_mean_raw","radiance_mean_corrected"]
 WEIGHT="valid_area_km2_2014"
@@ -296,56 +298,147 @@ def plot_snow(a,snow,geom,bounds,out):
             "map_display_NUTS3_count":count}
 
 
-def winter_monthly(monthly_path,geom,bounds,out):
-    """Diagnostic of the 2021 winter months; NOT monthly corrected VIIRS."""
+WINTER_MONTHS = (
+    (2020, 1), (2020, 2), (2020, 12),
+    (2021, 1), (2021, 2), (2021, 3),
+    (2022, 1), (2022, 2),
+)
+MONTH_NAMES = {
+    1: "January", 2: "February", 3: "March", 12: "December"
+}
+
+
+def winter_monthly(monthly_path, geom, bounds, out):
+    """8 absolute monthly radiance maps, one common scale, 3 x 3 (9th blank).
+
+    Original cloud-coverage-masked VCMSLCFG monthly radiance; NOT the
+    2021-minus-2020/2022 anomaly and NOT an annual-snow-adjusted product.
+    A row per year: 2020 Jan/Feb/Dec, 2021 Jan/Feb/Mar,
+    2022 Jan/Feb; bottom-right panel is empty.
+    """
     if not monthly_path.is_file():
-        return {"rendered":False,"reason":f"Optional monthly atlas absent: {monthly_path}"}
-    cols=["product","month","NUTS_ID","paired_valid","delta_nw",
-          "radiance_2020","radiance_2021","radiance_2022"]
-    d=pd.read_csv(monthly_path,usecols=cols,dtype={"NUTS_ID":str})
-    d=d[(d["product"]=="vcmslcfg") & d["month"].isin((1,2,3))].copy()
-    if d.empty:
-        raise ValueError("Monthly atlas has no Jan-Feb-Mar VCMSLCFG observations")
-    d["month"]=d["month"].astype(int)
-    d["paired_valid"]=d.paired_valid.astype(str).str.lower().isin(("true","1"))
-    d=d[d.paired_valid].copy()
-    for c in ["delta_nw","radiance_2020","radiance_2021","radiance_2022"]:
-        d[c]=pd.to_numeric(d[c],errors="coerce")
-    d=d[np.isfinite(d["delta_nw"])].copy()
-    if d.duplicated(["month","NUTS_ID"]).any():
-        raise ValueError("Monthly region comparison has duplicates")
-    if set(d.month)!={1,2,3} or len(d)<200:
-        raise ValueError("Insufficient complete Jan–Mar matched-month observations")
-    delta=(d.radiance_2021-.5*(d.radiance_2020+d.radiance_2022)).to_numpy(float)
-    if not np.allclose(delta,d.delta_nw,rtol=2e-7,atol=1e-5):
-        raise ValueError("Monthly atlas anomaly values do not match 2020/2022 flanks")
-    maxima=np.abs(d.delta_nw.to_numpy(float))
-    scale=max(.05,float(np.quantile(maxima,.98)))
-    norm=SymLogNorm(linthresh=.1,vmin=-scale,vmax=scale,base=10)
-    fig,axs=plt.subplots(1,3,figsize=(14.5,5.6))
-    fig.subplots_adjust(left=.02,right=.90,top=.84,bottom=.12,wspace=.02)
-    counts={}
-    for m,ax,label in zip((1,2,3),axs,("January","February","March")):
-        sub=d[d.month.eq(m)][["NUTS_ID","delta_nw"]]
-        gm=geom.merge(sub,on="NUTS_ID",how="left",validate="one_to_one")
-        counts[label]=map_panel(ax,gm,bounds,"delta_nw","RdBu_r",norm)
-        ax.set_title(f"{label} 2021  (n={len(sub):,} NUTS3)",fontsize=10)
-    sm=ScalarMappable(cmap="RdBu_r",norm=norm)
+        return {
+            "rendered": False,
+            "reason": f"Monthly source absent: {monthly_path}",
+            "expected_input": "monthly_nuts2016_radiance_2020_2022.parquet"
+        }
+    columns = [
+        "product", "year", "month", "NUTS_ID",
+        "radiance_mean", "analysis_valid", "valid_area_fraction",
+    ]
+    if monthly_path.suffix.lower() == ".parquet":
+        d = pd.read_parquet(monthly_path, columns=columns)
+    else:
+        d = pd.read_csv(
+            monthly_path, usecols=columns, dtype={"NUTS_ID": str}
+        )
+    d["NUTS_ID"] = d["NUTS_ID"].astype(str)
+    d["year"] = pd.to_numeric(d.year, errors="raise").astype(int)
+    d["month"] = pd.to_numeric(d.month, errors="raise").astype(int)
+    d = d[d["product"].astype(str).str.lower().eq("vcmslcfg")].copy()
+    wanted = set(WINTER_MONTHS)
+    d = d.loc[
+        [(int(y), int(m)) in wanted for y, m in zip(d.year, d.month)]
+    ].copy()
+    if d.duplicated(["year", "month", "NUTS_ID"]).any():
+        raise ValueError("Monthly archive contains duplicate VCMSLCFG NUTS3/year/month")
+    if set(zip(d.year, d.month)) != wanted:
+        missing = wanted - set(zip(d.year, d.month))
+        raise ValueError(f"Missing requested VCMSLCFG months: {sorted(missing)}")
+    d["radiance_mean"] = pd.to_numeric(d.radiance_mean, errors="coerce")
+    d["valid_area_fraction"] = pd.to_numeric(
+        d.valid_area_fraction, errors="coerce"
+    )
+    # Match the locked monthly atlas' coverage criteria; no interpolation,
+    # filling, zero substitution or additional sensor correction.
+    valid_text = d.analysis_valid.astype(str).str.lower()
+    is_valid = valid_text.isin(("true", "1"))
+    d["display_radiance"] = d.radiance_mean.where(
+        is_valid & np.isfinite(d.radiance_mean)
+        & (d.valid_area_fraction >= .5)
+    )
+    if (d.loc[d.display_radiance.notna(), "display_radiance"] < 0).any():
+        raise ValueError("Invalid negative monthly radiance")
+    counts = {}
+    for year, month in WINTER_MONTHS:
+        subset = d.loc[(d.year == year) & (d.month == month)]
+        n = int(subset.display_radiance.notna().sum())
+        counts[f"{year}-{month:02d}"] = n
+        if n < 100:
+            raise ValueError(
+                f"Only {n} NUTS3 have valid VCMSLCFG coverage for "
+                f"{year}-{month:02d}; check monthly tile and coverage filter"
+            )
+    pool = d.display_radiance.dropna().to_numpy(float)
+    if not len(pool) or not np.isfinite(pool).all():
+        raise ValueError("No valid monthly radiance for shared colour scale")
+    shared_max = float(pool.max())
+    if shared_max <= .2:
+        raise ValueError("Unusually low monthly radiance maximum")
+    # One fixed, non-clipping scale across all eight maps.  SymLogNorm
+    # retains 0 and expands low-radiance differences while still showing
+    # bright urban NUTS3.  This is an ABSOLUTE, not a diverging scale.
+    norm = SymLogNorm(
+        linthresh=.2, linscale=1., vmin=0.,
+        vmax=shared_max, base=10
+    )
+    fig, axs = plt.subplots(3, 3, figsize=(14.8, 12.5))
+    fig.subplots_adjust(
+        left=.018, right=.895, top=.918, bottom=.055,
+        wspace=.035, hspace=.19
+    )
+    fig.suptitle(
+        "Winter monthly VIIRS radiance, 2020–2022",
+        fontsize=16, weight="semibold"
+    )
+    map_counts = {}
+    for (year, month), ax in zip(WINTER_MONTHS, axs.flat[:8]):
+        sub = d.loc[
+            (d.year == year) & (d.month == month),
+            ["NUTS_ID", "display_radiance"]
+        ]
+        gm = geom.merge(
+            sub, on="NUTS_ID", how="left", validate="one_to_one"
+        )
+        map_counts[f"{year}-{month:02d}"] = map_panel(
+            ax, gm, bounds, "display_radiance", "magma", norm
+        )
+        ax.set_title(
+            f"{MONTH_NAMES[month]} {year}",
+            fontsize=12, pad=5
+        )
+    # Explicitly blank ninth panel: no key or inset in bottom right.
+    axs.flat[8].set_axis_off()
+    sm = ScalarMappable(cmap="magma", norm=norm)
     sm.set_array([])
-    cbar_ax=fig.add_axes([.915,.26,.014,.49])
-    cb=fig.colorbar(sm,cax=cbar_ax,extend="both")
-    cb.set_label(f"2021 minus 2020/2022 mean ({RAD})",fontsize=9)
-    fig.suptitle("January–March 2021 radiance anomalies relative to same-month flanks",
-                 fontsize=13)
-    fig.text(.04,.038,"Monthly VCMSLCFG diagnostic; not a monthly snow-corrected product. Grey = missing paired coverage.",
-             fontsize=9)
-    save_figure(fig,out,map_figure=True)
+    cb_ax = fig.add_axes([.916, .27, .017, .51])
+    bar = fig.colorbar(sm, cax=cb_ax)
+    bar.set_label(f"VIIRS monthly mean radiance ({RAD})", fontsize=10)
+    fig.text(
+        .025, .016,
+        "VCMSLCFG monthly observations; all eight panels use one colour scale. "
+        "Grey = missing/insufficient cloud-free coverage.",
+        fontsize=9, color="#555555"
+    )
+    save_figure(fig, out, map_figure=True)
     plt.close(fig)
-    return {"rendered":True,"monthly_atlas_source":str(monthly_path),
-            "product":"vcmslcfg","months":[1,2,3],
-            "valid_paired_monthly_regions":counts,
-            "shared_colour_magnitude_cap":scale,
-            "inference":"2021 monthly observation minus matching months 2020/2022, not snow-corrected months"}
+    return {
+        "rendered": True,
+        "monthly_atlas_source": str(monthly_path),
+        "product": "vcmslcfg",
+        "year_month_order": [f"{y}-{m:02d}" for y, m in WINTER_MONTHS],
+        "layout": "3 x 3; final bottom-right panel empty",
+        "map_valid_NUTS3_counts": map_counts,
+        "monthly_valid_area_fraction_minimum": .5,
+        "shared_colour": "magma sequential absolute radiance",
+        "shared_color_min": 0.,
+        "shared_color_max": shared_max,
+        "shared_color_scale": "SymLogNorm, linthresh=0.2, base=10",
+        "type": "actual monthly NUTS3 radiance, not 2021-minus-flank anomaly",
+        "2021_monthly_snow_correction_applied": False,
+        "no_missing_values_imputed": True,
+        "year_month_cumulative_NUTS3": len(d),
+    }
 
 
 def self_test():
@@ -355,6 +448,11 @@ def self_test():
     assert (example.loc[example.year.eq(2016),"radiance_mean_raw"].iloc[0] ==
             example.loc[example.year.eq(2016),"radiance_mean_corrected"].iloc[0])
     assert len(YEARS)==11 and YEARS[0]==2014 and YEARS[-1]==2024
+    assert len(WINTER_MONTHS)==8 and len(set(WINTER_MONTHS))==8
+    assert WINTER_MONTHS==(
+        (2020,1),(2020,2),(2020,12),
+        (2021,1),(2021,2),(2021,3),(2022,1),(2022,2)
+    )
     assert np.isclose((.8*10.+.4*90.)/100.,.44)
     print("Radiance correction before/after source-join arithmetic tests: PASS",flush=True)
 
@@ -395,7 +493,7 @@ def main():
         if args.skip_monthly
         else winter_monthly(
             pathlike(args.monthly),geom,bounds,
-            out/"CW_2021_january_february_march_monthly_anomaly_maps"
+            out/"CW_eight_winter_monthly_radiance_2020_2022_3x3"
         )
     )
     evidence={
@@ -412,6 +510,7 @@ def main():
         "snow_comparison":snow_qa,
         "winter_monthly_supplement":winter,
         "monthly_diagnostic_is_not_correction":True,
+        "monthly_maps_are_absolute_original_VCMSLCFG_not_flank_differences":True,
         "original_scientific_sources_modified":False
     }
     (out/"correction_demo_provenance.json").write_text(
@@ -420,7 +519,7 @@ def main():
     print("Science QA:",science,flush=True)
     print("Figure 1C comparison:",qa,flush=True)
     print("2021 correction:",snow_qa,flush=True)
-    print("Jan-Mar diagnostic:",winter,flush=True)
+    print("Eight-month winter maps (3x3):",winter,flush=True)
     print("Outputs:",out,flush=True)
     for file in sorted(out.glob("*")):
         if file.is_file():
