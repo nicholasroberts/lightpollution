@@ -441,6 +441,111 @@ def winter_monthly(monthly_path, geom, bounds, out):
     }
 
 
+
+def winter_flank_anomaly_3x3(monthly_path, geom, bounds, out):
+    """Same eight months: observed R(year,month) minus 2020/22 same-month mean."""
+    if not monthly_path.is_file():
+        return {"rendered": False, "reason": f"Missing monthly atlas: {monthly_path}"}
+    need=set(WINTER_MONTHS)|{(2020,3),(2022,3),(2022,12)}
+    cols=["NUTS_ID","year","month","product","radiance_mean",
+          "analysis_valid","valid_area_fraction"]
+    if monthly_path.suffix.lower()==".parquet":
+        d=pd.read_parquet(monthly_path, columns=cols)
+    else:
+        d=pd.read_csv(monthly_path, usecols=cols, dtype={"NUTS_ID":str})
+    d["NUTS_ID"]=d.NUTS_ID.astype(str)
+    d["year"]=pd.to_numeric(d.year,errors="raise").astype(int)
+    d["month"]=pd.to_numeric(d.month,errors="raise").astype(int)
+    d=d.loc[d["product"].astype(str).str.lower().eq("vcmslcfg") &
+        pd.MultiIndex.from_arrays([d.year,d.month]).isin(need)].copy()
+    if d.duplicated(["NUTS_ID","year","month"]).any():
+        raise ValueError("Duplicate monthly radiance region/year/month")
+    found=set(zip(d.year,d.month))
+    if found!=need:
+        raise ValueError(f"Missing target/flank monthly archive entries: {sorted(need-found)}")
+    d["radiance_mean"]=pd.to_numeric(d.radiance_mean,errors="coerce")
+    d["valid_area_fraction"]=pd.to_numeric(d.valid_area_fraction,errors="coerce")
+    good=d.analysis_valid.astype(str).str.lower().isin(("true","1"))
+    good &= np.isfinite(d.radiance_mean) & d.valid_area_fraction.ge(.5)
+    d["observed_nw"]=d.radiance_mean.where(good)
+    if (d.observed_nw.dropna()<0).any():
+        raise ValueError("Negative valid monthly VIIRS radiance")
+    baseline=d.loc[d.year.isin((2020,2022))].pivot(
+        index=["NUTS_ID","month"],columns="year",values="observed_nw")
+    if not {2020,2022}.issubset(baseline.columns):
+        raise ValueError("Both 2020 and 2022 reference columns required")
+    baseline=baseline[[2020,2022]].rename(
+        columns={2020:"ref_2020_nw",2022:"ref_2022_nw"}).reset_index()
+    baseline["flank_mean_nw"]=(baseline.ref_2020_nw+baseline.ref_2022_nw)/2.
+    target=d.loc[pd.MultiIndex.from_arrays([d.year,d.month]).isin(
+        set(WINTER_MONTHS))].copy()
+    target=target.merge(baseline,on=["NUTS_ID","month"],
+                        how="left",validate="many_to_one")
+    target["difference_nw"]=target.observed_nw-target.flank_mean_nw
+    counts={}
+    values=[]
+    for year,month in WINTER_MONTHS:
+        pair=target.loc[target.year.eq(year)&target.month.eq(month)]
+        num=int(pair.difference_nw.notna().sum())
+        counts[f"{year}-{month:02d}"]=num
+        if num<100:
+            raise ValueError(f"Only {num} valid paired regions for {year}-{month:02d}")
+        values.extend(pair.difference_nw.dropna().tolist())
+    pool=np.asarray(values,float)
+    if len(pool)==0 or not np.isfinite(pool).all():
+        raise ValueError("No valid monthly differences")
+    cap=max(.1,float(np.quantile(np.abs(pool),.985)))
+    norm=SymLogNorm(linthresh=.1,vmin=-cap,vmax=cap,base=10)
+    fig,axs=plt.subplots(3,3,figsize=(14.8,12.5))
+    fig.subplots_adjust(left=.018,right=.895,top=.918,bottom=.055,
+                        wspace=.035,hspace=.19)
+    fig.suptitle("Monthly VIIRS radiance minus 2020/2022 same-month mean",
+                 fontsize=15.3,weight="semibold")
+    mapped={}
+    for (year,month),ax in zip(WINTER_MONTHS,axs.flat[:8]):
+        sub=target.loc[target.year.eq(year)&target.month.eq(month),
+                       ["NUTS_ID","difference_nw"]]
+        gm=geom.merge(sub,on="NUTS_ID",how="left",validate="one_to_one")
+        mapped[f"{year}-{month:02d}"]=map_panel(
+            ax,gm,bounds,"difference_nw","RdBu_r",norm)
+        ax.set_title(f"{MONTH_NAMES[month]} {year}",fontsize=12,pad=5)
+    axs.flat[8].set_axis_off()
+    sm=ScalarMappable(cmap="RdBu_r",norm=norm)
+    sm.set_array([])
+    cax=fig.add_axes([.916,.27,.017,.51])
+    cb=fig.colorbar(sm,cax=cax,extend="both")
+    cb.set_label(f"Month − 2020/2022 same-month mean ({RAD})",fontsize=10)
+    fig.text(.025,.016,
+             "VCMSLCFG monthly observations; grey = missing valid flanks; "
+             "shared colour range capped at the pooled 98.5th percentile.",
+             fontsize=8.7,color="#555555")
+    save_figure(fig,out,map_figure=True)
+    plt.close(fig)
+    csv=out.parent/"CW_eight_monthly_flank_difference_values.csv"
+    target[["NUTS_ID","year","month","observed_nw",
+            "ref_2020_nw","ref_2022_nw","flank_mean_nw",
+            "difference_nw","valid_area_fraction"]].sort_values(
+            ["year","month","NUTS_ID"]).to_csv(csv,index=False)
+    for month in (1,2):
+        control=target.loc[target.month.eq(month)&target.year.isin(
+            (2020,2022))].pivot(
+            index="NUTS_ID",columns="year",values="difference_nw"
+        ).dropna(subset=[2020,2022])
+        if not np.allclose(control[2020],-control[2022],
+                           rtol=1e-10,atol=1e-10):
+            raise ValueError(f"2020/2022 control differences asymmetric in {month}")
+    return {"rendered":True,"monthly_source":str(monthly_path),
+            "year_month_order":[f"{y}-{m:02d}" for y,m in WINTER_MONTHS],
+            "formula":"R(year,m) - [R(2020,m)+R(2022,m)]/2",
+            "extra_reference_months":["2020-03","2022-03","2022-12"],
+            "regions_with_valid_differences":counts,
+            "mapped_region_counts":mapped,"shared_colour_cap_nw":cap,
+            "same_symmetric_colour_scale_all_eight":True,
+            "colour_clip_for_display_only":True,
+            "2020_and_2022_include_themselves_in_baseline":True,
+            "original_monthly_not_snow_corrected":True,
+            "output_values_csv":str(csv)}
+
 def self_test():
     example=pd.DataFrame({"year":[2016,2017,2021],
         "radiance_mean_raw":[1.,1.235,1.50],
@@ -454,6 +559,9 @@ def self_test():
         (2021,1),(2021,2),(2021,3),(2022,1),(2022,2)
     )
     assert np.isclose((.8*10.+.4*90.)/100.,.44)
+    assert np.isclose(2-.5*(2+4),-1.)
+    assert np.isclose(4-.5*(2+4),1.)
+    assert np.isclose(7-.5*(2+4),4.)
     print("Radiance correction before/after source-join arithmetic tests: PASS",flush=True)
 
 
@@ -496,6 +604,13 @@ def main():
             out/"CW_eight_winter_monthly_radiance_2020_2022_3x3"
         )
     )
+    winter_difference=(
+        {"rendered":False,"reason":"--skip-monthly specified"}
+        if args.skip_monthly else winter_flank_anomaly_3x3(
+            pathlike(args.monthly),geom,bounds,
+            out/"CW_eight_winter_monthly_minus_2020_2022_flank_mean_3x3"
+        )
+    )
     evidence={
         "n_complete_nuts3":science["balanced_nuts2016_regions"],
         "fixed_years":list(YEARS),
@@ -509,6 +624,7 @@ def main():
         "figure1c_comparison":qa,
         "snow_comparison":snow_qa,
         "winter_monthly_supplement":winter,
+        "winter_same_month_flank_difference":winter_difference,
         "monthly_diagnostic_is_not_correction":True,
         "monthly_maps_are_absolute_original_VCMSLCFG_not_flank_differences":True,
         "original_scientific_sources_modified":False
@@ -520,6 +636,7 @@ def main():
     print("Figure 1C comparison:",qa,flush=True)
     print("2021 correction:",snow_qa,flush=True)
     print("Eight-month winter maps (3x3):",winter,flush=True)
+    print("Eight-month month-minus-flank map (3x3):",winter_difference,flush=True)
     print("Outputs:",out,flush=True)
     for file in sorted(out.glob("*")):
         if file.is_file():
