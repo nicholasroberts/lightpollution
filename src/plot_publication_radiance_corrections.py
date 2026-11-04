@@ -626,7 +626,8 @@ def main():
         "winter_monthly_supplement":winter,
         "winter_same_month_flank_difference":winter_difference,
         "monthly_diagnostic_is_not_correction":True,
-        "monthly_maps_are_absolute_original_VCMSLCFG_not_flank_differences":True,
+        "monthly_sources_are_original_VCMSLCFG":True,
+        "monthly_outputs_include_absolute_and_same_month_flank_differences":True,
         "original_scientific_sources_modified":False
     }
     (out/"correction_demo_provenance.json").write_text(
