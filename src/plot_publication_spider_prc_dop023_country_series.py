@@ -73,7 +73,12 @@ def country_geometry_lookup(geometry: pd.DataFrame, expected: int) -> pd.DataFra
 def country_area_series(classified: pd.DataFrame, geometry: pd.DataFrame,
                         expected_regions: int = EXPECTED_REGIONS) -> pd.DataFrame:
     """Country-level copy of the full-Europe fixed 2014 valid-area estimator."""
-    lookup = country_geometry_lookup(geometry, expected_regions)
+    lookup = country_geometry_lookup(geometry, expected_regions).rename(
+        columns={"CNTR_CODE": "CNTR_CODE_geometry"}
+    )
+    # The locked annual PRC source can already contain CNTR_CODE. Merge with
+    # an explicitly distinct geometry field to avoid pandas creating
+    # CNTR_CODE_x/CNTR_CODE_y (which caused KeyError: 'CNTR_CODE').
     x = classified.merge(
         lookup, on="NUTS_ID", how="left", validate="many_to_one",
         indicator=True
@@ -81,6 +86,23 @@ def country_area_series(classified: pd.DataFrame, geometry: pd.DataFrame,
     if not x._merge.eq("both").all() or len(x) != expected_regions * len(YEARS):
         raise ValueError("Country assignment lost annual PRC regions")
     x.drop(columns="_merge", inplace=True)
+    if "CNTR_CODE" in x:
+        # Check the existing PRC source country against the *original*
+        # fixed NUTS2016 polygon attribution, rather than choosing a
+        # conflicting code arbitrarily.
+        if not x.CNTR_CODE.eq(x.CNTR_CODE_geometry).all():
+            mismatch = x.loc[
+                ~x.CNTR_CODE.eq(x.CNTR_CODE_geometry),
+                ["NUTS_ID", "year", "CNTR_CODE", "CNTR_CODE_geometry"]
+            ]
+            raise ValueError(
+                "Locked PRC country disagrees with NUTS2016 geometry: "
+                + mismatch.head(8).to_string(index=False)
+            )
+        x.drop(columns="CNTR_CODE", inplace=True)
+    x.rename(columns={"CNTR_CODE_geometry": "CNTR_CODE"}, inplace=True)
+    if x.CNTR_CODE.isna().any():
+        raise ValueError("NUTS2016 country assignment contains missing values")
     if x.groupby("year").NUTS_ID.nunique().ne(expected_regions).any():
         raise ValueError("Unexpected annual NUTS2016 country counts")
     # Classify each NUTS3 before weighting its fixed VALID AREA; never compare
@@ -358,7 +380,23 @@ def self_test() -> None:
         "CNTR_CODE": ["NL", "NL", "UK"],
     })
     classified = annotate_regions(toy, threshold, expected_regions=3)
-    by_country = country_area_series(classified, geometry, expected_regions=3)
+    # Exercise both real-world source schemas: PRC panel with a CNTR_CODE
+    # already present, and a minimal panel relying on geometry lookup.
+    source_with_codes = classified.copy()
+    source_with_codes["CNTR_CODE"] = source_with_codes.NUTS_ID.str[:2]
+    no_codes = country_area_series(classified, geometry, expected_regions=3)
+    by_country = country_area_series(
+        source_with_codes, geometry, expected_regions=3
+    )
+    pd.testing.assert_frame_equal(no_codes, by_country)
+    bad_codes = source_with_codes.copy()
+    bad_codes.loc[bad_codes.NUTS_ID.eq("NLA"), "CNTR_CODE"] = "FR"
+    try:
+        country_area_series(bad_codes, geometry, expected_regions=3)
+    except ValueError as exc:
+        assert "disagrees" in str(exc)
+    else:
+        raise AssertionError("Conflicting PRC/NUTS2016 country code accepted")
     nl = by_country.loc[by_country.CNTR_CODE.eq("NL")].set_index("year")
     uk = by_country.loc[by_country.CNTR_CODE.eq("UK")].set_index("year")
     assert np.isclose(nl.loc[2014, METRIC], 40.)
