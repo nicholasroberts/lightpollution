@@ -99,3 +99,51 @@ fig3_provenance.json
 Verify that **3A and 3B have uniformly spaced linear x ticks**, that both curves are legible (near-zero radiance features appear more compressed than in the former symlog version), and that the locked curve outputs and units remain unchanged. Verify all eight vector files export, legible colour bars, map file size targets and editable text in Illustrator. Check the JSON for the complete 1,522-region cohort, locked source identifiers, the fixed ΔR parameter, and the source-vs-joined-endpoints comparison. **The maps are regionally averaged predictions from pixel-transformed PRC, not PRC of regional mean radiance.**
 
 No fit parameters, scientific datasets, maps from Figures 1/2, or original analysis scripts are altered. If the final locked annual PRC CSV is missing, inspect the already completed `publish_prc_locked_snow.py` workflow before attempting any rerun; do not replace it with an unapproved earlier PRC table.
+
+
+## Companion illustrative Figure 3A: +0.05 PRC from 80 versus 5 nW
+
+**Added 5 November 2026 (presentation example; distinct from the unchanged original Figure 3A/3B).** Script:
+`src/plot_publication_fig3a_equal_prc_gain.py`.
+
+This illustration answers the specific inverse question: **starting from a calibrated VIIRS radiance of either 80 or 5 nW cm⁻² sr⁻¹, how far must radiance *decrease* for the empirical spider or moth receptor contrast to *increase by 0.05 absolute units*?** The +0.05 is **not a 5% relative change** or a measured behavioural threshold. The original independently locked spider17 and moth16 response functions are `P(R)=yf+(y0-yf) exp(-kR)` and are loaded/validated from the same original YAMLs used for Figure 3A, without refitting. Solving exactly gives:
+
+```
+P_target = P(R_start) + 0.05
+R_final = -ln[(P_target - yf)/(y0 - yf)] / k
+radiance_reduction = R_start - R_final
+```
+
+| Taxon | Starting R | Required final R | Absolute R reduction | Reduction from starting R |
+|---|---:|---:|---:|---:|
+| Spider | 80 | 17.60284 | 62.39716 | 77.996% |
+| Spider | 5 | 2.69388 | 2.30612 | 46.122% |
+| Moth | 80 | 31.17422 | 48.82578 | 61.032% |
+| Moth | 5 | 3.48070 | 1.51930 | 30.386% |
+
+The absolute radiance decrease needed for spider is approximately **27.06 times** greater at the 80-nW baseline than at the 5-nW baseline; for moth approximately **32.14 times** greater. This reflects the saturation of the empirical PRC response functions at high R. These quantities are an **illustrative inversion of fitted relationships**, not a prediction that removing a given light source will restore the nocturnal sky polarization field by this exact amount. It assumes the original empirical transfer, species and light-spectrum context apply.
+
+**Display:** One 16:9 presentation figure, two species rows: left main **linear 0–100** calibrated VIIRS radiance plot showing 80→final, right **linear 0–7 zoom** highlighting 5→final. Each row uses precisely the original 3A species curve. Orange circles show starting R/PRC and teal diamonds show the lower final R that produces a +0.05 increase; the intervening transfer-curve segment is highlighted with a directional arrow and a vertical +0.05 PRC bracket. *Y axes are specific to each plot (not shared between taxa or zoomed panels)*. The four numerical reductions are printed below their respective panels.
+
+**Files** in `figures/publication/figure3_prc/`, without overwriting any existing Figure 3 files:
+
+```
+fig3A_example_equal_0p05_prc_gain_80_vs_5.svg
+fig3A_example_equal_0p05_prc_gain_80_vs_5.pdf
+fig3A_example_equal_0p05_prc_gain_80_vs_5.png
+fig3A_example_equal_0p05_prc_gain_calculations.csv
+fig3A_example_equal_0p05_prc_gain_provenance.json
+```
+
+```bash
+cd /run/media/bznwr/data/lightpollution
+git switch publication-figures
+git pull --ff-only
+source .venv/bin/activate
+python -m py_compile src/plot_publication_fig3a_equal_prc_gain.py
+python src/plot_publication_fig3a_equal_prc_gain.py --self-test
+python src/plot_publication_fig3a_equal_prc_gain.py
+```
+
+**Reproducibility and state:** A preview image, vector SVG and PDF have also been generated and visually inspected in the ChatGPT working container from the same locked numerical coefficients. The **new GitHub script has not yet been executed on EcoVis**. The four inverse values are verified analytically. On EcoVis, the script reads the authoritative config files afresh and records the exact source model IDs and parameters in the new provenance JSON. The original `fig3AB_locked_function_values.csv`, original 3A/3B curves and Figure 3C/3D annual maps remain unchanged.
+
