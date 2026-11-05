@@ -458,9 +458,9 @@ def plot_prc_histogram(d: pd.DataFrame, taxon: str, output_stem: Path,
     ax.grid(axis="y", alpha=.18)
     fig.text(
         .14, .015,
-        f"n={len(values):,} of {len(d):,} fixed NUTS2016 regions; "
-        "signed PRC2024 - PRC2014 (not a % or unsigned magnitude). "
-        "Signed-log x axis; counts per transformed-width bin.",
+        f"n={len(values):,} fixed NUTS2016 regions; "
+        "signed PRC2024 - PRC2014 (not %). "
+        "Signed-log axis; counts per transformed-width bin.",
         fontsize=7
     )
     fig.tight_layout(rect=(0, .06, 1, 1))
@@ -529,6 +529,14 @@ def self_test():
         assert np.all(np.diff(edges) > 0)
         assert int(bins.nuts3_count.sum()) == 5
         assert edges[0] < values.min() and edges[-1] > values.max()
+        fig_hist, ax_hist = plt.subplots()
+        try:
+            n, _, _ = ax_hist.hist(values, bins=edges)
+            ax_hist.set_xscale("symlog", linthresh=PRC_HIST_LINTHRESH_DEFAULT)
+            assert ax_hist.get_xscale() == "symlog"
+            assert int(n.sum()) == len(values)
+        finally:
+            plt.close(fig_hist)
         assert np.allclose(
             prc_hist_signed_inverse(
                 prc_hist_signed_transform(values, PRC_HIST_LINTHRESH_DEFAULT),
