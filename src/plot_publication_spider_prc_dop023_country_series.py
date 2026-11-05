@@ -65,7 +65,7 @@ def country_geometry_lookup(geometry: pd.DataFrame, expected: int) -> pd.DataFra
         raise ValueError("Country lookup must contain each frozen NUTS2016 region exactly once")
     if d.CNTR_CODE.isna().any() or d.CNTR_CODE.astype(str).str.len().ne(2).any():
         raise ValueError("Missing or invalid NUTS2016 country identifiers")
-    if not d.NUTS_ID.astype(str).str.startswith(d.CNTR_CODE.astype(str)).all():
+    if not d.NUTS_ID.astype(str).str[:2].eq(d.CNTR_CODE.astype(str)).all():
         raise ValueError("NUTS2016 code and assigned country mismatch")
     return d
 
@@ -356,6 +356,10 @@ def main() -> None:
         return
     if not 0 <= args.png_dpi <= 600:
         p.error("PNG DPI must be between 0 and 600")
+    if not 0 < args.dop_threshold < 1:
+        p.error("DoP scenario must be strictly between 0 and 1")
+    if not args.polarization_sensitivity > 1:
+        p.error("Polarization sensitivity must exceed 1")
     country_codes = [str(c).upper() for c in args.countries]
     if not country_codes or len(country_codes) != len(set(country_codes)):
         p.error("Provide distinct country codes")
