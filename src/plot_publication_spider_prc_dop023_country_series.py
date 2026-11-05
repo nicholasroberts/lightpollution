@@ -162,6 +162,47 @@ def full_europe_reference(country_series: pd.DataFrame) -> pd.DataFrame:
     return sums
 
 
+
+def verify_existing_europe_series(europe: pd.DataFrame, out: Path,
+                                  dop: float, sensitivity: float) -> dict:
+    """If present, compare numerically to the original European threshold CSV."""
+    if not (np.isclose(dop, DOP_THRESHOLD) and
+            np.isclose(sensitivity, POLARIZATION_SENSITIVITY)):
+        return {"checked": False, "reason": "non-default hypothetical DoP/Sp scenario"}
+    csv = out / "spider_prc_dop023_threshold_area_percent_2014_2024.csv"
+    if not csv.is_file():
+        return {"checked": False, "reason": "original European CSV not yet generated"}
+    previous = pd.read_csv(csv)
+    required = {"geography", "year", METRIC,
+                "fixed_2014_valid_area_all_km2",
+                "fixed_2014_valid_area_at_or_below_km2"}
+    if missing := required - set(previous):
+        raise ValueError(f"Original European area CSV missing {sorted(missing)}")
+    old = previous.loc[
+        previous.geography.eq("full_locked_nuts2016")
+    ].sort_values("year")
+    new = europe.sort_values("year")
+    if len(old) != len(YEARS) or not np.array_equal(
+        old.year.to_numpy(int), new.year.to_numpy(int)
+    ):
+        raise ValueError("Original European threshold series has changed year support")
+    largest = 0.
+    for field in [METRIC, "fixed_2014_valid_area_all_km2",
+                  "fixed_2014_valid_area_at_or_below_km2"]:
+        a = old[field].to_numpy(float)
+        b = new[field].to_numpy(float)
+        difference = float(np.max(np.abs(a - b)))
+        largest = max(largest, difference)
+        if not np.allclose(a, b, rtol=1e-10, atol=1e-5):
+            raise ValueError(
+                f"Country sum disagrees with ORIGINAL European area time series "
+                f"in {field}; max difference {difference:.8g}"
+            )
+    return {"checked": True, "source": str(csv),
+            "maximum_absolute_numeric_difference": largest}
+
+
+
 def country_change_summary(country_series: pd.DataFrame) -> pd.DataFrame:
     first = country_series.loc[country_series.year.eq(2014)].set_index("CNTR_CODE")
     last = country_series.loc[country_series.year.eq(2024)].set_index("CNTR_CODE")
@@ -385,6 +426,9 @@ def main() -> None:
     summary = country_change_summary(series)
     output = resolve(args.out)
     output.mkdir(parents=True, exist_ok=True)
+    europe_qa = verify_existing_europe_series(
+        europe, output, args.dop_threshold, args.polarization_sensitivity
+    )
     series.to_csv(
         output/"spider_prc_dop023_threshold_country_area_percent_2014_2024.csv",
         index=False
@@ -429,6 +473,7 @@ def main() -> None:
         ),
         "fixed_country_denominator_over_time": True,
         "country_sums_reconcile_to_full_Europe": True,
+        "original_Europe_CSV_comparison": europe_qa,
         "no_spatial_or_temporal_interpolation": True,
         "locked_2021_snow_product_reused": True,
         "input_data_or_calibration_modified": False,
