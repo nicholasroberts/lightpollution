@@ -133,7 +133,7 @@ def result_from_files(endpoint_path: Path, figdir: Path) -> str:
 
 def self_test() -> None:
     # Fixed area example: one dim region +100%, one bright region -10%
-    # => equal-region mean +45% but Europe (-8/11)=-72.73%.
+    # => equal-region mean +45% but weighted Europe change is -8.91%.
     a=np.array([1.,10.])
     r0=np.array([1.,10.])
     r1=np.array([2.,9.])
