@@ -63,7 +63,7 @@ ALL_YEARS = tuple(range(2014, 2025))
 EXPECTED_REGIONS = 1522
 EXTENT_4326 = (-12.0, 34.0, 36.0, 73.0)  # Exactly match publication Fig 1.
 RAD_UNIT = r"nW cm$^{-2}$ sr$^{-1}$"
-DISPLAY_X_TICKS = (0, 1, 2, 5, 10, 20, 50, 100)
+LINEAR_X_TICK_COUNT = 6  # 0, 20, 40, 60, 80, 100 at the default R max.
 TAXON_LABEL = {"spider": "Spider", "moth": "Moth"}
 
 
@@ -240,13 +240,18 @@ def geometry_for_maps(config, simplify_m: float):
 
 
 def radiance_axis(ax, max_radiance: float):
-    ax.set_xscale("symlog", linthresh=1.0)
-    ticks = [v for v in DISPLAY_X_TICKS if v <= max_radiance]
-    if max_radiance not in ticks:
-        ticks.append(max_radiance)
+    """Shared LINEAR calibrated-radiance axis for publication Figures 3A/3B.
+
+    Plot-only modification: neither empirical PRC functions nor their
+    evaluation domain and fixed-ΔR calculation are transformed or refitted.
+    """
+    if not np.isfinite(max_radiance) or max_radiance <= 0:
+        raise ValueError("Radiance-axis maximum must be positive and finite")
+    ax.set_xscale("linear")
+    ticks = np.linspace(0., max_radiance, LINEAR_X_TICK_COUNT)
     ax.set_xticks(ticks)
     ax.xaxis.set_major_formatter(FuncFormatter(lambda value, pos: f"{value:g}"))
-    ax.set_xlim(0, max_radiance)
+    ax.set_xlim(0., max_radiance)
     ax.grid(alpha=.16)
 
 
@@ -358,6 +363,18 @@ def self_test():
         assert (step < 0).all()
         assert abs(step[0]) > abs(step[-1])
     assert not np.allclose(response(r, s), response(r, m))
+    # Regression test for Figure 3A and 3B's shared display-only x axis.
+    fig_test, ax_test = plt.subplots()
+    try:
+        radiance_axis(ax_test, 100.)
+        assert ax_test.get_xscale() == "linear"
+        assert np.allclose(ax_test.get_xticks(), [0., 20., 40., 60., 80., 100.])
+        assert np.allclose(ax_test.get_xlim(), [0., 100.])
+        radiance_axis(ax_test, 50.)
+        assert ax_test.get_xscale() == "linear"
+        assert np.allclose(ax_test.get_xticks(), [0., 10., 20., 30., 40., 50.])
+    finally:
+        plt.close(fig_test)
     test = pd.DataFrame({
         "NUTS_ID": ["A", "B", "C"],
         "year": [2024, 2024, 2024],
@@ -444,7 +461,12 @@ def main():
         "joined_endpoint_cross_check": checked,
         "transfer_functions": details,
         "curve_domain_calibrated_radiance_nw": [0, args.max_radiance],
-        "curve_3a_3b_x_axis": "signed log (linear 0–1), plot only",
+        "curve_3a_3b_x_axis": "linear (0 to maximum calibrated radiance), plot only",
+        "curve_3a_3b_x_ticks": [
+            float(v) for v in np.linspace(
+                0., args.max_radiance, LINEAR_X_TICK_COUNT
+            )
+        ],
         "fixed_delta_radiance_nw": args.delta_radiance,
         "fixed_radiance_change_sign": "positive increase",
         "fixed_change_plot_is_illustrative": True,
