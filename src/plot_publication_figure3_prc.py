@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Publication Figure 3A–D: locked spider/moth PRC functions and NUTS3 maps.
+"""Publication Figure 3A–F: locked spider/moth PRC functions, maps and histograms.
 
 No new calibration, fitting, sensor correction, native-raster processing or
 NUTS3 aggregation. Uses the existing locked spider17/moth16 exponential
@@ -13,6 +13,9 @@ NUTS2016 geometry. The 2014/2024 endpoints do not depend on the 2021 patch.
      or a claim that a given pixel experienced that step.
 3C   Spider 2024 minus 2014 native-pixel-derived NUTS3 PRC mean.
 3D   Corresponding moth NUTS3 PRC mean change, independently scaled.
+3E   Equal-NUTS3 histogram of signed absolute spider PRC change, 2014–2024.
+3F   Equivalent independently calculated moth PRC change distribution.
+     Both match Figure 1D histogram styling, with PRC rather than % units.
 
 All panels export editable SVG and vector PDF via figure_style. Production
 datasets and locked fit parameters are READ ONLY.
@@ -65,6 +68,8 @@ EXTENT_4326 = (-12.0, 34.0, 36.0, 73.0)  # Exactly match publication Fig 1.
 RAD_UNIT = r"nW cm$^{-2}$ sr$^{-1}$"
 LINEAR_X_TICK_COUNT = 6  # 0, 20, 40, 60, 80, 100 at the default R max.
 TAXON_LABEL = {"spider": "Spider", "moth": "Moth"}
+PRC_HIST_LINTHRESH_DEFAULT = .001  # Signed-log display only; PRC is dimensionless.
+PRC_HIST_N_BINS = 55  # Match Figure 1D.
 
 
 def resolve_path(value: Path | str) -> Path:
@@ -349,6 +354,121 @@ def plot_prc_map(geom: gpd.GeoDataFrame, bounds: tuple, d: pd.DataFrame,
     }
 
 
+
+def prc_hist_signed_transform(x: np.ndarray, linear: float) -> np.ndarray:
+    """Display-only signed-log coordinate, matching Figure 1D's bin method."""
+    x = np.asarray(x, dtype=float)
+    return np.sign(x) * np.log1p(np.abs(x) / linear)
+
+
+def prc_hist_signed_inverse(x: np.ndarray, linear: float) -> np.ndarray:
+    x = np.asarray(x, dtype=float)
+    return np.sign(x) * linear * np.expm1(np.abs(x))
+
+
+def prc_histogram_data(d: pd.DataFrame, taxon: str,
+                       linthresh: float) -> tuple[dict, pd.DataFrame]:
+    """All fixed-cohort NUTS3 values, no clipping, density weights or % maths.
+
+    'Absolute change' here means a difference of PRC levels in absolute
+    dimensionless units, NOT abs(PRC2024 - PRC2014): preserve gain/loss signs.
+    """
+    if taxon not in TAXON_LABEL:
+        raise ValueError(f"Unknown PRC taxon: {taxon}")
+    if not np.isfinite(linthresh) or linthresh <= 0:
+        raise ValueError("PRC histogram linear threshold must be positive and finite")
+    metric = f"{taxon}_prc_change_abs"
+    values = d[metric].to_numpy(dtype=float)
+    if len(values) == 0 or not np.isfinite(values).all():
+        raise ValueError(f"Invalid or missing locked {taxon} endpoint PRC changes")
+    if not d.NUTS_ID.is_unique or d.NUTS_ID.isna().any():
+        raise ValueError("Histogram requires one value per unique NUTS3 region")
+    x = prc_hist_signed_transform(values, linthresh)
+    lo, hi = float(x.min()), float(x.max())
+    if lo == hi:
+        lo -= .5
+        hi += .5
+    # Same signed-log bin construction and bin count as Figure 1D.
+    # Tiny padding ensures both observed extrema fall inside the edge range.
+    t_edges = np.linspace(lo - 1e-9, hi + 1e-9,
+                          PRC_HIST_N_BINS + 1)
+    edges = prc_hist_signed_inverse(t_edges, linthresh)
+    if not np.all(np.diff(edges) > 0):
+        raise ValueError("PRC histogram bin edges must be strictly increasing")
+    counts, _ = np.histogram(values, bins=edges)
+    if int(counts.sum()) != len(values):
+        raise ValueError("Histogram bins did not retain every NUTS3 value")
+    summary = {
+        "taxon": taxon,
+        "years": "2014-2024",
+        "statistic": "signed absolute PRC change = regional PRC2024 - PRC2014",
+        "n_nuts3": int(len(values)),
+        "n_positive_prc_change": int(np.count_nonzero(values > 0)),
+        "n_negative_prc_change": int(np.count_nonzero(values < 0)),
+        "n_exact_zero_prc_change": int(np.count_nonzero(values == 0)),
+        "mean_prc_change_equal_nuts3_weight": float(values.mean()),
+        "median_prc_change_equal_nuts3_weight": float(np.median(values)),
+        "min_prc_change": float(values.min()),
+        "max_prc_change": float(values.max()),
+        "x_scale": "symlog",
+        "symlog_linthresh_prc_units": float(linthresh),
+        "histogram_binning": "55 equal steps in signed-log1p-transformed PRC change",
+        "n_bins": PRC_HIST_N_BINS,
+        "n_counted": int(counts.sum()),
+    }
+    bins = pd.DataFrame({
+        "taxon": taxon,
+        "bin_index": np.arange(PRC_HIST_N_BINS) + 1,
+        "bin_lower_delta_prc": edges[:-1],
+        "bin_upper_delta_prc": edges[1:],
+        "nuts3_count": counts,
+    })
+    return summary, bins
+
+
+def plot_prc_histogram(d: pd.DataFrame, taxon: str, output_stem: Path,
+                       linthresh: float) -> tuple[dict, pd.DataFrame]:
+    """Figure 1D-matched histogram: 55 bins, mean/median/zero, vector export."""
+    summary, bins = prc_histogram_data(d, taxon, linthresh)
+    values = d[f"{taxon}_prc_change_abs"].to_numpy(dtype=float)
+    edges = np.r_[bins.bin_lower_delta_prc.to_numpy(dtype=float),
+                  bins.bin_upper_delta_prc.iloc[-1]]
+    fig, ax = plt.subplots(figsize=figure_size("double", height_ratio=.62))
+    ax.hist(values, bins=edges, color="#638cb7",
+            edgecolor="white", linewidth=.22)
+    mean = summary["mean_prc_change_equal_nuts3_weight"]
+    median = summary["median_prc_change_equal_nuts3_weight"]
+    ax.axvline(mean, color="#d55e00", linestyle="--", linewidth=1.5,
+               label=f"NUTS3 mean = {mean:+.5f}")
+    ax.axvline(median, color="#222222", linestyle="-", linewidth=1.5,
+               label=f"NUTS3 median = {median:+.5f}")
+    ax.axvline(0, color="#555555", linestyle=":", linewidth=.9)
+    ax.set_xscale("symlog", linthresh=linthresh)
+    ax.set_xlim(float(edges[0]), float(edges[-1]))
+    ax.set_ylabel("NUTS3 regions (count)")
+    ax.set_xlabel(
+        f"{TAXON_LABEL[taxon]} PRC change, 2024 minus 2014 (dimensionless)"
+    )
+    panel = "3E" if taxon == "spider" else "3F"
+    ax.set_title(
+        f"{panel}  |  Distribution of European NUTS3 "
+        f"{taxon} PRC changes", loc="left"
+    )
+    ax.legend(loc="upper right", frameon=False)
+    ax.grid(axis="y", alpha=.18)
+    fig.text(
+        .14, .015,
+        f"n={len(values):,} of {len(d):,} fixed NUTS2016 regions; "
+        "signed PRC2024 - PRC2014 (not a % or unsigned magnitude). "
+        "Signed-log x axis; counts per transformed-width bin.",
+        fontsize=7
+    )
+    fig.tight_layout(rect=(0, .06, 1, 1))
+    save_figure(fig, output_stem)
+    plt.close(fig)
+    return summary, bins
+
+
 def self_test():
     s = (.1453159020633674, .45612835620720266, .1037115607084461)
     m = (.10128334523974113, .6870948746846356, .0782312036944599)
@@ -382,7 +502,41 @@ def self_test():
         "cumulative_prc_change_absolute": [.01, -.01, .0],
     })
     assert test.NUTS_ID.is_unique
-    print("Figure 3 locked function and ΔPRC sensitivity self-test: PASS", flush=True)
+    # Separate data-only histogram tests: signed values (not magnitudes),
+    # reproducible central statistics, no bin losses, exact region counts.
+    trial = pd.DataFrame({
+        "NUTS_ID": ["A", "B", "C", "D", "E"],
+        "spider_prc_change_abs": [-.02, -.001, 0., .003, .01],
+        "moth_prc_change_abs": [-.06, -.004, .001, .005, .012],
+    })
+    for taxon in TAXON_LABEL:
+        summary, bins = prc_histogram_data(
+            trial, taxon, PRC_HIST_LINTHRESH_DEFAULT
+        )
+        values = trial[f"{taxon}_prc_change_abs"].to_numpy()
+        assert summary["n_nuts3"] == 5
+        assert summary["n_counted"] == 5
+        assert len(bins) == PRC_HIST_N_BINS
+        assert summary["n_positive_prc_change"] == 2 if taxon == "spider" else 3
+        assert np.isclose(
+            summary["mean_prc_change_equal_nuts3_weight"], values.mean()
+        )
+        assert np.isclose(
+            summary["median_prc_change_equal_nuts3_weight"], np.median(values)
+        )
+        edges = np.r_[bins.bin_lower_delta_prc.to_numpy(),
+                      bins.bin_upper_delta_prc.iloc[-1]]
+        assert np.all(np.diff(edges) > 0)
+        assert int(bins.nuts3_count.sum()) == 5
+        assert edges[0] < values.min() and edges[-1] > values.max()
+        assert np.allclose(
+            prc_hist_signed_inverse(
+                prc_hist_signed_transform(values, PRC_HIST_LINTHRESH_DEFAULT),
+                PRC_HIST_LINTHRESH_DEFAULT
+            ), values
+        )
+    print("Figure 3 locked functions, endpoint and signed ΔPRC histogram tests: PASS",
+          flush=True)
 
 
 def main():
@@ -397,6 +551,9 @@ def main():
                    help="Common positive absolute R increase shown in 3B")
     p.add_argument("--display-simplify-m", type=float, default=150.,
                    help="Display-only EPSG:3035 polygon simplification in metres")
+    p.add_argument("--prc-hist-linthresh", type=float,
+                   default=PRC_HIST_LINTHRESH_DEFAULT,
+                   help="Signed-log linear region for 3E/3F (dimensionless PRC; display only)")
     p.add_argument("--self-test", action="store_true")
     args = p.parse_args()
     self_test()
@@ -406,6 +563,8 @@ def main():
         p.error("--max-radiance must be positive and finite")
     if not np.isfinite(args.delta_radiance) or args.delta_radiance <= 0:
         p.error("--delta-radiance must be positive and finite")
+    if not np.isfinite(args.prc_hist_linthresh) or args.prc_hist_linthresh <= 0:
+        p.error("--prc-hist-linthresh must be positive and finite")
 
     config = load_config()
     parameters, details = transfer_functions(config)
@@ -451,6 +610,22 @@ def main():
                      out / f"fig3{panel}_{taxon}_absolute_prc_change_2014_2024")
         for taxon, panel in (("spider", "C"), ("moth", "D"))
     ]
+    histograms = []
+    bin_tables = []
+    for taxon, panel in (("spider", "E"), ("moth", "F")):
+        summary, bins = plot_prc_histogram(
+            endpoints, taxon,
+            out / f"fig3{panel}_{taxon}_absolute_prc_change_distribution_2014_2024",
+            args.prc_hist_linthresh
+        )
+        histograms.append(summary)
+        bin_tables.append(bins)
+    pd.DataFrame(histograms).to_csv(
+        out / "fig3EF_absolute_prc_change_summary.csv", index=False
+    )
+    pd.concat(bin_tables, ignore_index=True).to_csv(
+        out / "fig3EF_absolute_prc_histogram_bins.csv", index=False
+    )
     manifest = {
         "years": list(YEARS),
         "all_historical_years_in_locked_inputs": list(ALL_YEARS),
@@ -473,6 +648,10 @@ def main():
         "map_extent_lonlat": list(EXTENT_4326),
         "display_simplification_epsg3035_metres": args.display_simplify_m,
         "map_color_scales": maps,
+        "histogram_3e_3f": histograms,
+        "histogram_3e_3f_weight": "equal weight per fixed NUTS2016 NUTS3 region",
+        "histogram_3e_3f_source": "same 2014 and 2024 locked pixel-derived PRC means as maps 3C/3D",
+        "histogram_3e_3f_no_percentages": True,
         "data_modified": False,
         "vector_formats": ["svg", "pdf"],
     }
