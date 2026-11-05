@@ -84,3 +84,39 @@ The script supports a sensitivity check with another DoP level and polarization 
 - The area CSV contains 22 observations (eleven years × two defined geographies), exact fixed-area totals, below-threshold km², yearly sample counts, annual area-weight sensitivity and counts of below-threshold administrative regions. Check the full-locked series has exactly 1,522 NUTS3 and unchanged 2014 denominator every year.
 - The 2014–2024 percentages and trend **cannot be known until the real locked EcoVis input table is read**; none are guessed or inferred from the locked exponential fit. Examine whether 2021 deviation is present despite the approved snow correction.
 - The observed fraction of Europe with low regional mean PRC is **a model-derived exposure indicator**, not observed harm to species, species occupancy, population decline or navigational failure.
+
+
+## Country-by-country area time series (added 5 November 2026)
+
+**New companion script:** `src/plot_publication_spider_prc_dop023_country_series.py`. It extends the earlier European threshold time series without changing the maps, original European series, locked data or earlier outputs. Run it **after** (or independently of) the full threshold-atlas generator: it uses exactly the same locked 1,522 NUTS2016 region × 11-year spider PRC panel, the same DoP 0.23 / polarization sensitivity 10 scenario (PRC 0.3809031327) and the same annual whole-NUTS3 classification rule.
+
+The default plotted countries reproduce the previous Figure 2/Figure 4 exemplars **TR Türkiye, DE Germany, FR France, IE Ireland, IT Italy, NL Netherlands**, plus **UK United Kingdom** as specifically requested. **UK is included from the complete 1,522-region PRC cohort**, without relying on the previously incomplete UK population-density series. The script obtains country `CNTR_CODE` from the original fixed NUTS2016 geometry, not from reconstructed Jan1 demographic data, and validates every matched region. Exact numbers of regions in each country are taken from the real dataset and recorded in the files, never invented.
+
+For country *c* and year *y*, the numerator is the sum of the **fixed 2014 valid-pixel-covered km²** of all NUTS3 regions in that country whose **annual mean spider PRC is <=0.3809031327**; the denominator is the sum of all such region areas in country *c*, fixed over time. Every NUTS3 is assigned to precisely one country, so the sum of each year's country numerators and denominators **must exactly recover the primary full-Europe series** (a fail-fast check). No country mean PRC is thresholded, no annual rescaling/percentage region weighting substitutes for fixed area, no region is excluded due to demographic data, and no pixel-level classification or direct behavioural inference is claimed.
+
+### EcoVis commands
+
+```bash
+cd /run/media/bznwr/data/lightpollution
+git switch publication-figures
+git pull --ff-only
+source .venv/bin/activate
+python src/plot_publication_spider_prc_dop023_country_series.py --self-test
+python src/plot_publication_spider_prc_dop023_country_series.py
+```
+
+**Outputs, all within the existing folder** `figures/publication/annual_nuts3_spider_prc_dop023_threshold_2014_2024/`:
+
+- `spider_prc_dop023_threshold_country_area_percent_2014_2024.csv` — **every country** represented in the locked NUTS2016 PRC cohort × 11 years, with baseline area in km², below-threshold area, annual percentage, equal-region fraction and year-valid-area sensitivity.
+- `spider_prc_dop023_threshold_country_2014_vs_2024.csv` — every country's endpoints and 2014–2024 change in **percentage points**.
+- `spider_prc_dop023_threshold_selected_country_summary.csv` — the seven highlighted countries' endpoint comparisons.
+- `spider_prc_dop023_threshold_selected_countries_zoomed.svg/.pdf/.png` — seven national panels **plus the Europe reference**, each with an explicitly labelled *independently zoomed* y-axis to show smaller yearly changes. Panels' heights must **not** be compared directly.
+- `spider_prc_dop023_threshold_selected_countries_common_0_100_scale.svg/.pdf/.png` — the same eight panels with a **shared 0–100%** y-scale, preserving cross-country absolute visual comparability.
+- `spider_prc_dop023_threshold_country_{NL,UK,TR,DE,FR,IE,IT}_2014_2024.svg/.pdf/.png` — seven individual annual country time-series figures with labelled zoomed y-axes and exact 2014, 2024, and percentage-point change annotations.
+- `spider_prc_dop023_threshold_country_provenance.json` — locked source, full country cohort, selected codes, country coverage, threshold assumptions and exact additivity QA.
+
+To plot different countries without changing the complete all-country CSV: add e.g. `--countries NL UK TR DE FR IE IT EL ES PT` (the multi-panel display will automatically add rows). Specify `--out` separately if using a different DoP scenario, since the filename stems refer to DoP 0.23.
+
+### Interpretation / QA
+
+Only fractions of **NUTS3 regions' fixed valid-area footprint below the threshold of their *regional mean PRC*** are estimated, **not** exact geographic fractions of native VIIRS pixels below PRC 0.3809. The sharp threshold can create discrete annual jumps when a large region's mean crosses the cut-off; small region count or high area concentration can exaggerate apparent changes. Compare **percentage-point changes** to underlying national denominators, and inspect 2021 individually since the source uses the approved locked snow correction. Zero or 100% years are legitimate possible results. No observed country percentages can be claimed before executing on EcoVis and inspecting the output. Also, DoP=0.23 is from other taxa, not an established spider orientation threshold.
