@@ -93,7 +93,8 @@ def threshold_palette(annual: pd.DataFrame, mapped_ids: set[str],
     }
 
 
-def annotate_regions(annual: pd.DataFrame, threshold: float) -> pd.DataFrame:
+def annotate_regions(annual: pd.DataFrame, threshold: float,
+                     expected_regions: int = EXPECTED_REGIONS) -> pd.DataFrame:
     """Classify each *regional mean* PRC; freeze 2014 valid-area denominator."""
     need = {"NUTS_ID", "year", "prc_mean", "valid_area_km2"}
     if missing := need - set(annual):
@@ -103,13 +104,13 @@ def annotate_regions(annual: pd.DataFrame, threshold: float) -> pd.DataFrame:
         raise ValueError("Duplicated NUTS3/year")
     if sorted(d.year.unique().tolist()) != list(YEARS):
         raise ValueError("Expected 2014–2024 locked years")
-    if d.groupby("year").NUTS_ID.nunique().ne(EXPECTED_REGIONS).any():
+    if d.groupby("year").NUTS_ID.nunique().ne(expected_regions).any():
         raise ValueError("Lost locked NUTS3 cohort in threshold classification")
     baseline = d.loc[d.year.eq(2014),
                      ["NUTS_ID", "valid_area_km2"]].rename(
         columns={"valid_area_km2": "fixed_2014_valid_area_km2"}
     )
-    if len(baseline) != EXPECTED_REGIONS:
+    if len(baseline) != expected_regions:
         raise ValueError("Wrong 2014 reference area cohort")
     d = d.merge(baseline, on="NUTS_ID", validate="many_to_one")
     if not np.isfinite(d.prc_mean.to_numpy(float)).all():
@@ -132,7 +133,8 @@ def annotate_regions(annual: pd.DataFrame, threshold: float) -> pd.DataFrame:
 
 
 def area_time_series(data: pd.DataFrame,
-                     visible_ids: set[str]) -> pd.DataFrame:
+                     visible_ids: set[str],
+                     expected_regions: int = EXPECTED_REGIONS) -> pd.DataFrame:
     """Primary: full 1,522 locked regions, constant 2014 valid-area weights.
 
     Also record the visible continental subset (membership by NUTS3 polygon
@@ -177,8 +179,8 @@ def area_time_series(data: pd.DataFrame,
             })
     result = pd.DataFrame(rows)
     full = result[result.geography.eq("full_locked_nuts2016")]
-    if (full.n_nuts3 != EXPECTED_REGIONS).any():
-        raise ValueError("Full-study area time series not using 1,522 NUTS3")
+    if (full.n_nuts3 != expected_regions).any():
+        raise ValueError("Full-study area time series lost expected NUTS3 cohort")
     if full.fixed_2014_valid_area_all_km2.max() - (
         full.fixed_2014_valid_area_all_km2.min()
     ) > 1e-5:
@@ -310,22 +312,21 @@ def self_test() -> None:
                      [.40, .20, .40] * 10),
         "valid_area_km2": ([2., 3., 5.] + [2., 3., 5.] * 10),
     })
-    # Strict <= threshold: 2014 A+C; later only B.
-    old_count = globals()["EXPECTED_REGIONS"]  # self-tests use toy cohort.
-    # Reuse exact functions with toy scope via explicit synthetic aggregation
-    # instead of patching the scientific 1,522-region validator.
-    ref = pd.Series({"A": 2., "B": 3., "C": 5.})
-    first = toy[toy.year.eq(2014)].set_index("NUTS_ID")
-    second = toy[toy.year.eq(2015)].set_index("NUTS_ID")
-    assert np.isclose(
-        100*ref.loc[first.index[first.prc_mean.le(threshold)]].sum()/ref.sum(),
-        70.
-    )
-    assert np.isclose(
-        100*ref.loc[second.index[second.prc_mean.le(threshold)]].sum()/ref.sum(),
-        30.
-    )
-    assert old_count == 1522
+    # Test the ACTUAL production classifier and area calculations, using
+    # a small synthetic 11-year dataset rather than only copying its formula.
+    classified = annotate_regions(toy, threshold, expected_regions=3)
+    series = area_time_series(classified, {"A", "B"}, expected_regions=3)
+    full = series.loc[series.geography.eq("full_locked_nuts2016")].set_index("year")
+    cont = series.loc[series.geography.eq("continental_display_regions")].set_index("year")
+    assert np.isclose(full.loc[2014, "pct_fixed_2014_area_at_or_below"], 70.)
+    assert np.isclose(full.loc[2015, "pct_fixed_2014_area_at_or_below"], 30.)
+    assert np.isclose(cont.loc[2014, "pct_fixed_2014_area_at_or_below"], 40.)
+    assert np.isclose(cont.loc[2015, "pct_fixed_2014_area_at_or_below"], 60.)
+    assert (full.fixed_2014_valid_area_all_km2 == 10.).all()
+    assert classified.loc[
+        classified.year.eq(2014) & classified.NUTS_ID.eq("C"),
+        "prc_at_or_below_threshold"
+    ].iloc[0]
     small = pd.DataFrame({
         "NUTS_ID": ["A", "B", "C", "A", "B", "C"],
         "prc_mean": [.16, .42, .39, .18, .41, .40],
