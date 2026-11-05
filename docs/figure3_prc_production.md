@@ -1,4 +1,4 @@
-# Figure 3A–D: locked spider/moth PRC graphics, 2014–2024
+# Figure 3A–F: locked spider/moth PRC graphics, 2014–2024
 
 **Branch:** `publication-figures`. **Revision: 5 November 2026 — Figures 3A and 3B linear radiance axes.** **Status:** code committed; new render and Illustrator visual checks on EcoVis pending.
 
@@ -28,7 +28,7 @@ Optional cross-check:
 
 When present, the script checks the finished locked panel's 2014 and 2024 PRC values against the earlier published joined endpoint table. The earlier joined source was made before the 2021-only patch was adopted; **it must nonetheless have identical 2014/2024 endpoint PRCs**. Failure stops the figure rather than mixing sources.
 
-## Four independent figures
+## Six independent figures
 
 ### 3A — locked empirical PRC response functions
 
@@ -56,6 +56,21 @@ Both maps can use **150 m display-only projected polygon simplification**, match
 
 **Why 2021 is not reprocessed here:** These are 2014→2024 endpoint maps. They read the final **already snow-corrected** eleven-year series, but the approved 2021-only patch does not change either endpoint. No reason to run the original global 2021 raster again.
 
+
+### 3E — distribution of signed absolute spider PRC change, 2014→2024
+
+Same **1,522 fixed NUTS2016 NUTS3 region** cohort and *exact* locked native-pixel-derived PRC endpoint differences as Figure 3C: \`spider_prc_2024 - spider_prc_2014\`. **Absolute change** means a difference in PRC *units*, not percentage change and **not** \`abs(ΔPRC)\`: positive differences (cue gains) and negative differences (losses) remain on opposite sides of zero.
+
+An equal-region **count** histogram, following Figure **1D's** figure size and style: 55 signed-log-distributed bins, blue bars, vertical dashed orange equal-NUTS3 mean, solid black median and dotted grey zero. The histogram uses a **symmetric-log x-axis** with a default linear interval of ±0.001 PRC (customisable via \`--prc-hist-linthresh\`; display-only). Bins use the same signed \`log1p\` transformation as Figure 1D; labels remain in true dimensionless ΔPRC units. No data clipping, winsorisation, percentage denominator, selection on radiance, area weighting or resampling. A note reports the full region count. The **mean/median are arithmetic statistics of the untransformed 1,522 signed values**, not positions computed in transformed space.
+
+### 3F — distribution of signed absolute moth PRC change, 2014→2024
+
+Identical distribution design and cohort, but the independently locked moth PRC endpoints used for Figure 3D. The same signed-log threshold facilitates comparison, while the bin edges cover each taxon's **entire observed range** independently. Separate taxon summary statistics and 55 histogram-bin counts are recorded; these are not measurements from two independent satellite datasets.
+
+### Figure 1D comparison and scientific units
+
+Figure 1D is a histogram of **percentage radiance change**, which requires strictly positive 2014 radiance and has a very long positive tail. Figures 3E/3F instead show **signed absolute PRC differences** (dimensionless). All 1,522 locked PRC endpoints are finite, so the PRC histograms include **all 1,522** and need **no zero-baseline exclusions**. The symmetric-log scale is solely a presentation device for potentially skewed signed changes; it must not be mistaken for log-transformed statistics or percentage PRC. Separate bars represent counts in equal transformed-width bins. The histograms and maps are NUTS3 regional estimates from native-pixel PRC transformation; a region's ΔPRC is not obtained by evaluating the biological response at the region's average radiance.
+
 ## Running on EcoVis
 
 ```bash
@@ -66,6 +81,8 @@ source .venv/bin/activate
 
 python src/plot_publication_figure3_prc.py --self-test
 python src/plot_publication_figure3_prc.py
+# Optionally change the histogram display-only signed-log threshold:
+# python src/plot_publication_figure3_prc.py --prc-hist-linthresh 0.002
 ```
 
 Optional display experiments only, keeping source functions/data unchanged:
@@ -74,7 +91,7 @@ Optional display experiments only, keeping source functions/data unchanged:
 python src/plot_publication_figure3_prc.py --delta-radiance 2 --max-radiance 100
 ```
 
-**Linear-axis regression test:** `--self-test` now verifies that both publication plots' shared `radiance_axis` helper has `get_xscale()=="linear"`, with 0/20/40/60/80/100 ticks at the default 100 nW extent, and also checks the ticks under an alternate 50 nW maximum. The plot still samples the unchanged 0–`--max-radiance` radiance interval at **1,601 points**. `fig3_provenance.json` records `curve_3a_3b_x_axis="linear (0 to maximum calibrated radiance), plot only"` and the exact tick positions. `fig3AB_locked_function_values.csv` retains **identical values** for the same fitting parameters and arguments; the axis transformation affects presentation only. Run the usual full generator to overwrite 3A/3B SVG and PDFs. It also redraws 3C/3D from the same locked inputs without changing their map design or science.
+**Linear-axis regression test:** `--self-test` now verifies that both publication plots' shared `radiance_axis` helper has `get_xscale()=="linear"`, with 0/20/40/60/80/100 ticks at the default 100 nW extent, and also checks the ticks under an alternate 50 nW maximum. The plot still samples the unchanged 0–`--max-radiance` radiance interval at **1,601 points**. `fig3_provenance.json` records `curve_3a_3b_x_axis="linear (0 to maximum calibrated radiance), plot only"` and the exact tick positions. `fig3AB_locked_function_values.csv` retains **identical values** for the same fitting parameters and arguments; the axis transformation affects presentation only. Run the usual full generator to overwrite 3A/3B SVG and PDFs. It also redraws 3C/3D from the same locked inputs without changing their map design or science, then adds the new signed-ΔPRC 3E/3F histograms.
 
 ## File outputs — SVG plus vector PDF
 
@@ -89,6 +106,12 @@ fig3C_spider_absolute_prc_change_2014_2024.svg
 fig3C_spider_absolute_prc_change_2014_2024.pdf
 fig3D_moth_absolute_prc_change_2014_2024.svg
 fig3D_moth_absolute_prc_change_2014_2024.pdf
+fig3E_spider_absolute_prc_change_distribution_2014_2024.svg
+fig3E_spider_absolute_prc_change_distribution_2014_2024.pdf
+fig3F_moth_absolute_prc_change_distribution_2014_2024.svg
+fig3F_moth_absolute_prc_change_distribution_2014_2024.pdf
+fig3EF_absolute_prc_change_summary.csv
+fig3EF_absolute_prc_histogram_bins.csv
 fig3AB_locked_function_values.csv
 fig3CD_locked_prc_endpoint_values.csv
 fig3_provenance.json
@@ -96,7 +119,7 @@ fig3_provenance.json
 
 ## QA after EcoVis run
 
-Verify that **3A and 3B have uniformly spaced linear x ticks**, that both curves are legible (near-zero radiance features appear more compressed than in the former symlog version), and that the locked curve outputs and units remain unchanged. Verify all eight vector files export, legible colour bars, map file size targets and editable text in Illustrator. Check the JSON for the complete 1,522-region cohort, locked source identifiers, the fixed ΔR parameter, and the source-vs-joined-endpoints comparison. **The maps are regionally averaged predictions from pixel-transformed PRC, not PRC of regional mean radiance.**
+Verify that **3A and 3B have uniformly spaced linear x ticks**, that both curves are legible (near-zero radiance features appear more compressed than in the former symlog version), and that the locked curve outputs and units remain unchanged. Verify all twelve vector files export, legible colour bars, map file size targets and editable text in Illustrator. Check the JSON for the complete 1,522-region cohort, locked source identifiers, the fixed ΔR parameter, and the source-vs-joined-endpoints comparison. For **3E/3F**, verify both histograms have **1,522 counted regions**, that positive/negative PRC changes are represented on their correct sides of zero, that the equal-region mean/median markers agree with `fig3EF_absolute_prc_change_summary.csv`, and that the sum of each taxon's 55 `fig3EF_absolute_prc_histogram_bins.csv` counts is **1,522**. The `--self-test` now checks exact signed differences, preserved tail values, mean/median and bin counts on a toy two-taxon dataset. Figure 3C/3D map colours are unrelated to histogram bar colours; histograms are not area weighted. **The maps are regionally averaged predictions from pixel-transformed PRC, not PRC of regional mean radiance.**
 
 No fit parameters, scientific datasets, maps from Figures 1/2, or original analysis scripts are altered. If the final locked annual PRC CSV is missing, inspect the already completed `publish_prc_locked_snow.py` workflow before attempting any rerun; do not replace it with an unapproved earlier PRC table.
 
