@@ -517,7 +517,7 @@ def self_test():
         assert summary["n_nuts3"] == 5
         assert summary["n_counted"] == 5
         assert len(bins) == PRC_HIST_N_BINS
-        assert summary["n_positive_prc_change"] == 2 if taxon == "spider" else 3
+        assert summary["n_positive_prc_change"] == (2 if taxon == "spider" else 3)
         assert np.isclose(
             summary["mean_prc_change_equal_nuts3_weight"], values.mean()
         )
