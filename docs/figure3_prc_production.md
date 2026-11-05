@@ -1,6 +1,6 @@
 # Figure 3A–D: locked spider/moth PRC graphics, 2014–2024
 
-**Branch:** `publication-figures`. **Status:** code committed; actual EcoVis execution and Illustrator visual checks pending.
+**Branch:** `publication-figures`. **Revision: 5 November 2026 — Figures 3A and 3B linear radiance axes.** **Status:** code committed; new render and Illustrator visual checks on EcoVis pending.
 
 ## Inputs: existing final calibrated sources
 
@@ -32,7 +32,7 @@ When present, the script checks the finished locked panel's 2014 and 2024 PRC va
 
 ### 3A — locked empirical PRC response functions
 
-Plot `PRC_spider(R)` and `PRC_moth(R)` in one plot, distinguished by fixed colours from `src/figure_style.py`. Default range: 0–100 nW cm⁻² sr⁻¹ **calibrated radiance**. The horizontal axis uses a symlog **display scale with linear region 0–1** so both low-radiance sensitivity and higher-radiance asymptotes are visible. This is not fitting a new model.
+Plot `PRC_spider(R)` and `PRC_moth(R)` in one plot, distinguished by fixed colours from `src/figure_style.py`. Default range: 0–100 nW cm⁻² sr⁻¹ **calibrated radiance**. The horizontal axis is now **fully linear**, with displayed ticks at **0, 20, 40, 60, 80 and 100 nW cm⁻² sr⁻¹** for the default range. This replaces the previous symlog x-axis (whose 0–1 interval was linear); it does **not** change, refit or approximate either locked empirical response function.
 
 ### 3B — identical absolute radiance change, different starting levels
 
@@ -42,7 +42,7 @@ For every starting calibrated `R>=0`, compute from the same locked curves:
 ΔPRC_taxon = f_taxon(R+ΔR) − f_taxon(R)
 ```
 
-Default illustrative **ΔR=+1 nW cm⁻² sr⁻¹**; alternative positive step via `--delta-radiance`. The two curves show **signed** ΔPRC (negative for increasing radiance), not percentages or losses inferred from particular NUTS3 averages. No region-specific radiance change has been imposed. The resulting numerical function values are exported to a CSV.
+Default illustrative **ΔR=+1 nW cm⁻² sr⁻¹**; alternative positive step via `--delta-radiance`. Figure 3B now uses **the identical fully linear calibrated-radiance x-axis as Figure 3A** (0–100 and 20-nW tick spacing by default), replacing its former symlog display. The two curves show **signed** ΔPRC (negative for increasing radiance), not percentages or losses inferred from particular NUTS3 averages. No region-specific radiance change has been imposed. The resulting numerical function values are exported to a CSV, and **the change of axis does not modify the calculation**.
 
 ### 3C — spider PRC change map, 2014→2024
 
@@ -74,6 +74,8 @@ Optional display experiments only, keeping source functions/data unchanged:
 python src/plot_publication_figure3_prc.py --delta-radiance 2 --max-radiance 100
 ```
 
+**Linear-axis regression test:** `--self-test` now verifies that both publication plots' shared `radiance_axis` helper has `get_xscale()=="linear"`, with 0/20/40/60/80/100 ticks at the default 100 nW extent, and also checks the ticks under an alternate 50 nW maximum. The plot still samples the unchanged 0–`--max-radiance` radiance interval at **1,601 points**. `fig3_provenance.json` records `curve_3a_3b_x_axis="linear (0 to maximum calibrated radiance), plot only"` and the exact tick positions. `fig3AB_locked_function_values.csv` retains **identical values** for the same fitting parameters and arguments; the axis transformation affects presentation only. Run the usual full generator to overwrite 3A/3B SVG and PDFs. It also redraws 3C/3D from the same locked inputs without changing their map design or science.
+
 ## File outputs — SVG plus vector PDF
 
 Directory `figures/publication/figure3_prc/` (ignored from Git):
@@ -94,6 +96,6 @@ fig3_provenance.json
 
 ## QA after EcoVis run
 
-Verify all eight vector files export, legible colour bars, map file size targets and editable text in Illustrator. Check the JSON for the complete 1,522-region cohort, locked source identifiers, the fixed ΔR parameter, and the source-vs-joined-endpoints comparison. **The maps are regionally averaged predictions from pixel-transformed PRC, not PRC of regional mean radiance.**
+Verify that **3A and 3B have uniformly spaced linear x ticks**, that both curves are legible (near-zero radiance features appear more compressed than in the former symlog version), and that the locked curve outputs and units remain unchanged. Verify all eight vector files export, legible colour bars, map file size targets and editable text in Illustrator. Check the JSON for the complete 1,522-region cohort, locked source identifiers, the fixed ΔR parameter, and the source-vs-joined-endpoints comparison. **The maps are regionally averaged predictions from pixel-transformed PRC, not PRC of regional mean radiance.**
 
 No fit parameters, scientific datasets, maps from Figures 1/2, or original analysis scripts are altered. If the final locked annual PRC CSV is missing, inspect the already completed `publish_prc_locked_snow.py` workflow before attempting any rerun; do not replace it with an unapproved earlier PRC table.
