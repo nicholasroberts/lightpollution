@@ -19,6 +19,8 @@ changes of direction.
 - [2026-10-19 — Site-level VIIRS comparison and historical polarization-visibility methods](2026-10-19.md)
 - [2026-10-20 — Confirmed spider PRC sites, dates and revised Worcester College Lawn coordinates](2026-10-20.md)
 
+- [2026-11-06 — Behavioural degree-of-polarization thresholds in insects, spiders and other arthropods (literature review)](2026-11-06_arthropod_polarization_behavioural_thresholds_literature_review.md)
+
 The current restart point is also mirrored in [`docs/CURRENT_STATE.md`](../CURRENT_STATE.md) so a new session does not have to reconstruct the last terminal state from chat history.
 
 ## Convention
