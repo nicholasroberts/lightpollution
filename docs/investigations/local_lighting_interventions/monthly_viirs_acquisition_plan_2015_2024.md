@@ -147,3 +147,16 @@ User-supplied output of `src/inventory_monthly_viirs_acquisitions.py` now report
 3. Re-run `python src/inventory_monthly_viirs_acquisitions.py` and ensure every target year shows 12/12 `ready`. Verify all months with the actual raster opening/extraction, not file names alone.
 
 No new method has yet been fitted and no locked European annual or PRC products changed.
+
+## Correction after East/West tile inspection — 9 November 2026
+
+After the investigator re-downloaded the July and August 2024 archives, `find` confirmed **both valid European `75N060W` VCMSLCFG files** are now present in `~/Downloads`:
+
+- `SVDNB_npp_20240701-20240731_75N060W_vcmslcfg_v10_c202408091300.tgz`
+- `SVDNB_npp_20240801-20240831_75N060W_vcmslcfg_v10_c202409101100.tgz`
+
+The earlier `75N060E` downloads for the same months are a **different longitude tile** and should **not** be ingested for these European cases. The June 2017 file `SVDNB_npp_20170601-20170630_75N060W_vcmslcfg_v10_c201707021700.tgz` is **not July 2017** despite the `201707` creation timestamp.
+
+**Latest actual file-position status:** **71/84** 2015–19 plus 2023–24 VCMSLCFG monthly archives downloaded/located; the **only 13 not yet located are July 2017 and all twelve months of 2018**. These counts refer to compressed archives, not ready `avg_rade9h`/`cf_cvg` TIFF pairs. All 2020–22 pairs remain ready. Previous 69/84 and 15 missing figures are superseded.
+
+Once other downloads are finished, run `python src/import_eog_manual_monthly_archives.py --dry-run`, followed by the real importer and `python src/inventory_monthly_viirs_acquisitions.py` to check contents. Do not redownload the two correct 2024 files. Keep the annual European radiance and PRC calculations unchanged.
