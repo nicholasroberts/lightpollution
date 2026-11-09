@@ -544,7 +544,7 @@ def plot_monthly_series(key, case, panel):
         cov.plot(group.calendar_month, group.median_cf_cvg, "-o",
                  markersize=3, label=str(year))
     ax.set_ylabel(f"Mean radiance ({UNIT})")
-    ax.set_title("Same-calendar-month comparisons; 2021 snow caution")
+    ax.set_title("Same-calendar-month VIIRS; assess snow and observation coverage")
     cov.set_ylabel("Median cf_cvg")
     cov.set_xlabel("Calendar month")
     cov.set_xticks(range(1, 13))
