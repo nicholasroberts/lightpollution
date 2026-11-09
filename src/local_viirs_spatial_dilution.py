@@ -111,8 +111,6 @@ def baseline_strata(grids, reference_years, months, inside):
         raise ValueError("Fewer than 12 baseline cells; insufficient for strata")
     order = flat[np.argsort(avg.flat[flat], kind="stable")]
     ranks = np.full(avg.size, -1, dtype=np.int8)
-    for i, segment in enumerate(np.array_split(np.arange(len(order)), len(order))):
-        pass  # reserve no indices; explicit ranked thresholds below
     n = len(order)
     for i, index in enumerate(order):
         q = (i + .5) / n
@@ -120,7 +118,7 @@ def baseline_strata(grids, reference_years, months, inside):
     return avg, ranks.reshape(avg.shape)
 
 
-def geographic_quadrants(grids, months, bounds):
+def geographic_quadrants(grids, bounds):
     """Fixed NW/NE/SW/SE city bounding-box partition in EPSG:4326.
 
     No VIIRS outcome can change this assignment. Source monthly EOG gridding
@@ -288,7 +286,8 @@ def plot_diagnostics(key, name, geom, strata, sectors, baseline, pre, post,
 
 def plot_strata(key, design, rows):
     df = pd.DataFrame(rows)
-    df = df[(df.stratification == "baseline_rank") &
+    df = df[(df.contrast == design) &
+            (df.stratification == "baseline_rank") &
             (df.group != "all_pixels") &
             (df.minimum_cf_per_month == 1)]
     if df.empty:
@@ -348,7 +347,7 @@ def run_case(key, index):
     anchor, strata = baseline_strata(
         grids, case.reference_years, sorted(primary_months),
         refgrid["inside"])
-    sectors = geographic_quadrants(grids, primary_months, geom.bounds)
+    sectors = geographic_quadrants(grids, geom.bounds)
     rows = []
     for tag, year, refs, months in specs:
         design = f"{tag}_{year}"
@@ -357,7 +356,7 @@ def run_case(key, index):
             b, a, d, n = period_maps(
                 grids, year, refs, months, min_cf=threshold)
             pre = None
-            if PRE_MONTHS[key]:
+            if tag == "primary" and PRE_MONTHS[key]:
                 pb, pa, pd, pn = period_maps(
                     grids, year, refs, PRE_MONTHS[key], min_cf=threshold)
                 pre = {"delta": pd, "nmonth": pn}
