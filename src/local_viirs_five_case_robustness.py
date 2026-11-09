@@ -54,7 +54,7 @@ SPECS = {
                      ((2023, (2021, 2022)), (2022, (2020, 2021))),
                      "Jan-Apr 2024 predates May-Jul switch-off; Nov/Dec may have low cf_cvg."),
     "bristol": Spec(2023, (2020, 2021, 2022), tuple(range(4, 13)),
-                    (1, 2), (3,),
+                    (1, 2), tuple(range(3, 13)),
                     ((2022, (2019, 2020, 2021)),),
                     "Only Jan-Feb 2023 fully precede staged rollout; post is partly treated."),
     "thanet": Spec(2017, (2015, 2016), (6, 7, 8, 9, 10, 11),
@@ -247,7 +247,7 @@ def plot_case(key, panel, spec):
         if spec.transition:
             ax.axvspan(min(spec.transition)-.45,
                        max(spec.transition)+.45, color="gray",
-                       alpha=.18, label="Transition")
+                       alpha=.18, label="Transition / ongoing rollout")
         ax.grid(alpha=.2)
     axes[-1].set(xlim=(.6, 12.4), xticks=months, xlabel="Calendar month")
     fig.suptitle(
