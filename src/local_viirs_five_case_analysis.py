@@ -399,6 +399,56 @@ def paired_pixel_maps(grids, year, refs, months):
     return period_mean(before), period_mean(after), period_mean(diffs), diffs, coverage
 
 
+def period_cf_mean(grids, years, months):
+    """Mean of valid per-pixel cloud-free observation counts per month.
+
+    Includes legitimate cf_cvg=0 values; unlike radiance, zero is NOT missing.
+    Years and months are equally weighted, not pooled as a total.
+    """
+    arrays = np.stack([
+        grids[f"{y}-{m:02d}"]["cf"]
+        for y in years for m in months
+    ])
+    denom = np.isfinite(arrays).sum(axis=0)
+    out = np.full(arrays.shape[1:], np.nan, dtype=np.float32)
+    np.divide(np.nansum(arrays, axis=0), denom, out=out,
+              where=denom > 0)
+    return out
+
+
+def plot_cf_coverage(key, grids, year, refs, months, stem):
+    """Map actual cloud-free input observation counts in comparable periods."""
+    base = grids[f"{year}-{months[0]:02d}"]
+    previous = period_cf_mean(grids, refs, months)
+    outcome = period_cf_mean(grids, (year,), months)
+    common = np.isfinite(previous) & np.isfinite(outcome)
+    previous[~common] = np.nan
+    outcome[~common] = np.nan
+    change = outcome - previous
+    valid = np.r_[previous[np.isfinite(previous)],
+                  outcome[np.isfinite(outcome)]]
+    if not len(valid):
+        raise ValueError(f"No cloud-free coverage pixels for {key}, {year}")
+    vmax = max(float(np.max(valid)), 1e-3)
+    magnitude = np.abs(change[np.isfinite(change)])
+    scale = max(float(np.quantile(magnitude, .98)), 1e-3)
+    fig, axes = plt.subplots(1, 3, figsize=(15, 5), constrained_layout=True)
+    draw_map(axes[0], previous, base, "Reference: mean cf_cvg/month",
+             vmin=0, vmax=vmax, cmap="cividis")
+    im = draw_map(axes[1], outcome, base,
+                  f"{year}: mean cf_cvg/month",
+                  vmin=0, vmax=vmax, cmap="cividis")
+    idiff = draw_map(axes[2], change, base, "Outcome − reference",
+                     norm=TwoSlopeNorm(vmin=-scale, vcenter=0, vmax=scale),
+                     cmap="coolwarm")
+    fig.colorbar(im, ax=axes[:2], shrink=.7,
+                 label="Mean cloud-free observations per pixel per month")
+    fig.colorbar(idiff, ax=axes[2], shrink=.7,
+                 label="Δ mean cloud-free observations per month")
+    fig.suptitle(f"{key.title()}: spatial observation-frequency check")
+    _save_fig(fig, stem + "_cloudfree_observation_maps")
+
+
 def plot_spatial(key, case, grids, year, refs, months, description):
     before, after, diff, monthdiff, coverage = paired_pixel_maps(
         grids, year, refs, months)
@@ -452,6 +502,7 @@ def plot_spatial(key, case, grids, year, refs, months, description):
     _save_tif(OUT / f"{stem}_delta.tif", diff, base)
     _save_tif(OUT / f"{stem}_matched_month_count.tif",
               np.where(base["inside"], coverage, np.nan), base)
+    plot_cf_coverage(key, grids, year, refs, months, stem)
     return int(np.isfinite(diff).sum()), float(np.nanmedian(diff))
 
 
