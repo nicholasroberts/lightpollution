@@ -107,3 +107,20 @@ The five-case monthly Stage B scripts and their standalone outputs do not change
 [**Reviewed plots and interpretation**](./first_robustness_event_anomaly_plots_2026-11-09.md) record the five actual EcoVis event-anomaly PNGs. Key update: **Portsmouth was already strongly negative versus 2018–19 in Jan–May 2020**, so its Sep–Dec −15.1% season-matched contrast must **not** be attributed to the summer adaptive-dimming programme. **Coventry** shows a cleaner sustained downward departure after May–July 2024 implementation; **Échirolles** develops the largest negative anomalies in Nov–Dec 2022. **Thanet** +9.4% is dominated by October–November and a compact hotspot; **Bristol** 2023 is mixed while rollout continued throughout the year.
 
 Updated [robustness script](../../../src/local_viirs_five_case_robustness.py) shades **March–December 2023** as Bristol's ongoing LED/CMS change (not only March), and adds a labelled **Bristol 2024 secondary sensitivity** including explicit omission of low-observation **November 2024**. The newly requested exact three numerical robustness CSVs remain for review; no causal effect has been inferred.
+
+## Spatial dilution test first — new fixed-baseline analysis (9 November 2026)
+
+**[Full spatial dilution design, actual three robustness CSV findings, output definitions and EcoVis commands](./spatial_dilution_analysis_plan_2026-11-09.md)**. Separate [`src/local_viirs_spatial_dilution.py`](../../../src/local_viirs_spatial_dilution.py) extracts the relevant monthly native VIIRS cells and groups them by **reference-year brightness ranks (bottom 50%, 50–80%, 80–95%, top 5%)** and **fixed NW/NE/SW/SE geographic sectors**. The pixel groups are defined **without inspecting outcome-year changes**; they are descriptive, **not independently verified lamp-treatment polygons**. For all five cities, the script produces strict same-pixel, same-calendar-month pre-event/post-event anomalies where defensible, additive net versus gross subarea contributions, `cf_cvg >=1/3/5` thresholds, CSVs and maps. Secondary follow-ups are explicitly marked as already exposed/staged, not assumed to have untreated pre periods.
+
+**Uploaded robustness CSVs indicate:** Échirolles pre→post anomaly **−14.52** nW cm⁻² sr⁻¹; Coventry **−3.91**; Portsmouth **+1.86** (the pre period was already more negative); Bristol 2023 **+0.37**. **Thanet +9.4%** in 2017 turns **negative (~−1.8%) if October or November is omitted**. Bristol 2024 −18.2% becomes **−11.17%** excluding low-`cf_cvg` November. All are descriptive differences, not fitted causal estimates. Full numerical tables are in the linked design.
+
+```bash
+cd /run/media/bznwr/data/lightpollution
+git switch publication-figures
+git pull --ff-only origin publication-figures
+python src/local_viirs_spatial_dilution.py --self-test
+python src/local_viirs_spatial_dilution.py --cases portsmouth bristol
+python src/local_viirs_spatial_dilution.py
+```
+
+**State:** code and methodology committed, **actual EcoVis spatial-dilution outputs not yet run/reviewed**. Locked annual European VIIRS and PRC results remain unchanged.
