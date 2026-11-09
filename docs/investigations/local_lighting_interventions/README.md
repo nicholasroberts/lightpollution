@@ -61,3 +61,7 @@ git show origin/publication-figures:src/local_viirs_monthly_pilot.py > src/local
 python src/local_viirs_monthly_pilot.py
 ```
 The `git show` path avoids switching branches or pulling unrelated work. Output is saved to `data/processed/local_lighting_interventions/monthly_pilot/` and `figures/local_lighting_interventions/monthly_pilot/`. Upload both city plots and CSVs to assess the first actual signal. This stage is descriptive, neither a controlled event-study nor a replacement for the locked annual NUTS/PRC results. Month-by-month cloud-free coverage and the 2021 snow anomaly require inspection before substantive interpretation.
+
+## First user-run VIIRS outputs and preliminary findings
+
+[Read the 9 Nov 2026 pilot findings](./first_monthly_pilot_findings_2026-11-09.md). Échirolles shows a marked Sep–Dec 2022 change relative to corresponding 2021 months, with full pixel coverage and comparable `cf_cvg`; Portsmouth does not yet show a clean city-scale shift. The pilot script was amended after those first plots to **include Échirolles 2020**, permitting two reference years without downloading anything new. Earlier "2023 Jan" file inventory was probably a **filename creation timestamp** error. These are preliminary descriptive findings, not intervention attribution. No locked annual results were altered.
