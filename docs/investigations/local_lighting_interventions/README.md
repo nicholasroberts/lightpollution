@@ -1,6 +1,6 @@
 # Local lighting interventions — five-case evidence hub
 
-**Prepared:** 9 November 2026 · **Branch:** `publication-figures` · **Status:** Stage A documentary footprint investigation; NO local VIIRS/ISS effect estimates yet.
+**Prepared:** 9 November 2026 · **Branch:** `publication-figures` · **Status:** Stage A documentary evidence plus Stage B **measured 2015–2024 monthly VIIRS pilot results** for all five cases; causal attribution, ISS event-specific validation and snow/atmospheric controls outstanding.
 
 This folder consolidates our original five-case register, independently authored research briefs and source-report catalogue. The study tests whether changes in DNB radiance can arise from independently documented operational switching/dimming, spectral LED conversion and/or longer lighting hours. It is supplementary validation of the locked European study; it does **not** refit PRC curves or select treatments by satellite outcome.
 
@@ -85,3 +85,19 @@ New utilities: [inventory/EOG manifest audit](../../../src/inventory_monthly_vii
 New [`src/local_viirs_five_case_analysis.py`](../../../src/local_viirs_five_case_analysis.py) uses all **120 VCMSLCFG 75N060W observation months**, official **municipality/district polygons** (Échirolles INSEE; UK ONS LAD), the independently dated intervention windows, same-calendar-month reference years, source `cf_cvg` sensitivity (`>=1, >=3, >=5` observations), event-aligned monthly/decade plots and common-valid-pixel VIIRS spatial maps/difference GeoTIFFs. It also reports 2023/24 persistence or staggered-rollout descriptive contrasts where interpretable. The **Thanet** mask is now its own LAD E07000114, not the much larger UKJ44 East Kent NUTS3 region.
 
 **[Read full predeclared protocol, data caveats, and exact EcoVis commands](./full_five_case_monthly_analysis_protocol_2026-11-09.md).** All data/figures are generated locally under new `five_case_monthly` output directories and do **not** modify the locked 2014–24 European NUTS3 radiance or spider/moth PRC work. Code committed, but real EcoVis output has **not yet been observed/reviewed**.
+
+## First full five-case monthly results reviewed — 9 November 2026
+
+[**Read initial observed results, full city table, spatial interpretations and prioritised diagnostic plan**](./five_case_initial_results_2026-11-09.md). These results were provided as actual EcoVis `five_case_contrast_summary.csv` and ten PNG plots. Primary season-matched municipal means: **Échirolles −37.08% (late 2022), Coventry −32.23% (late 2024), Portsmouth −15.11% (late 2020), Bristol +0.02% (Apr–Dec 2023), Thanet +9.40% (Jun–Nov 2017)**. Important independent caveats: Portsmouth's decline predates its 2020 summer dimming; Bristol 2024 November has very low `cf_cvg`; Thanet's brightening map is dominated by a compact unidentified hotspot. These are descriptive satellite contrasts and **not causal estimates or lumen changes**.
+
+[**Standalone sensitivity/earlier-year placebo script**](../../../src/local_viirs_five_case_robustness.py) reads the 120-month city CSVs and generates outcome-year monthly anomalies, explicit pre-versus-post anomaly differentials, prior-year placebo comparisons, cloudfree `>=3/5` thresholds, low-cf month filtering and leave-one-month-out diagnostics. Source code is committed; its output has not yet been observed.
+
+```bash
+cd /run/media/bznwr/data/lightpollution
+git switch publication-figures
+git pull --ff-only origin publication-figures
+python src/local_viirs_five_case_robustness.py --self-test
+python src/local_viirs_five_case_robustness.py
+```
+
+The five-case monthly Stage B scripts and their standalone outputs do not change the locked European figures/models.
