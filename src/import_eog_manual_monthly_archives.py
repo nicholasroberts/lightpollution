@@ -59,7 +59,7 @@ def extract(archive, outdir, tile, product, dry_run):
             if not member.isfile():
                 continue
             name = Path(member.name).name
-            if f"_{tile}_{product}_v10_" not in name.lower():
+            if f"_{tile.lower()}_{product}_v10_" not in name.lower():
                 continue
             for layer in LAYERS:
                 if name.lower().endswith(f".{layer}.tif"):
