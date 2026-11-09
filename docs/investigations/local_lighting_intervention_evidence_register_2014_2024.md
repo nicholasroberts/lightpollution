@@ -1,6 +1,6 @@
 # Local lighting-intervention evidence register — 2014–2024 VIIRS / ISS
 
-**Status:** Evidence register and *proposed* extraction design, 9 November 2026. No local VIIRS pixels have yet been extracted or analysed in this stage. No local ISS mask or dated photographs have yet been validated. **The five registered cases are Échirolles, Coventry, Portsmouth, Thanet and Bristol.** The original first-four priority order is preserved; Bristol is added as a fifth, complementary mixed LED/dimming case.
+**Consolidated Stage A reports, five detailed case dossiers, source catalogue and data requests:** [Local lighting interventions hub](./local_lighting_interventions/README.md). The material is mirrored there to keep original links intact.\n\n**Status:** Evidence register and *proposed* extraction design, 9 November 2026. No local VIIRS pixels have yet been extracted or analysed in this stage. No local ISS mask or dated photographs have yet been validated. **The five registered cases are Échirolles, Coventry, Portsmouth, Thanet and Bristol.** The original first-four priority order is preserved; Bristol is added as a fifth, complementary mixed LED/dimming case.
 
 ## Scientific purpose and constraints
 
