@@ -35,13 +35,13 @@ The existing `src/local_viirs_five_case_robustness.py` writes three machine-read
 
 1. `pre_post_anomaly_differentials.csv` — exact pre-event anomaly, post-event anomaly and post-minus-pre contrast for Échirolles, Coventry, Portsmouth and Bristol; Thanet deliberately reports unavailable pre-event.
 2. `earlier_year_placebo_comparisons.csv` — earlier-year same-month shifts, to assess pre-existing city trends and whether similarly sized changes occurred *without* the chosen event.
-3. `reference_and_cloudfree_sensitivity.csv` — single-reference-year, cf_cvg>=3/5 spatial-support variations, median cloud-free month filters, and leave-one-month-out results. Specifically test excluding Bristol **Nov 2024** in secondary analyses; note this new script's primary Bristol 2023 scenario does not on its own evaluate 2024.
+3. `reference_and_cloudfree_sensitivity.csv` — single-reference-year, cf_cvg>=3/5 spatial-support variations, median cloud-free month filters, and leave-one-month-out results. The robustness script now **explicitly evaluates Bristol April–December 2024** as a separately labelled **secondary_2024** scenario, including the cloud-free thresholds and a complete **leave-one-month-out check**, with **November 2024 omitted** in one row. The primary Bristol scenario remains 2023.
 
 Additional later analyses: fixed external atmospheric-context area comparisons, winter 2022/23 Échirolles surface/snow checks, geographic/lighting footprints for Coventry and the Thanet brightening hotspot, and targeted Portsmouth subcity treatment geography if full municipality remains inconclusive.
 
 ## Code and EcoVis commands
 
-The updated [robustness script](../../../src/local_viirs_five_case_robustness.py) has also been corrected to **shade the full March–December 2023 ongoing Bristol rollout** rather than just its starting month; the underlying numerical contrasts are unchanged.
+The updated [robustness script](../../../src/local_viirs_five_case_robustness.py) has been corrected to **shade the full March–December 2023 ongoing Bristol rollout** rather than just its starting month and to **analyse Bristol 2024 as an explicitly labelled secondary follow-up with leave-November-out sensitivity**. The original primary five-case contrasts are unchanged.
 
 ```bash
 cd /run/media/bznwr/data/lightpollution
