@@ -101,3 +101,9 @@ python src/local_viirs_five_case_robustness.py
 ```
 
 The five-case monthly Stage B scripts and their standalone outputs do not change the locked European figures/models.
+
+## Observed five-city event anomalies and timing diagnostic (9 November 2026)
+
+[**Reviewed plots and interpretation**](./first_robustness_event_anomaly_plots_2026-11-09.md) record the five actual EcoVis event-anomaly PNGs. Key update: **Portsmouth was already strongly negative versus 2018–19 in Jan–May 2020**, so its Sep–Dec −15.1% season-matched contrast must **not** be attributed to the summer adaptive-dimming programme. **Coventry** shows a cleaner sustained downward departure after May–July 2024 implementation; **Échirolles** develops the largest negative anomalies in Nov–Dec 2022. **Thanet** +9.4% is dominated by October–November and a compact hotspot; **Bristol** 2023 is mixed while rollout continued throughout the year.
+
+Updated [robustness script](../../../src/local_viirs_five_case_robustness.py) shades **March–December 2023** as Bristol's ongoing LED/CMS change (not only March), and adds a labelled **Bristol 2024 secondary sensitivity** including explicit omission of low-observation **November 2024**. The newly requested exact three numerical robustness CSVs remain for review; no causal effect has been inferred.
