@@ -67,6 +67,7 @@ Under `figures/local_lighting_interventions/five_case_monthly/`, both PNG and PD
 - `<city>_<year>_versus_<references>_period_maps`: matched baseline, outcome, difference with shared absolute colour scale and zero-centred difference
 - `<city>_<year>_versus_<references>_monthly_maps`: per-calendar-month paired differences
 - `<city>_<year>_versus_<references>_matched_coverage_map`: supported matched-pixel months
+- `<city>_<year>_versus_<references>_cloudfree_observation_maps`: maps of *mean accepted cloud-free observation counts per pixel per month*, the outcome-minus-reference difference and their shared absolute scale; separate from the binary matched-month validity count
 
 ## Exact EcoVis command sequence
 
