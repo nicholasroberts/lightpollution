@@ -34,6 +34,8 @@
 |---|---|---|---|
 | Portsmouth Council — lighting replacement decision history | council programme entry | 2017 | [Publisher](https://portsmouth.moderngov.co.uk/mgIssueHistoryHome.aspx?IId=11501) |
 | Portsmouth Council — stray/unwanted streetlight guidance | original PDF confirms two-stage timeline | Jun 2022 | [Publisher](https://www.portsmouth.gov.uk/wp-content/uploads/2022/06/Guidance-for-dealing-with-stray-and-unwanted-light-from-Street-lights-0622.pdf) |
+| Portsmouth Council — LED installation-zone status map | historical PDF; zones 3–10 reported complete, zone 2 underway, main roads targeted 2019; this is **not** an installation date per column | archived municipal map (undated status snapshot) | [Publisher](https://www.portsmouth.gov.uk/wp-content/uploads/2020/05/trv-led-streetlight-map-zone-2.pdf) |
+| Portsmouth Council — cabinet record approving adaptive rollout | original 4 February 2020 council decision | 4 Feb 2020 | [Publisher](https://portsmouth.moderngov.co.uk/documents/s26318/Record%20of%20decisions%20Cabinet%204%20Feb%202020.pdf) |
 | Portsmouth News — 2019 trial of dimming | contemporaneous secondary report | 28 Feb 2019 | [Publisher](https://www.portsmouth.co.uk/news/politics/street-lights-in-portsmouth-set-to-be-dimmed-in-bid-to-save-cash-1310884) |
 | Portsmouth News — five trial neighbourhoods, unchanged control and citywide rollout | contemporaneous reporting | 5 Feb 2020 | [Publisher](https://www.portsmouth.co.uk/news/politics/this-is-why-street-lights-across-portsmouth-will-be-dimmed-at-night-1384884) |
 
@@ -86,3 +88,7 @@
 - These sources support Stage A design, not the existence/magnitude/significance of any local DNB response.
 
 [Back to overview](./README.md)
+
+## Contact verification / outstanding records
+
+The [historical data request dossier](./verified_contacts_and_historical_record_requests_2026-11-09.md) includes verified authority addresses, newly identified Portsmouth zone-map and council decision sources, the 2022-vs-2023 discrepancy in Échirolles' energy slide, and tailored requests for all five localities.
