@@ -41,3 +41,7 @@ This folder contains **our complete analytical research documents** in GitHub. T
 - Check actual nocturnal VIIRS overpass vs local switch-off clock time, BST/CET changes, snow/season, moon/cloud and effective observed-pixel coverage. Require pre-trends and compare within treated NUTS3 container, but examine spillover and treatment contamination. Existing 2020–22 monthly VIIRS collection is insufficient for several cases.
 - ISS colour mosaics are irregular 2012–13 vs 2014–20 composites. No clean 2023–24 spectral inference from these composites; assess common-valid pixel counts and image dates before B/G and G/R comparisons.
 - Energy use is not emitted luminous flux; B/G or G/R is not a unique spectral correction to DNB; no results are claimed before extracting local satellite pixels.
+
+## Verified contacts and exact historical-record requests
+
+See [verified contacts and five ready-to-send, location-specific request drafts](./verified_contacts_and_historical_record_requests_2026-11-09.md). All five city/county contacts were checked against official publications on 9 November 2026; **none of the messages has been sent**.
