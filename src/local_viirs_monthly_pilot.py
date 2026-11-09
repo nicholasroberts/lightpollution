@@ -35,7 +35,7 @@ FIG = ROOT / "figures/local_lighting_interventions/monthly_pilot"
 PRODUCTS = ("vcmslcfg", "vcmcfg")
 YM = re.compile(r"(?<!\d)(20\d{2})(0[1-9]|1[0-2])[0-3]\d(?!\d)")
 CASES = {"portsmouth": ("2020-01", "2021-12"),
-         "echirolles": ("2021-01", "2023-01")}
+         "echirolles": ("2020-01", "2023-01")}
 
 
 def find_months():
@@ -195,7 +195,7 @@ def plot_city(city, df):
     axes[0].legend(loc="best")
     if city == "echirolles":
         fig.suptitle(
-            "Échirolles (municipality): monthly VIIRS; October 2022 road switch-off")
+            "Échirolles (municipality): 2020–2022 VIIRS, October 2022 switch-off")
     else:
         fig.suptitle(
             "Portsmouth (NUTS2016 UKJ31): monthly VIIRS; "
@@ -217,8 +217,8 @@ def plot_city(city, df):
         ax.set(xlim=(0.7, 12.5), xticks=list(range(1, 13)),
                xlabel="Calendar month",
                ylabel="Mean radiance (nW cm$^{-2}$ sr$^{-1}$)",
-               title="Échirolles: seasonal alignment "
-                     "(2021 reference; Oct 2022 switch-off)")
+               title="Échirolles: 2020–2022 same-month reference "
+                     "(October 2022 switch-off)")
         ax.grid(alpha=0.25)
         ax.legend()
         fig.savefig(FIG / "echirolles_same_calendar_month_comparison.png",
