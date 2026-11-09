@@ -160,3 +160,18 @@ The earlier `75N060E` downloads for the same months are a **different longitude 
 **Latest actual file-position status:** **71/84** 2015–19 plus 2023–24 VCMSLCFG monthly archives downloaded/located; the **only 13 not yet located are July 2017 and all twelve months of 2018**. These counts refer to compressed archives, not ready `avg_rade9h`/`cf_cvg` TIFF pairs. All 2020–22 pairs remain ready. Previous 69/84 and 15 missing figures are superseded.
 
 Once other downloads are finished, run `python src/import_eog_manual_monthly_archives.py --dry-run`, followed by the real importer and `python src/inventory_monthly_viirs_acquisitions.py` to check contents. Do not redownload the two correct 2024 files. Keep the annual European radiance and PRC calculations unchanged.
+
+## Inventory update — all intended historical VCMSLCFG archives located (9 November 2026)
+
+**User-provided current EcoVis inventory:** all **84/84 additional VCMSLCFG 75N060W monthly archives** for **2015–2019** and **2023–2024** are now present, with each of those seven years reporting all twelve months as *archives awaiting extraction*. **Zero new months are yet listed as ready** in those years because `avg_rade9h` and `cf_cvg` have not been extracted/validated. The previously extracted 2020–2022 pairs remain **12/12 VCMSLCFG and 12/12 VCMCFG**, so the target continuous 2015–2024 VCMSLCFG acquisition is complete **in archive form**, not ready-for-analysis form. This **supersedes** the earlier 71/84, 69/84, 45/84 statuses and any outstanding 2017/2018/2024 download lists above.
+
+**Next actions (no further downloads):**
+
+```bash
+cd /run/media/bznwr/data/lightpollution
+python src/import_eog_manual_monthly_archives.py --dry-run
+python src/import_eog_manual_monthly_archives.py
+python src/inventory_monthly_viirs_acquisitions.py
+```
+
+The importer defaults to `~/Downloads` while the inventory also searches `data/raw/viirs`; if the dry run lists fewer than 84, determine where the other archives live and run the importer with `--archive-dir <directory>` for each location. Downloaded original `.tgz` files are not deleted. A correct final inventory shows **VCMSLCFG 12/12 ready** for every year 2015–2024; no VCMCFG archive purchases/downloads are required now. The manifest provenance remains incomplete for pre-existing 2020–2022 VCMSLCFG raw files.
