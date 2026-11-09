@@ -55,7 +55,7 @@ SPATIAL_CASES = {
     "portsmouth": {
         "periods": (("2020-01", "2020-05", "Jan-May 2020"),
                     ("2020-09", "2020-12", "Sep-Dec 2020")),
-        "pairs": [(f"2020-{m}", f"2021-{m}") for m in ("09", "10", "11", "12")],
+        "pairs": [(f"2021-{m}", f"2020-{m}") for m in ("09", "10", "11", "12")],
         "description": "Exploratory within-2020 contrast (seasonally confounded)",
     },
 }
@@ -425,13 +425,13 @@ def plot_spatial_maps(city, polygon, index):
     for start, end, label in spec["periods"]:
         seq = [grids[m]["cf"] for m in pd.period_range(
             start, end, freq="M").astype(str)]
-        cover.append((label, np.nansum(np.stack(seq), axis=0)))
+        cover.append((label, np.nansum(np.stack(seq), axis=0) / len(seq)))
     covmax = float(max(np.nanmax(a) for _, a in cover))
     for ax, (label, a) in zip(axes, cover):
         m = _map(ax, np.where(reference["inside"], a, np.nan),
                  reference, label, vmin=0, vmax=covmax, cmap="cividis")
     fig.colorbar(m, ax=axes, shrink=0.75,
-                 label="Total cloud-free observations across period")
+                 label="Mean cloud-free observations per month")
     fig.suptitle(f"{city.title()}: spatial cloud-free observation coverage")
     name = f"{city}_vcmslcfg_period_cloudfree_maps"
     for ext in (".png", ".pdf"):
