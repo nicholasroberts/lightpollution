@@ -61,6 +61,13 @@
 | Bristol Council — streetlight GIS REST layer | GIS endpoint; direct access from web reader unavailable | current | [Publisher](https://maps2.bristol.gov.uk/server2/rest/services/ext/ll_transport/MapServer/37) |
 | Bristol Council — street lighting design guide/contact | contact and specification PDF | current | [Publisher](https://services.bristol.gov.uk/files/documents/4350-03-8-2-street-lighting) |
 
+## Additional sources preserved from original four-case register
+
+| Relevant cases | Document | Purpose | Original |
+|---|---|---|---|
+| Coventry | Coventry Council — April 2025 minutes of part-night hours and exemptions | primary council minutes | [Publisher](https://edemocracy.coventry.gov.uk/ieListDocuments.aspx?CId=723&MId=13298) |
+| Portsmouth / Thanet | Regional dark-skies ArcGIS storymap of 2015–19 south England lighting change | visual/regional contextual storymap; not column histories | [Publisher](https://storymaps.arcgis.com/stories/1f72ebb75695454691c094c0fd8dae13) |
+
 ## Shared technical resources
 
 | Material | Role | Link |
