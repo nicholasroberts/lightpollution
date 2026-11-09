@@ -31,3 +31,5 @@ case,source_title,source_kind,document_date,original_url
 "Bristol","Bristol Council — streetlight public GIS catalogue","asset points IDs + CMS flag; site intermittently inaccessible","current","https://opendata.bristol.gov.uk/datasets/bcc::streetlights-3"
 "Bristol","Bristol Council — streetlight GIS REST layer","GIS endpoint; direct access from web reader unavailable","current","https://maps2.bristol.gov.uk/server2/rest/services/ext/ll_transport/MapServer/37"
 "Bristol","Bristol Council — street lighting design guide/contact","contact and specification PDF","current","https://services.bristol.gov.uk/files/documents/4350-03-8-2-street-lighting"
+"Coventry","Coventry Council — April 2025 minutes of part-night hours and exemptions","primary council minutes","Apr 2025","https://edemocracy.coventry.gov.uk/ieListDocuments.aspx?CId=723&MId=13298"
+"Portsmouth / Thanet","Regional dark-skies ArcGIS storymap of 2015–19 south England lighting change","visual/regional contextual storymap; not column histories","undated","https://storymaps.arcgis.com/stories/1f72ebb75695454691c094c0fd8dae13"
