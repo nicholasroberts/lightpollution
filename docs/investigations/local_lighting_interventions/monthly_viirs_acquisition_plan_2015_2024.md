@@ -120,3 +120,30 @@ python src/import_eog_manual_monthly_archives.py
 python src/inventory_monthly_viirs_acquisitions.py
 ```
 The importer defaults to `~/Downloads` only; if some archives found by the inventory actually live under `data/raw/viirs/.../archives/`, use `--archive-dir PATH` separately for each such directory. Do not re-download files already found as archives. No VCMCFG acquisition is needed at this point. Observe `archive_source` in manifests to determine provenance. None of these steps alter the locked annual European data/PRC functions.
+
+
+## EcoVis inventory update — 9 November 2026, later inventory
+
+User-supplied output of `src/inventory_monthly_viirs_acquisitions.py` now reports **69 of the 84 target VCMSLCFG 75N060W monthly archives located** (not yet extracted), alongside complete, previously extracted monthly VCMSLCFG and VCMCFG pairs for **2020–2022**. This supersedes the immediately preceding 45/84 archive status. **No new year in 2015–19 or 2023–24 is yet fully extracted into `avg_rade9h` and `cf_cvg` files.**
+
+| Year | Archives found (of 12) | Remaining missing archives |
+|---|---:|---|
+| 2015 | 12 | None |
+| 2016 | 12 | None |
+| 2017 | 11 | **July** |
+| 2018 | 0 | **January–December (12)** |
+| 2019 | 12 | None |
+| 2023 | 12 | None |
+| 2024 | 10 | **July and August** |
+| **Total** | **69/84** | **15** |
+
+**Immediate analyses:** Échirolles has its **2023 Jan–Mar** follow-up archives waiting for extraction; Portsmouth has its **2019** reference archives waiting for extraction. Bristol 2023 archives are complete and 2024 July–August are missing; Coventry has the same 2024 gap. Thanet requires 2018 and 2017 July for the full period.
+
+**Manifest evidence:** `data/raw/viirs/monthly_vcmcfg_2020/manifest.csv` reports 12 validated entries: 11 `existing_extracted`, 1 `existing_july_pilot`. 2021: same. 2022: 3 `existing_extracted`, **8 `local_existing`**, 1 `existing_july_pilot`. No VCMSLCFG manifests surfaced, so **the mechanism of acquisition cannot be inferred** for those files. Archive presence establishes only that an archive exists, not that its contents validate.
+
+**Priority next actions:**
+1. **Extract/validate 69 already-downloaded VCMSLCFG archives** with `python src/import_eog_manual_monthly_archives.py --dry-run`, then `python src/import_eog_manual_monthly_archives.py`. The importer by default reads `~/Downloads`, whereas inventory also searches `data/raw/viirs`. If dry-run reports fewer than 69, use `--archive-dir` for any other archive-containing directories; do not redownload archives already located.
+2. Download only **2017-07, all of 2018, and 2024-07/08**, VNL V1 **VCMSLCFG**, 75N060W.
+3. Re-run `python src/inventory_monthly_viirs_acquisitions.py` and ensure every target year shows 12/12 `ready`. Verify all months with the actual raster opening/extraction, not file names alone.
+
+No new method has yet been fitted and no locked European annual or PRC products changed.
