@@ -360,6 +360,15 @@ def run_case(key, index):
                 pb, pa, pd, pn = period_maps(
                     grids, year, refs, PRE_MONTHS[key], min_cf=threshold)
                 pre = {"delta": pd, "nmonth": pn}
+            if not np.isfinite(d).any():
+                if threshold == 1:
+                    raise RuntimeError(
+                        f"{key} {design}: no matched pixels even at cf_cvg >= 1")
+                print(
+                    f"  {key} {design}: cf_cvg >= {threshold} has no "
+                    "sufficiently matched cells; skipping threshold",
+                    flush=True)
+                continue
             for family, labels, groups in (
                 ("baseline_rank", BRIGHTNESS_LABELS, strata),
                 ("geographic_quadrant", GEO_LABELS, sectors),
