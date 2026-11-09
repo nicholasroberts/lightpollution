@@ -49,3 +49,15 @@ See [verified contacts and five ready-to-send, location-specific request drafts]
 ## Lean monthly event-window alternative (agreed 9 November 2026)
 
 The [12-month VIIRS pilot protocol](./lean_12_month_viirs_event_study_protocol.md) explains why **municipality-scale time series can begin before column-by-column histories arrive**, and specifies cloud-free observation counts (`cf_cvg`), seasonal comparisons, transition-month flags and 2014–24 boundaries. This is the preferred **Stage B first pass**; it does not supersede the full Stage A evidence register, nor claim an observed effect.
+
+## First local monthly extraction (9 November 2026)
+
+**Implementation:** [src/local_viirs_monthly_pilot.py](../../../src/local_viirs_monthly_pilot.py). The script reads only the original EOG VNL V1 monthly `avg_rade9*` and `cf_cvg` rasters and uses: **Portsmouth UKJ31 NUTS2016** (2020–2021), **Échirolles INSEE commune 38151** (2021–January 2023, with French government contour cached separately). It selects pixel centres inside each city polygon and calculates mean/median radiance, valid-pixel proportion, median and total cloud-free observation counts for **both VCMSLCFG and VCMCFG**. It makes annual and calendar-month plots and CSV tables with source raster names. It has been syntax checked and smoke tested with synthetic rasters; **actual EcoVis outputs have not yet been measured**.
+
+On EcoVis, from the existing repository root:
+```bash
+git fetch origin publication-figures
+git show origin/publication-figures:src/local_viirs_monthly_pilot.py > src/local_viirs_monthly_pilot.py
+python src/local_viirs_monthly_pilot.py
+```
+The `git show` path avoids switching branches or pulling unrelated work. Output is saved to `data/processed/local_lighting_interventions/monthly_pilot/` and `figures/local_lighting_interventions/monthly_pilot/`. Upload both city plots and CSVs to assess the first actual signal. This stage is descriptive, neither a controlled event-study nor a replacement for the locked annual NUTS/PRC results. Month-by-month cloud-free coverage and the 2021 snow anomaly require inspection before substantive interpretation.
