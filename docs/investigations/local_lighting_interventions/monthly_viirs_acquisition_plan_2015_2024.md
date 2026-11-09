@@ -89,3 +89,34 @@ The inventory command summarizes how many manifest entries record `archive_sourc
 - Portsmouth's 2020/2021 contrast is **post/post**; 2019 monthly data are an important improvement. Échirolles 2020/2021 are pre-event references, with 2023 months essential to test persistence into winter.
 - 2021 snow/albedo and October 2022 missing MODIS monthly snow are known caveats; the 2022 Échirolles spatial decline is promising but must still be checked against nearby controls and atmospheric/surface conditions.
 - Once 2023–24 arrive, the case-study script must be extended with **municipality boundaries** for Bristol, Coventry and Thanet. Those follow-up GIS masks are a separate step; downloading data alone does not automatically add their plots.
+
+## Actual EcoVis inventory update — 9 November 2026, 13:26 UTC
+
+**User-supplied inventory output** from `python src/inventory_monthly_viirs_acquisitions.py` (not a remote filesystem scan by the assistant). Previously known `2020–2022` files remain **extracted and ready**, 12/12 monthly pairs in each year for both products.
+
+A further **45 VCMSLCFG V1 `75N060W` monthly archives have been located but are not yet extracted**. They span: 2015 (12), 2016 (Feb/Aug/Sep/Oct/Nov/Dec = 6), 2017 (Apr/May/Jun/Aug/Sep/Oct = 6), 2019 (Jan/Feb/Jun/Aug/Dec = 5), 2023 (Jan–Apr/Sep/Oct = 6), 2024 (Jan–Jun/Sep–Dec = 10). No 2018 archive was found.
+
+**Exactly 39 more VCMSLCFG archives need downloading** to fill the originally targeted 2015–19 + 2023–24 coverage:
+
+| Year | Need to download (archive not located) | Count |
+|---|---|---:|
+| 2015 | none | 0 |
+| 2016 | Jan, Mar, Apr, May, Jun, Jul | 6 |
+| 2017 | Jan, Feb, Mar, Jul, Nov, Dec | 6 |
+| 2018 | Jan–Dec (all 12) | 12 |
+| 2019 | Mar, Apr, May, Jul, Sep, Oct, Nov | 7 |
+| 2020–22 | none — extracted/ready | 0 |
+| 2023 | May, Jun, Jul, Aug, Nov, Dec | 6 |
+| 2024 | Jul, Aug | 2 |
+| **Total** | | **39** |
+
+**Immediate acquisition priority: 15 archives** = 2019 missing seven + 2023 missing six + 2024 July/August. These complete the critical Portsmouth/Échirolles 2019/2023 windows and 2023–24 Coventry/Bristol chronology; Thanet and earlier Portsmouth retrofit studies then need the remaining 24 missing 2016–18 archives. All **12 archives for 2015 are already located**, useful as Thanet's pre-conversion seasonal baseline.
+
+**Next workflow: extract before any further downloading.** The inventory counts `archives awaiting extraction`, not ready-to-use `avg_rade9h + cf_cvg` raster pairs. Run:
+```bash
+cd /run/media/bznwr/data/lightpollution
+python src/import_eog_manual_monthly_archives.py --dry-run
+python src/import_eog_manual_monthly_archives.py
+python src/inventory_monthly_viirs_acquisitions.py
+```
+The importer defaults to `~/Downloads` only; if some archives found by the inventory actually live under `data/raw/viirs/.../archives/`, use `--archive-dir PATH` separately for each such directory. Do not re-download files already found as archives. No VCMCFG acquisition is needed at this point. Observe `archive_source` in manifests to determine provenance. None of these steps alter the locked annual European data/PRC functions.
