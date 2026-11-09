@@ -65,3 +65,7 @@ The `git show` path avoids switching branches or pulling unrelated work. Output 
 ## First user-run VIIRS outputs and preliminary findings
 
 [Read the 9 Nov 2026 pilot findings](./first_monthly_pilot_findings_2026-11-09.md). Échirolles shows a marked Sep–Dec 2022 change relative to corresponding 2021 months, with full pixel coverage and comparable `cf_cvg`; Portsmouth does not yet show a clean city-scale shift. The pilot script was amended after those first plots to **include Échirolles 2020**, permitting two reference years without downloading anything new. Earlier "2023 Jan" file inventory was probably a **filename creation timestamp** error. These are preliminary descriptive findings, not intervention attribution. No locked annual results were altered.
+
+## Native-grid spatial mapping extension (9 November 2026)
+
+The current `src/local_viirs_monthly_pilot.py` now generates **six additional PNG/PDF maps** (absolute radiance, 4 × matched-month radiance differences, and per-pixel mean cloud-free observation counts for each of Échirolles and Portsmouth) plus two difference GeoTIFFs, without altering any locked outputs. See [spatial map specifications, limits, and the exact EcoVis `git pull` / run commands](./spatial_maps_monthly_pilot_2026-11-09.md). The maps are *defined and committed*; they are not yet a measured result until the script runs against the EcoVis monthly raster files.
