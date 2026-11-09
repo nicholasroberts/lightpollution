@@ -213,6 +213,40 @@ def one_case(key, panel, spec):
             "note": spec.caveat + " Placebo is an earlier calendar comparison, "
                     "not necessarily a genuinely untreated control.",
         })
+    # Bristol 2024 is a *secondary* staged-rollout follow-up, not the
+    # primary 2023 intervention-year contrast. November 2024 has unusually
+    # low cf_cvg and must be tested explicitly, not only mentioned in prose.
+    if key == "bristol":
+        year = 2024
+        refs = (2020, 2021, 2022)
+        post_months = tuple(range(4, 13))
+        for label, col in VARS:
+            for filter_name, threshold in (
+                ("all_months", None), ("median_cf5_months_only", 5),
+                ("median_cf10_months_only", 10)):
+                result, _ = compare(panel, year, refs, post_months,
+                                    col, min_median_cf=threshold)
+                rows.append({
+                    "case": key, "scenario": "secondary_2024",
+                    "year": year, "metric": label,
+                    "reference_type": "all_reference_years",
+                    "reference_years": ",".join(map(str, refs)),
+                    "month_selection": filter_name,
+                    "months_requested": ",".join(map(str, post_months)),
+                    "omitted_month": "", **result,
+                })
+        for omit in post_months:
+            selected = tuple(m for m in post_months if m != omit)
+            result, _ = compare(panel, year, refs, selected)
+            rows.append({
+                "case": key, "scenario": "secondary_2024_leave_one_month_out",
+                "year": year, "metric": "all_observed",
+                "reference_type": "all_reference_years",
+                "reference_years": ",".join(map(str, refs)),
+                "month_selection": "all_except_one",
+                "months_requested": ",".join(map(str, selected)),
+                "omitted_month": omit, **result,
+            })
     return rows, prepost, placebos
 
 
