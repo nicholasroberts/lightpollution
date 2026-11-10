@@ -34,7 +34,6 @@ from dataclasses import dataclass
 from pathlib import Path
 from tempfile import TemporaryDirectory
 from urllib.parse import urlencode
-from types import SimpleNamespace
 
 import geopandas as gpd
 import matplotlib
@@ -43,8 +42,7 @@ import matplotlib.dates as mdates
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
-from shapely.geometry import shape, mapping
-from shapely.ops import unary_union
+from shapely.geometry import Point, shape, mapping
 
 from export_coventry_echirolles_nuts3_bridge import (
     ROOT, ANNUAL, ENDPOINT, strict_snow_cache,
@@ -56,12 +54,16 @@ from local_viirs_five_case_analysis import (
 OUT = ROOT / "figures/local_lighting_interventions/led_dominated_contrasts"
 TABLES = ROOT / "data/processed/local_lighting_interventions/led_dominated_contrasts"
 UNIT = "nW cm$^{-2}$ sr$^{-1}$"
-# Public water authority map service serving polygons of Roma municipi;
-# union all valid subdivisions to create Rome *municipality*, not ITI43.
-ROME_ADMIN = (
-    "https://webgis.abdac.it/server/rest/services/"
-    "T05_P5_Cf/MapServer/1/query"
+# ISTAT-derived municipality polygons for Roma's province (P_58), WGS84.
+# The old river authority ArcGIS endpoint returned an error/non-GeoJSON
+# object, and its presumed 15-polygon schema was never validated.
+ROME_ISTAT_SOURCE = (
+    "https://raw.githubusercontent.com/guglielmo/geojson-italy/"
+    "main/geojson/limits_P_58_municipalities.geojson"
 )
+ROME_ISTAT_CODE = "058091"
+ROME_CADASTRAL_CODE = "H501"
+
 SOURCE_NAME = re.compile(
     r"^SVDNB_(?:npp|j01)_(?P<start>20\d{6})-(?P<end>20\d{6})_"
     r"(?P<tile>75N060[WE])_vcmslcfg_v10_.*\."
@@ -160,8 +162,62 @@ def availability(c: Candidate, index):
     return missing
 
 
+def rome_feature_from_istat(obj):
+    """Identify Roma *municipality* by ISTAT H501/058091, not a city name.
+
+    We deliberately select exactly one feature from the Rome *province*
+    municipality collection; no metro/province polygon is accepted.
+    """
+    if not isinstance(obj, dict) or obj.get("type") != "FeatureCollection":
+        raise ValueError(
+            "ISTAT Rome-province response is not a GeoJSON FeatureCollection; "
+            "do not silently fall back to metropolitan ITI43.")
+    features = obj.get("features")
+    if not isinstance(features, list) or not features:
+        raise ValueError("ISTAT Rome-province GeoJSON has no municipalities")
+    hits = [
+        f for f in features
+        if str(f.get("properties", {}).get("com_catasto_code", "")).upper()
+        == ROME_CADASTRAL_CODE
+        and str(f.get("properties", {}).get("com_istat_code", "")).zfill(6)
+        == ROME_ISTAT_CODE
+    ]
+    if len(hits) != 1:
+        raise ValueError(
+            f"Expected exactly one Roma municipality with cadastral "
+            f"{ROME_CADASTRAL_CODE} and ISTAT {ROME_ISTAT_CODE}; "
+            f"found {len(hits)} among {len(features)}. "
+            "Do not select municipal geography by name or by NUTS3.")
+    f = hits[0]
+    if f.get("type") != "Feature" or not f.get("geometry"):
+        raise ValueError("ISTAT selected Roma feature has no geometry")
+    return f
+
+
+def check_rome_municipality(geom):
+    """Require a valid WGS84 Rome polygon of plausible area and location."""
+    if geom.geom_type not in ("Polygon", "MultiPolygon"):
+        raise ValueError("Roma municipality requires polygon geometry")
+    if geom.is_empty or not geom.is_valid:
+        raise ValueError("Roma municipality polygon is invalid or empty")
+    west, south, east, north = geom.bounds
+    # Catch a mis-projected/non-Rome file and province/metropolitan footprint.
+    if not (11.5 < west < 13 and 41 < south < 42.5 and
+            12 < east < 13.5 and 41.5 < north < 42.5):
+        raise ValueError(f"Roma boundary WGS84 bbox implausible: {geom.bounds}")
+    if not geom.covers(Point(12.4964, 41.9028)):
+        raise ValueError("Roma municipal polygon does not cover Rome city centre")
+    area_km2 = float(gpd.GeoSeries(
+        [geom], crs="EPSG:4326").to_crs("EPSG:3035").area.iloc[0] / 1e6)
+    if not (1100 < area_km2 < 1500):
+        raise ValueError(
+            f"Roma municipal area {area_km2:.1f} km2 is implausible; "
+            "refusing to substitute ITI43 metropolitan area")
+    return area_km2
+
+
 def official_boundary(c: Candidate):
-    """Cache only verified municipality/borough polygons; never use NUTS3."""
+    """Cache verified local municipal polygons; never use NUTS3 as a proxy."""
     BOUNDARIES.mkdir(parents=True, exist_ok=True)
     if c.key == "richmond":
         code = "E09000027"
@@ -179,47 +235,45 @@ def official_boundary(c: Candidate):
             path.write_text(json.dumps(obj), encoding="utf-8")
         return geom, f"ONS 2024 LAD {code}", str(path)
 
-    path = BOUNDARIES / "rome_capitale_union_15_municipi.geojson"
+    # The prior boundary lookup (a river-authority MapServer sublayer)
+    # returned an error/non-feature object, crashing the analysis *after*
+    # validated raster inventory and locked annual source had succeeded.
+    # Do not retry that endpoint or use the incorrectly anticipated
+    # '15 subdivisions' response. Use stable ISTAT municipality identity.
+    path = BOUNDARIES / f"rome_capitale_istat_{ROME_ISTAT_CODE}.geojson"
     if path.exists():
-        obj = json.loads(path.read_text(encoding="utf-8"))
-        geom = geojson_geometry(obj)
-    else:
-        url = ROME_ADMIN + "?" + urlencode({
-            "where": "1=1", "outFields": "*",
-            "returnGeometry": "true", "outSR": 4326,
-            "f": "geojson",
-        })
-        obj = fetch_json(url)
-        if obj.get("type") != "FeatureCollection":
-            raise ValueError("Rome boundary query did not return GeoJSON features")
-        parts = obj.get("features", [])
-        # Source layer 'Limiti del comune di Roma' depicts the municipal
-        # subdistricts. Refuse incomplete/duplicated or NUTS3 proxies.
-        if not 12 <= len(parts) <= 16:
+        cached = json.loads(path.read_text(encoding="utf-8"))
+        props = cached.get("properties", {})
+        if (cached.get("type") != "Feature" or
+                props.get("com_catasto_code") != ROME_CADASTRAL_CODE or
+                str(props.get("com_istat_code", "")).zfill(6)
+                != ROME_ISTAT_CODE):
             raise ValueError(
-                f"Unexpected {len(parts)} Rome municipi; need full municipality")
-        geoms = [shape(f["geometry"]) for f in parts]
-        if not all(g.is_valid and not g.is_empty for g in geoms):
-            raise ValueError("Invalid Rome municipal subdistricts")
-        geom = unary_union(geoms)
-        record = {"type": "Feature", "properties": {
-            "name": "Roma Capitale, union of source municipal subdivisions",
-            "source_url": url, "number_subdivisions": len(parts),
-        }, "geometry": mapping(geom)}
-    if not geom.is_valid or geom.is_empty:
-        raise ValueError("Rome municipality boundary invalid")
-    # Expected Rome municipality approx 1285 km2; reject mistakenly
-    # returning metropolitan NUTS3/too-small one-district masks.
-    square_km = float(gpd.GeoSeries(
-        [geom], crs="EPSG:4326").to_crs("EPSG:3035").area.iloc[0] / 1e6)
-    if not 900 < square_km < 1700:
-        raise ValueError(
-            f"Rome boundary area {square_km:.1f} km2 impossible for municipality; "
-            f"check source {ROME_ADMIN}, do not substitute ITI43")
-    if not path.exists():
+                f"Cached Rome boundary {path} lacks the approved ISTAT "
+                "identifiers; refuse unverified geography.")
+        geom = shape(cached["geometry"])
+    else:
+        # GitHub raw is independently usable on EcoVis via HTTPS, and the
+        # province-only file is smaller than downloading all Italian comuni.
+        obj = fetch_json(ROME_ISTAT_SOURCE)
+        selected = rome_feature_from_istat(obj)
+        geom = shape(selected["geometry"])
+        area_km2 = check_rome_municipality(geom)
+        record = {
+            "type": "Feature",
+            "properties": {
+                **selected["properties"],
+                "boundary_source": ROME_ISTAT_SOURCE,
+                "boundary_vintage": "2026 ISTAT-derived",
+                "validated_area_km2": round(area_km2, 2),
+            },
+            "geometry": mapping(geom),
+        }
+        # Only cache a successfully identity/geometry-validated polygon.
         path.write_text(json.dumps(record), encoding="utf-8")
-    return geom, "Rome Capitale municipality (15 subdistrict union)", str(path)
-
+    check_rome_municipality(geom)
+    return geom, (f"Roma Capitale municipality, ISTAT "
+                  f"{ROME_ISTAT_CODE} / {ROME_CADASTRAL_CODE}"), str(path)
 
 def frozen_annual():
     """Use ONLY the already locked European VNL V2 annual data and snow audit."""
@@ -451,6 +505,28 @@ def self_test():
     assert CASES["rome"].tile == CASES["richmond"].tile == "75N060W"
     assert len(dates(CASES["rome"])) == 48
     assert len(dates(CASES["richmond"])) == 96
+    # The Rome municipal lookup must fail on ArcGIS error payloads,
+    # province-only features, and duplicates, and accept only H501/058091.
+    rome_test = {"type": "FeatureCollection", "features": [
+        {"type": "Feature", "properties": {
+            "name": "Roma", "com_catasto_code": "H501",
+            "com_istat_code": "058091"},
+         "geometry": {"type": "Polygon", "coordinates": [
+             [[12.0, 41.5], [12.9, 41.5], [12.9, 42.1],
+              [12.0, 42.1], [12.0, 41.5]]]}}
+    ]}
+    assert rome_feature_from_istat(rome_test)["properties"][
+        "com_istat_code"] == "058091"
+    for bad in ({"error": {"message": "Invalid query"}},
+                {"type": "FeatureCollection", "features": []},
+                {"type": "FeatureCollection", "features":
+                 rome_test["features"] * 2}):
+        try:
+            rome_feature_from_istat(bad)
+        except ValueError:
+            pass
+        else:
+            raise AssertionError("Invalid Roma municipality accepted")
     rg=np.random.default_rng(2026)
     annual=pd.DataFrame(
         [{"NUTS_ID":c.nuts3,"year":y,
