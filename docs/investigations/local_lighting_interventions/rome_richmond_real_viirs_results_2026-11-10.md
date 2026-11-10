@@ -34,6 +34,21 @@ These are **interpretation / data audit notes**, not manuscript text. The origin
 
 The wide parent NUTS3s do not have the same footprint as municipality monthly masks. Do not compare **absolute** radiance values or imply that an annual NUTS3 delta equals the municipal LED effect.
 
+## Source-based interpretation of the 2016→2017 −27.6% installed flux reduction (10 November 2026)
+
+The **−27.6%** figure is not a recorded removal of 27.6% of lamps or a field measurement of darker roads. The regulator's original [ACoS/ASPL 2018 Annual Report, Table 4.2, printed page 85](https://www.agenzia.roma.it/documenti/schede/relazione_annuale_2018_cap_4_servizi_a_rete.pdf) reports:
+
+| Indicator | 2016 | 2017 | Change |
+|---|---:|---:|---:|
+| Total installed lamps | 220,474 | 224,480 | **+1.8%** |
+| Total **rated installed luminous flux** | 2,750,046 klm | 1,991,000 klm | **−27.6%** |
+| Rated flux per **service light point** | 14.07 klm/point | 10.00 klm/point | **−28.9%** |
+| Estimated electricity use | 167,852 MWh | 115,640 MWh | **−31.1%** |
+
+This decomposition establishes that the fleet's **rated lumen output per point**, not the number of lamps, fell sharply. ACEA's [2016 Sustainability Report](https://www.acea.it/content/dam/acea-corporate/pdf/it/sostenibilita/documenti-e-contatti/archivio/2016/bilancio-di-sostenibilita-2016.pdf) says about **68,500 LED fixtures** were installed by end-2016; ACEA's [2017 non-financial statement](https://www.acea.it/content/dam/acea-corporate/pdf/it/sostenibilita/documenti-e-contatti/archivio/2017/dichiarazione-consolidata-non-finanziaria-ai-sensi-del-dlgs-n-254-2016.pdf) says about **162,000 LED fixtures** had been installed in total by 31 December 2017. The main 2016/17 conversion to more directed and efficient LED luminaires is the strongly documented explanation. ACEA reports that the LEDs met roadway luminance standards while reducing flux dispersed skyward; **lower aggregate rated lumens do not show that roads became proportionately darker**, and actual light output at 01:30 remains unverified.
+
+**Scientific implication for mechanism selection:** Rome **2016→17 is NOT a 'same lumens LED-only' control**, because rated installed lumens demonstrably fell by ~28%. This can plausibly be an *optical/design conversion* (reducing superfluous upward/sideways light while meeting road-lighting levels), not a programme of overnight lamp switch-offs. **2017→18 is a more nearly constant installed-lumen comparison**, but neither year provides verified no-dimming or stable non-municipal emissions. Do not equate the 2016→17 nominal fleet-lumen reduction with a 27.6% decrease in measured road illuminance or night-time emitted flux.
+
 ## Rome — *the strongest counterpoint to a universal 'radiance = emitted lumens' interpretation*
 
 **Source/meaning audit (verified 10 Nov 2026):** These are **NOT direct field measurements** of light emitted at satellite overpass. The operator ACEA's [*Bilancio di Sostenibilità 2019*, note 36](https://www.acea.it/content/dam/acea-corporate/pdf/it/sostenibilita/bilanci-sostenibilita/bilancio-sostenibilita-2019.pdf) explicitly defines *flusso luminoso a Roma* as **number of installed lamps × each lamp's manufacturer/rated ("di targa") luminous flux**. It independently publishes **2017 1,991 Mlumen, 2018 2,010 Mlumen and 2019 2,002 Mlumen**. The municipality's oversight agency ACoS transcribes the longer **2013–2018** sequence, from ACEA's 2018 Sustainability Report, in [*Relazione Annuale 2019*, printed p.122, Tavola 5.2](https://www.agenzia.roma.it/documenti/schede/relazione_annuale_2019_cap_5_servizi_a_rete.pdf). The energy figure is explicitly *estimated* ("energia impiegata stimata"). Neither figure is a measurement of actual 01:30 dimmed output, light escaping upwards or private-source emissions. **Preferred citation should use ACoS Table 5.2 for 2016–18 and ACEA 2019 note 36 for calculation provenance.**
