@@ -446,6 +446,11 @@ def render_annual_only(c,a,folder,*,formats=("png","pdf","svg")):
 
 
 def self_test():
+    # EOG Tile 2 (60W75N) contains both UK and Italy. Reject the prior
+    # mistake that assigned Rome to Tile 3 (60E75N, East Asia/Pacific).
+    assert CASES["rome"].tile == CASES["richmond"].tile == "75N060W"
+    assert len(dates(CASES["rome"])) == 48
+    assert len(dates(CASES["richmond"])) == 96
     rg=np.random.default_rng(2026)
     annual=pd.DataFrame(
         [{"NUTS_ID":c.nuts3,"year":y,
