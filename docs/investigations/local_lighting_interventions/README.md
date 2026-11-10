@@ -143,3 +143,22 @@ Next useful output: **`portsmouth_primary_2020_spatial_anomalies.png`**, which w
 Frozen regional **2014→2024 endpoints**: **UKG33 Coventry 18.676→13.030 nW (−30.23%)**; **FRK24 Isère 2.074→0.880 nW (−57.58%)**. Those are decade-long changes, **not demonstrated local policy effects**. Échirolles is only a portion of Isère. The older source CSV with FRK24 2024 ~0.936 is not the final locked dataset and is deliberately excluded from annual time-series reconstruction.
 
 **[Read-only locked annual bridge exporter](../../../src/export_coventry_echirolles_nuts3_bridge.py)** provides the 11-year 2014–2024 annual radiance histories, validated original 2014/2024 endpoints and existing audited **2021 native-pixel snow** cache, alongside 2023→2024 UKG33 and 2021→2022 / 2022→2023 FRK24 year-on-year tests. It does not alter original annual inputs, snow correction, PRC or figures. **The new script is committed but has not yet been executed on EcoVis**; intermediate event-year annual values are not fabricated in documentation.
+
+
+## Two documented switch-off figures and two LED contrast audits — 10 November 2026
+
+**Step 1 — plots:** [\`src/plot_coventry_echirolles_annual_monthly_attribution.py\`](../../../src/plot_coventry_echirolles_annual_monthly_attribution.py) makes one three-panel figure each for **Coventry UKG33 and Échirolles/FRK24**: **(A) frozen annual 2014–24 VNL V2 NUTS2016**, **(B) municipal monthly VNL V1 in key surrounding years**, **(C) intervention-year monthly same-calendar-month anomalies**, all with independently documented approval/start/phase-in and later LED dates. Uses original locked Figure 1 2021 snow cache and will abort if source audits are unavailable. **[Exact figure and source protocol](./annual_monthly_attribution_figures_2026-11-10.md).** Code committed; actual figures await EcoVis run.
+
+**Step 2 — historical LED contrast candidates and negative source audit:** [**Rome (ITI43)** and **Richmond upon Thames (UKI75)**](./led_dominant_contrast_candidates_2026-11-10.md) are two prospective LED-*dominated*, **NOT yet confirmed undimmed** cases. Rome is unusually informative because independent official data show **2017→2018 streetlight total lumens approximately constant (+1%) while electricity use fell 27.4%** during major LED conversion; by contrast **total installed lumens actually fell greatly over 2014→2018** so no universal LED-only claim is permissible. Richmond's 2019–2022 scheme pledged the same illumination and unchanged burning hours, **but the council explicitly uses dimming regimes**, so it needs actual 01:30 profiles before identification as an undimmed contrast. Original Plymouth 2014 paperwork confirms dimming in main-road LED installations and shorter switch-on hours; Milan and Turin also integrated dimming. These three are **excluded from strict LED-only controls**.
+
+The relevant **Kyba et al. (2021)** [VIIRS-source partition study](https://doi.org/10.1177/1477153520958463) estimates city-owned streetlights contributed ~13% of Tucson's overpass-time DNB radiance with normal dimming (95% CI 10–16%); it is a measured demonstration why privately operated sources must not be assumed to follow municipal policy.
+
+\`\`\`bash
+cd /run/media/bznwr/data/lightpollution
+git switch publication-figures
+git pull --ff-only origin publication-figures
+python src/plot_coventry_echirolles_annual_monthly_attribution.py --self-test
+python src/plot_coventry_echirolles_annual_monthly_attribution.py
+\`\`\`
+
+Both stages are designed to test the primary **genuine operating-hour reduction vs purely LED-spectral explanation** question. No source or frozen PRC arrays are recalculated.
