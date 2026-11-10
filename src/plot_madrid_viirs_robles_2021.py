@@ -251,7 +251,7 @@ def draw_figure(annual, monthly, ground, out, *, monthly_end=2020):
     for band in ("B", "V", "R"):
         subset = ground[ground.band.eq(band)].sort_values("year")
         c.plot(subset.year, subset.relative_linear_radiance_2015_100,
-               "-o", label=f"Johnson {band}",
+               "o", label=f"Johnson {band}",
                color=colours[band], lw=1.6, ms=6)
     c.axhline(100, color="#666", alpha=.4, linestyle="--", lw=.8)
     c.axvspan(2014.8, 2016.9, alpha=.23, color="#dda963")
@@ -267,7 +267,7 @@ def draw_figure(annual, monthly, ground, out, *, monthly_end=2020):
         sub = ground[ground.band.eq(band)].sort_values("year")
         d.errorbar(sub.year, sub.published_median_mag_per_arcsec2,
                    yerr=sub.published_plusminus_spread,
-                   fmt="-o", capsize=3, lw=1.6, color=colour, label=band)
+                   fmt="o", capsize=3, lw=1.6, color=colour, label=band)
     d.axvspan(2014.8, 2016.9, alpha=.23, color="#dda963")
     d.set_xticks([2011, 2015, 2019]); d.set_xlim(2010.5, 2019.6)
     d.set_ylabel("Colour index (mag)")
