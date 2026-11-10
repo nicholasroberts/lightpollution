@@ -227,3 +227,20 @@ python src/plot_madrid_viirs_robles_2021.py --inventory
 python src/plot_madrid_viirs_robles_2021.py --check-boundary
 python src/plot_madrid_viirs_robles_2021.py
 \`\`\`
+
+
+## Madrid: SKY BRIGHTNESS, not merely bluer colour — revised second figure
+
+After reviewing the investigator's actual initial four-panel Madrid VIIRS/UCM AstMon figure, the primary mechanistic outcome is **changes in absolute ground-observed zenith sky brightness within spectral bands**, not simply B−V / V−R shifts. Direct 2015→2019 published clear, moonless after-midnight AstMon Table 6 implies **Johnson B +30.6%**, **V +11.7%** (not a significant long-run trend according to authors), **R −1.8%**. [Robles et al. (2021)](https://doi.org/10.3390/rs13081511) separately reports **TESS-W sky brightness +10% over 2016–19**. By contrast **SQM showed −38% 2012–19**, which the authors associate importantly with **aging/filter transmission decline**, *not* a trustworthy physical sky-darkening result. After 2015 little additional Madrid municipal streetlight replacement was reported; neighbouring communities, independent sources and diffuser/operational change may contribute, so no causal LED-only claim.
+
+New [**\`src/plot_madrid_brightness_viirs_direct_contrast.py\`**](../../../src/plot_madrid_brightness_viirs_direct_contrast.py) creates an additional direct **2015→19 within-instrument percentage-change brightness** figure, separates ES300 annual VIIRS and Madrid municipality annualised monthly VIIRS (both indexed to 2015), and shows discrete measured 2011/2015/2019 **actual photometric B/V/R sky brightness**. **Reuses existing real Madrid annual/monthly/published-ground CSVs**; no raster processing, annual source rebuild or PRC change. Complementary earlier figure preserves 2015–20 municipal monthly detail and B−V/V−R colour shifts. [Full source/method notes](./madrid_viirs_astmon_comparison_protocol_2026-11-10.md#ground-sky-brightness-is-a-distinct-central-endpoint--correction-and-second-diagnostic-figure).
+
+\`\`\`bash
+cd /run/media/bznwr/data/lightpollution
+git switch publication-figures
+git pull --ff-only origin publication-figures
+python src/plot_madrid_brightness_viirs_direct_contrast.py --self-test
+python src/plot_madrid_brightness_viirs_direct_contrast.py
+\`\`\`
+
+**Interpretation guardrail:** The ground skyglow measurement is zenith and site-specific; satellite measurements are upward/area-based. Relative radiance can diverge for spectrum, direction, weather, timing and other-source reasons. No direct animal polarization contrast can be computed from ground B/V/R brightness alone.
