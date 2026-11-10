@@ -305,3 +305,21 @@ python src/plot_madrid_ucm_published_winter_sky_brightness.py
 \`\`\`
 
 For complete **published quality-filtered ANNUAL** B/V/R 2014–19, seek the article's **Supplementary Tables S1–S3**. For monthly observational records, seek the original author's per-observation manually reviewed cloud/moon labels; neither exists in the original nine-column Zenodo file. Frozen annual VIIRS/PRC unchanged.
+
+
+## Madrid: Duriscoe-style VIIRS source-distance propagation pilot — 10 November 2026
+
+The next *mechanistic* test after the local sky-brightness and photon-unit comparisons is a **fixed spatial source-to-observer transfer kernel**. See [**detailed original paper/source audit and test protocol**](./madrid_duriscoe_viirs_kernel_model_2026-11-10.md) and [\`src/madrid_ucm_duriscoe_skyglow_kernel.py\`](../../../src/madrid_ucm_duriscoe_skyglow_kernel.py). The code uses original 2015–19 European monthly VNL V1 rasters on **3, 10, 25, 50, 100, 200, 300 km** UCM-centred support, with **Duriscoe et al. (2018) Eq. 11 distance-weighting**, explicit equal-area correction, negative/low VIIRS source threshold **<0.5 set to zero** (NOT subtraction), common 2015/19 pixel support and a **0.25–20 km near-field sensitivity** because the published kernel was *not validated inside an extended city*.
+
+**Crucial**: The published Duriscoe calibration predicts **all-sky mean V-band artificial skyglow at low-aerosol sites away from bright cities**; it does NOT predict **urban UCM Johnson B/V/R zenith sky brightness** in physical units. This pilot makes **relative VIIRS-derived index trends** only. Compare the 300 km index's 2019/15 ratio with the **independently observed Robles et al. 01:30 winter B +35.5%, V +10.7%, R −2.7%**, recognising ground seasons are not exactly paired to VIIRS months. Whether the model predicts an upward or downward trend is **not yet known**. The initial code exercise passed synthetic checks, but real EcoVis original raster testing is still outstanding. The locked 2014–24 European radiance, 2017 offset, 2021 snow and PRC are untouched.
+
+\`\`\`bash
+cd /run/media/bznwr/data/lightpollution
+git switch publication-figures
+git pull --ff-only origin publication-figures
+python src/madrid_ucm_duriscoe_skyglow_kernel.py --self-test
+python src/madrid_ucm_duriscoe_skyglow_kernel.py --inventory
+python src/madrid_ucm_duriscoe_skyglow_kernel.py
+\`\`\`
+
+The model generates **one four-panel PNG/PDF/SVG** and monthly, annual, near-field sensitivity, distance-annulus contribution CSVs plus a machine-readable assumptions audit. **Interpretation gate:** a VIIRS-based source model predicting less skyglow while B measured increased indicates a failure of the *fixed DNB-only transfer assumption*, not unique proof of HPS→LED spectral detector bias.
