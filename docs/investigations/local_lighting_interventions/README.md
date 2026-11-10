@@ -162,3 +162,23 @@ python src/plot_coventry_echirolles_annual_monthly_attribution.py
 \`\`\`
 
 Both stages are designed to test the primary **genuine operating-hour reduction vs purely LED-spectral explanation** question. No source or frozen PRC arrays are recalculated.
+
+## 10 Nov 2026 — reviewed switch-off figures and prospective LED comparison plots
+
+[**Interpretation notes for the actually generated Coventry and Échirolles 3-panel figures**](./coventry_echirolles_figure_interpretation_2026-11-10.md) now distinguish their **marked post-implementation monthly municipal declines** from the **nonlinear longer-run NUTS3 annual trajectories**. Coventry's new 2024 switch-off follows May–July programming, and its principal LED programme is later than 2024. Échirolles has phased 2022 operations, but is only a **small part of Isère**, and its 2023 LED retrofit complicates attribution of the regional 2022→2023 step. Notes retain the important distinction between real operations and the unknown contribution of non-municipal private sources. **No claim of a quantified causal contribution to the full 2014–24 regional decline.**
+
+[**New Rome and Richmond LED-dominated comparison plotting code**](../../../src/plot_led_dominated_contrast_figures.py) and [**reproducible run/input protocol**](./led_dominated_contrast_plotting_protocol_2026-11-10.md) reproduce the same 3-panel layout: **(A)** frozen 2014–24 NUTS3 annual radiance using the existing 2021 audit-verified snow cache, **(B)** monthly *municipality* VNL V1 radiance and independently dated staged LED periods, and **(C)** a same-calendar-month focus-year comparison. Both are **prospective LED-dominated**, NOT confirmed *without dimming*. Rome has independent 2017→2018 **~+1% installed lumens with −27.4% estimated electricity consumption**, but the *overall 2014–18* installed lumens fell markedly; Richmond's stated unchanged hours do **not** rule out dimmed output at VIIRS overpass.
+
+**Crucial acquisition distinction:** The already extracted **75N060W** tile supports Richmond monthly (2017–24). Rome needs **75N060E** monthly `VCMSLCFG` for **2016–2019** (48 observation months), not the existing western data. Script reports missing months and produces the full **regional annual-only** Rome/Richmond plots even without eastern monthly imagery. The existing [manual EOG importer](../../../src/import_eog_manual_monthly_archives.py) supports `--tile 75N060E` without overwriting western tile files. No new raw data have been downloaded or annual/PRC work modified.
+
+```bash
+cd /run/media/bznwr/data/lightpollution
+git switch publication-figures
+git pull --ff-only origin publication-figures
+python src/plot_led_dominated_contrast_figures.py --self-test
+python src/plot_led_dominated_contrast_figures.py --inventory
+python src/plot_led_dominated_contrast_figures.py --annual-only
+python src/plot_led_dominated_contrast_figures.py --cases richmond
+```
+
+**Status:** Scripts/docs committed; new Rome and Richmond real-data plots remain **unrun in EcoVis** and cannot be interpreted until outputs are reviewed.
