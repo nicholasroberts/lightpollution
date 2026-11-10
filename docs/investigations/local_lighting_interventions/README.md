@@ -124,3 +124,11 @@ python src/local_viirs_spatial_dilution.py
 ```
 
 **State:** code and methodology committed, **actual EcoVis spatial-dilution outputs not yet run/reviewed**. Locked annual European VIIRS and PRC results remain unchanged.
+
+## Spatial maps interpreted and Portsmouth actual rollout checked — 10 November 2026
+
+[**Full visual interpretation and date audit**](./spatial_figures_and_portsmouth_date_audit_2026-11-10.md). The investigator identifies Bristol's bright northwest baseline as **Avonmouth industrial docks** and a southern source as **Ashton Gate Stadium surroundings**. Importantly, **the northwestern source shows a positive 2023 post-minus-pre anomaly, while the Ashton Gate-area hotspot shows a NEGATIVE post-minus-pre anomaly**, despite remaining bright relative to past calendar-month references. Thus strong **2023 spatial cancellation** is real descriptively, but it would be erroneous to say both facilities brightened after intervention or that either is definitively the source of the radiance. Bristol's 2024 stage is different: all four pre-event baseline-brightness groups decline, subject to November low-cloudfree coverage caveats.
+
+**Portsmouth dates now audited against original municipal records:** 2019 trial reported underway in February; council approved citywide adaptive dimming on **4 Feb 2020**; crucially, **official June 2022 council guidance states rollout actually occurred in summer 2020**, not merely planned. Individual streetlight activation dates remain unknown, and exceptional routes/heritage lamps were not homogeneous. Extensive 2018/19 LED installation and a 2019 dimming pilot can explain some pre-2020 confounding; 2021 heritage LED work continued. We **retain June–Aug 2020 as an approximate intervention window**, not relocate it to 2021 just to align satellite data. See [Portsmouth dossier date correction](./portsmouth.md) and [full source catalogue](./primary_source_reports.md).
+
+Next useful output: **`portsmouth_primary_2020_spatial_anomalies.png`**, which was not among the most recent set (the user supplied the secondary **2021** map). This would show the actual 2020 before/after seasonal spatial difference, not incorrectly substitute 2021.
