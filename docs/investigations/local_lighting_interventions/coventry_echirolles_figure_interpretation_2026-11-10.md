@@ -1,0 +1,37 @@
+# Figure interpretation: Coventry/UKG33 and Échirolles/FRK24
+
+**Reviewed 10 November 2026**, from the two *actually run and uploaded* `*_nuts3_annual_and_municipal_monthly_2014_2024.png` figures. The author's existing workflow is **data, diagnostics and figures**, not AI drafting of a manuscript. These are analysis notes rather than manuscript text. Original figures are in EcoVis's `figures/local_lighting_interventions/nuts3_event_attribution/`.
+
+## Coventry: proposed figure interpretation bullets
+
+- The locked **UKG33 Coventry NUTS3 annual radiance** shows a **broad, non-linear downward trajectory** from 2014 to 2024: 18.676 to 13.030 nW cm⁻² sr⁻¹, or **−30.23%** over the decade. It is **not accurately described as a straight linear descent**; 2018–19 rebound/plateau and 2021–23 fluctuations are visible.
+- There is a **marked additional regional fall in the 2024 annual value** after 2022–23 had been relatively flat, temporally aligned with documented part-night street-light switching programmed **May–July 2024**. The annual 2024 VNL V2 composite averages pre- and post-programme observations; do not interpret its single point as a precisely dated change point.
+- More precise temporal evidence is municipal **VCMSLCFG VNL V1 monthly radiance**: the 2024 anomalies relative to the same months in 2022/23 are near the previous baseline in April/May, then consistently negative in August–December. The pre- vs post-seasonal anomaly difference in existing robustness CSV is approximately **−3.91 nW cm⁻² sr⁻¹**; the August–December municipal mean is **−32.23%** versus the historical seasonal reference.
+- This independent **part-night operating change**, distinct from Coventry's **principal LED programme starting November 2025**, is strong corroborating evidence that **real operating-hours reductions can coincide with large falls in VIIRS DNB radiance**, rather than all decreases being attributable to HPS→LED spectral response. Earlier LED trials and partial residential dimming existed, so it does **not** establish no prior LED or dimming.
+- The NUTS3 region and municipal authority roughly align. Still, other building, commercial, industrial, sports and private sources can change. A controlled study would compare documented treated street/circuit cohorts to explicitly matched reference areas and account for cloud-free observations and spectral changes; an **attributed quantitative causal fraction of the 2014–24 decline has not been estimated**.
+
+## Échirolles: proposed figure interpretation bullets
+
+- The locked **FRK24 Isère NUTS3 annual radiance** declines **fairly steadily through 2022**, with a pronounced **2022→2023** drop and a smaller further decline to 2024. The full 2014→24 change is from 2.074 to 0.880 nW cm⁻² sr⁻¹ (**−57.58%**). This is NOT a single dated step at the regional scale.
+- **Échirolles municipal monthly VNL V1** is particularly diagnostic: independent records date first selected switch-offs to **July 2022**, parks/municipal site reductions to **August 2022**, and phased roadway switching to **October–December 2022**. The municipality's biggest negative same-calendar-month anomalies occur in **November–December 2022**, later than the initial site-level programme, and the lower radiance persists during 2023–24.
+- The **October–December 2022** municipality-wide seasonal contrast is **−37.08%** versus October–December 2020/21. The pre- vs post-seasonal difference is approximately **−14.52 nW cm⁻² sr⁻¹**, and the spatial maps show broad negative changes across brightness classes. Échirolles had **limited municipal LED penetration (~5%) in 2022** and expanded replacements in **2023 and 2024**; a switch-off mechanism is strongly plausible for late 2022 but subsequent reductions are **mixed operating + spectral + other-source** changes.
+- **Critical spatial caveat:** Échirolles is a small municipality within **FRK24 Isère**, which contains many other communities. Its late-2022 municipal signal **does not establish that Échirolles caused or explains the much larger 2022→2023 FRK24 NUTS3 fall**. The 2023 regional reduction also coincides with a city LED conversion phase, and wider Isère lighting may have its own history.
+- Thus Échirolles serves as a second **independently documented genuine operating-hours reduction co-occurring with measured VIIRS decreases**, not a numerical partition of the Isère regional decadal PRC trend.
+
+## Shared figure interpretation / scientific framing
+
+1. **Two spatial and temporal scales:** Panels A show **annual NUTS3 VNL V2** with the **locked 2021 snow correction**; panels B/C show **municipal monthly VNL V1**, with independent event dates. Their values or percentage changes should **not** be subtracted or equated.
+2. **Background declines:** Pre-event annual VNL decreases may reflect HPS-to-LED spectral shifts, reductions in installed luminous flux, operation hours, buildings and other private lighting sources, land use and atmosphere. **Do not identify a smooth decline as home/building LEDs without separate data.** A smoothly changing signal can include multiple unrelated mechanisms.
+3. **Distinct event-aligned municipal changes:** Both municipalities show **larger late-event declines** in the same-month monthly series when independently documented switch-offs took effect. This provides **positive corroboration of real reductions in operating hours**, not proof that the whole regional or European trend came from switches or that all annual data are immune to LED spectral biases.
+4. **Attribution language:** Prefer *“documented operating changes coincide with temporally and spatially coherent VIIRS radiance reductions; spectral replacement alone is insufficient as a complete explanation for these particular local histories”*. Avoid *“the full regional step was caused by dimming”* without untreated controls, actual luminaire footprints and other-source checks.
+5. **Non-municipal source principle to retain verbatim:** **“Municipal streetlighting policies, industrial lighting, sports facilities and other independently operated sources can produce different spatial and temporal trends within the same city.”**
+6. **Relative contributions from independent literature:** [Kyba et al. (2021)](https://doi.org/10.1177/1477153520958463) used Tucson city light manipulation to estimate city-owned streetlighting supplied approximately 13% of the municipality's overpass-time VIIRS DNB radiance under standard dimming. **That proportion is not universal**; do not extrapolate it numerically to Coventry, Échirolles, UKG33 or FRK24.
+7. **Next test:** independently identified large LED replacement cases should be compared with the same annual/monthly visual grammar, without choosing cases by the observed VIIRS result. A “large LED conversion” is **not** synonymous with “unchanged luminous flux or no dimming”.
+
+## Source traceability
+
+- [Dated city-council operations and frozen annual NUTS3 endpoint comparison](./coventry_echirolles_nuts3_radiance_attribution_table_2026-11-10.md)
+- [Event date and data products in the figure-generation protocol](./annual_monthly_attribution_figures_2026-11-10.md)
+- [Two LED-dominated candidate source audit, with caveats](./led_dominant_contrast_candidates_2026-11-10.md)
+
+**No annual figures, source parquets, 2021 snow overlays, 2017 zero corrections, or locked polarization receptor contrast analyses have been changed.**
