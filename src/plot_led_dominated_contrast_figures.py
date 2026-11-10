@@ -130,15 +130,26 @@ def raster_index():
         key = (m["tile"].upper(), ym, "rad" if m["layer"] == "avg_rade9h"
                else "cf")
         entries.setdefault(key, []).append(path)
-    # Original importer may put W and E files in the same per-year/tif dir,
-    # but they are distinguishable by tile in the file name.
-    for key, paths in entries.items():
-        if len(paths) > 1:
-            raise ValueError(
-                f"Ambiguous V1 source for {key}: "
-                + ", ".join(str(p) for p in paths)
+    # Original importer may put W and E files in the same per-year/tif dir.
+    # Mirror the existing five-case canonical file-preference rules so
+    # duplicate older pilot extracts do not invalidate all of Richmond.
+    chosen = {}
+    for (tile, ym, layer), paths in entries.items():
+        canonical = f"/monthly_vcmslcfg_{ym[:4]}/tif/"
+        def priority(p):
+            normalized = "/" + p.as_posix().lower().lstrip("/")
+            return (
+                canonical in normalized,
+                "/monthly_vcmslcfg_" in normalized,
             )
-    return {k: v[0] for k, v in entries.items()}
+        paths = sorted(paths, key=priority, reverse=True)
+        if len(paths) > 1 and priority(paths[0]) == priority(paths[1]):
+            raise ValueError(
+                f"Ambiguous equally preferred {tile} {ym} {layer}: "
+                + ", ".join(str(p) for p in paths[:2])
+            )
+        chosen[(tile, ym, layer)] = paths[0]
+    return chosen
 
 
 def availability(c: Candidate, index):
@@ -195,7 +206,6 @@ def official_boundary(c: Candidate):
             "name": "Roma Capitale, union of source municipal subdivisions",
             "source_url": url, "number_subdivisions": len(parts),
         }, "geometry": mapping(geom)}
-        path.write_text(json.dumps(record), encoding="utf-8")
     if not geom.is_valid or geom.is_empty:
         raise ValueError("Rome municipality boundary invalid")
     # Expected Rome municipality approx 1285 km2; reject mistakenly
@@ -206,6 +216,8 @@ def official_boundary(c: Candidate):
         raise ValueError(
             f"Rome boundary area {square_km:.1f} km2 impossible for municipality; "
             f"check source {ROME_ADMIN}, do not substitute ITI43")
+    if not path.exists():
+        path.write_text(json.dumps(record), encoding="utf-8")
     return geom, "Rome Capitale municipality (15 subdistrict union)", str(path)
 
 
