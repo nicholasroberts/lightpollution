@@ -76,3 +76,25 @@ If an error occurs after `--inventory` reports complete raster pairs, the next t
 ## Review gate
 
 The two cities are meaningful **prospective LED-dominated contrasts** regardless of whether VIIRS rises, declines or stays flat. Before describing either as a *true LED-only/no-dimming control*, the municipal lighting department's **actual historical controller set points at ~01:30** need confirmation. For Rome, compare the 2017/18 VIIRS results with the independently documented **installed luminous-flux history** and resist attributing a whole-city nocturnal change to installed flux alone. For Richmond, check conversion commissioning history and whether at-overpass output was controlled. Then retain the same four-point attribution logic as for Coventry/Échirolles.
+
+## Rome municipal-boundary runtime fix — 10 November 2026
+
+After both Rome and Richmond passed the 75N060W raster inventory (**48/48** Rome monthly rad+cf pairs; **96/96** Richmond), the real Rome case aborted at `official_boundary()` with `ValueError: Rome boundary query did not return GeoJSON features`. The old river-authority `T05_P5_Cf/MapServer/1/query` endpoint did not return the assumed 15-feature GeoJSON: it was an **unverified municipality source**, not a raster error. The locked annual VNL V2 history and audited 2021 snow cache had already loaded successfully. Richmond's earlier real plot also completed.
+
+**Correction:** The plotting script now obtains the single **Comune di Roma** polygon from the **ISTAT-derived [geojson-italy Rome-province `P_58` municipal GeoJSON](https://github.com/guglielmo/geojson-italy/blob/main/geojson/limits_P_58_municipalities.geojson)**, accessible at `https://raw.githubusercontent.com/guglielmo/geojson-italy/main/geojson/limits_P_58_municipalities.geojson`. It selects the *exact* feature with both **ISTAT code `058091`** and **cadastral code `H501`**, rejecting a missing or duplicate selection, and validates polygon topology, EPSG:4326 bounds, inclusion of Rome city centre and **municipal area 1,100–1,500 km²** before caching. This is a derived re-publication of ISTAT data under CC BY, not a polygon produced by the VIIRS output. `ITI43` remains the separate **metropolitan NUTS3 annual** geography and is never used as the local municipal mask. The generated vetted municipality is cached in `data/raw/viirs/boundaries/rome_capitale_istat_058091.geojson` or the source boundary folder defined in `local_viirs_five_case_analysis.BOUNDARIES`; the script prints its exact path when validated. The deprecated `rome_capitale_union_15_municipi.geojson` is not read by the new code. No downloads of new satellite archives or adjustments to annual data are required.
+
+**New first-stage check:**
+
+```bash
+cd /run/media/bznwr/data/lightpollution
+git switch publication-figures
+git pull --ff-only origin publication-figures
+
+python src/plot_led_dominated_contrast_figures.py --self-test
+# Only fetch/validate municipal polygon: no rasters, no annual sources
+python src/plot_led_dominated_contrast_figures.py --check-boundaries --cases rome
+# Full real 2016–2019 Roma municipal series and plot
+python src/plot_led_dominated_contrast_figures.py --cases rome
+```
+
+The self-test now verifies **ISTAT feature identity** and rejects non-GeoJSON/error/duplicate responses, alongside the existing synthetic figure rendering; the `--check-boundaries` check isolates upstream GeoJSON/network problems before the monthly processing. The new boundary has **not yet been fetched/verified on EcoVis** in this chat; only the endpoint's documented file/schema and code changes have been inspected. If the primary raw GitHub download fails, do not substitute metropolitan geometry or guess a URL; report the HTTP/error first.
