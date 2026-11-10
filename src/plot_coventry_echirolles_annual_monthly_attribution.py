@@ -167,7 +167,7 @@ def event_shading(ax, case: Setup, *, annotation=False):
                        linestyle=":", linewidth=1, alpha=.75)
             if kind == "approval" or (case.key == "echirolles" and
                                       date in ("2022-07-29", "2022-10-01")):
-                ax.annotate(label, xy=(loc, 1), xycoords=(
+                ax.annotate(label, xy=(mdates.date2num(loc), 1), xycoords=(
                     ax.get_xaxis_transform()),
                     xytext=(2, -9-18*(i % 2)), textcoords="offset points",
                     rotation=90, va="top", ha="left",
@@ -324,12 +324,8 @@ def main():
     for case in CASES:
         monthly = validated_monthly(case)
         event, stem = render(case,annual,monthly,OUT)
-        event[["month","year","calendar_month","mean_radiance",
+        event[["date","year","calendar_month","mean_radiance",
                "reference_mean","anomaly","median_cf_cvg"]].to_csv(
-            DATA_OUT/f"{case.key}_event_year_monthly_anomalies.csv",
-            index=False) if "month" in event else event[
-                ["date","year","calendar_month","mean_radiance",
-                 "reference_mean","anomaly","median_cf_cvg"]].to_csv(
             DATA_OUT/f"{case.key}_event_year_monthly_anomalies.csv",
             index=False)
         print(f"{case.title}: {OUT / (stem+'.png')}")
