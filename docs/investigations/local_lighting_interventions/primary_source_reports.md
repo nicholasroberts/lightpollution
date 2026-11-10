@@ -39,6 +39,17 @@
 | Portsmouth News — 2019 trial of dimming | contemporaneous secondary report | 28 Feb 2019 | [Publisher](https://www.portsmouth.co.uk/news/politics/street-lights-in-portsmouth-set-to-be-dimmed-in-bid-to-save-cash-1310884) |
 | Portsmouth News — five trial neighbourhoods, unchanged control and citywide rollout | contemporaneous reporting | 5 Feb 2020 | [Publisher](https://www.portsmouth.co.uk/news/politics/this-is-why-street-lights-across-portsmouth-will-be-dimmed-at-night-1384884) |
 
+### Portsmouth timing audit — additional historical sources (10 Nov 2026)
+
+| Original document | What it actually establishes | Source |
+|---|---|---|
+| City Council Authority Monitoring Report 2018, March 2019, §3.7.5 | LED/CMS installation underway; **target** for 14,500 by September 2019, not proof of completion | [Official original](https://portsmouth.moderngov.co.uk/documents/s22431/Housing%20Needs%20appendix%20-%20Authority%20Monitoring%20Report%20appendix.pdf) |
+| City Council June 2022 stray-light guidance, p. 1 | **Retrospectively says adaptive lighting actually rolled out across the city in summer 2020**, following the 2019 pilot; no per-column dates | [Official original](https://www.portsmouth.gov.uk/wp-content/uploads/2022/06/Guidance-for-dealing-with-stray-and-unwanted-light-from-Street-lights-0622.pdf) |
+| 21 April 2021 council statements on LED conversion | ~1,000 heritage/specialist lights still to convert, beginning March 2021; not all lighting completed 2019 | [Contemporaneous report](https://www.hellorayo.co.uk/hits-radio/south-coast/news/concern-over-fate-of-historical-street-lights-in-portsmouth) |
+| 22 March 2022 Cabinet adaptive lighting review | Agenda documents existence of a review, not dates/settings for new changes; report specifics not yet verified | [Cabinet pack, item 11 pp.403–406](https://portsmouth.moderngov.co.uk/documents/g4931/Public%20reports%20pack%2022nd-Mar-2022%2013.30%20Cabinet.pdf?T=10) |
+
+Full distinction between **approval, target, actual retrospective implementation and outstanding uncertainties**: [10 Nov date audit](./spatial_figures_and_portsmouth_date_audit_2026-11-10.md).
+
 ### Thanet (UKJ44 — East Kent)
 
 | Original report/document | Format / significance | Publication / snapshot | Source |
