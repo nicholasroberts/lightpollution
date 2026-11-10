@@ -250,7 +250,7 @@ python src/plot_madrid_brightness_viirs_direct_contrast.py
 
 After examining Madrid's real ES300/municipality VIIRS versus UCM AstMon plots, the next study tests the **spatial-scale confound**. The new [**\`src/madrid_ucm_local_ground_bridge.py\`**](../../../src/madrid_ucm_local_ground_bridge.py) calculates 2015–19 original \`75N060W\` EOG VNL V1 monthly VIIRS over **fixed 3 km and 10 km circles** around the precisely published UCM observatory coordinates (IAU I86), compares with the already extracted **municipality-month VIIRS**, and performs **strict same-calendar-month 2015 vs 2019 paired-pixel tests** at \`cf_cvg\` thresholds 1, 3 and 5. **No annual NUTS3 or PRC dataset changes.**
 
-The same script can download and MD5-verify the open [Robles et al. original 45.5 MB AstMon_evol.csv](https://zenodo.org/records/4633001) from Zenodo and **inspect its *actual* original columns/flag codes**. The authors manually classified their ground observations for **clouds and moon**, so the script ***refuses to generate ground trends until an investigator-reviewed, explicit clear/moonless flag mapping is provided***; it does not invent unknown original column names or numerical flag meanings. Then it produces nightly and monthly **zenith sky BRIGHTNESS** (B/V/R) median data after midnight, plus indexed ground/satellite 2015–19 brightness comparisons. Subcity VIIRS circles are spatial sensitivity supports, not physics-based zenith skyglow source footprints.
+The original Zenodo AstMon CSV was **successfully MD5-verified and inspected on EcoVis**. Its nine fields contain **NO cloud/moon quality flags**; `Filter` identifies Johnson B/V/R and `Magnitude` contains each observation. The authors manually quality-labelled ~28% of the data for their paper, but those flags are absent from this downloaded file. **Do not fabricate clear-sky labels or run `--prepare-ground` on unfiltered records.** The script has been amended to recognise the actual long-form source and require independently reviewed QC annotations. Meanwhile use the paper's published quality-filtered Tables 3–6 and supplementary Tables S1–S3.
 
 [**Complete methodology, data provenance and staged EcoVis commands**](./madrid_ucm_local_astmon_viirs_plan_2026-11-10.md). The script and methods are committed; Python syntax and **synthetic** ground-flag, geographic-area and PNG/PDF/SVG tests were run in the working environment. **Real UCM-local EcoVis satellite results and the raw Zenodo quality flag schema have not yet been inspected or calculated.**
 
@@ -263,13 +263,13 @@ python src/madrid_ucm_local_ground_bridge.py --viirs
 python src/madrid_ucm_local_ground_bridge.py --download-ground --inspect-ground
 \`\`\`
 
-**Next validation gate:** share the \`--inspect-ground\` column names, first few rows and quality-field counts, so an explicit reproducible JSON configuration can be committed **without guessing flag meanings**. Once vetted, run \`--prepare-ground --ground-map ...\` and \`--plot\` for full side-by-side sky-brightness and local VIIRS comparisons.
+**Ground quality blocker confirmed:** The actual source has no clear/moon/cloud flags, so no `astmon_columns_flags.json` can be legitimately derived from it. Author annotations or the independently published filtered statistics are required to extend the ground time series.
 
 ## Madrid UCM local 3/10 km results received and validated — 10 November 2026
 
 **[Actual UCM-local VIIRS results, month-by-month pixel support and winter sensitivity](./madrid_ucm_local_results_2026-11-10.md).** The investigator uploaded the successfully generated `madrid_ucm_local_viirs_2015_2019.png` and all three underlying CSVs. In **2015→19**, Madrid municipal VNL V1 **−1.94%**, UCM **3 km −2.60%** and **10 km −3.78%**, whereas published ground UCM after-midnight Johnson B sky brightness **+30.6%**, V **+11.7%**, R **−1.8%**. **The broad blue-skyglow/upward-DNB discrepancy persists at both local satellite scales**; the circles are not full skyglow source footprints and cannot identify the cause.
 
-All 60 monthly VIIRS composites had **172/172 valid cells at 3 km and 1,913/1,913 at 10 km**, unchanged even at `cf_cvg≥5`, so local pixel support is not driving this result. However declines are **concentrated in winter**: March–October 2015→19 changes just **−0.83% at 3 km and −0.88% at 10 km**. The yearly local VIIRS fell most strongly 2015→16 then partly rebounded to 2019, not a uniform sustained decrease. There is still no monthly, independently verified, clear-sky UCM B/V/R ground series to align season-by-season: **the source raw AstMon archive needs schema and flags inspected next**.
+All 60 monthly VIIRS composites had **172/172 valid cells at 3 km and 1,913/1,913 at 10 km**, unchanged even at `cf_cvg≥5`, so local pixel support is not driving this result. However declines are **concentrated in winter**: March–October 2015→19 changes just **−0.83% at 3 km and −0.88% at 10 km**. The yearly local VIIRS fell most strongly 2015→16 then partly rebounded to 2019, not a uniform sustained decrease. There is still no monthly, independently verified, clear-sky UCM B/V/R ground series to align season-by-season: **the raw AstMon archive has been inspected and has no author quality flags**.
 
 ```bash
 cd /run/media/bznwr/data/lightpollution
@@ -278,4 +278,30 @@ git pull --ff-only origin publication-figures
 python src/madrid_ucm_local_ground_bridge.py --download-ground --inspect-ground
 ```
 
-The resulting field names and quality-code distributions are the immediate next input. Do not use unfiltered ground data or claim that the measured B brightening proves a uniquely spectral VIIRS bias, rather than a mixture of lamp spectrum, directionality, light output, schedules, scattering and independent sources. Frozen European 2014–24 analyses/PRC are unchanged.
+There are no quality-code distributions in the released AstMon file. Do not use unfiltered ground data or claim that the measured B brightening proves a uniquely spectral VIIRS bias, rather than a mixture of lamp spectrum, directionality, light output, schedules, scattering and independent sources. Frozen European 2014–24 analyses/PRC are unchanged.
+
+
+## Madrid AstMon CSV reviewed; published winter 01:30 brightness comparison — 10 November 2026
+
+**Actual EcoVis result:** The Zenodo [AstMon_evol.csv](https://zenodo.org/records/4633001) was MD5-verified (\`634f098973251bf41f7d8a12b0a8ab45\`) and examined. The **nine fields** are \`Julian_Dates\`, \`Datetime_Raw\`, \`Datetime_UTC\`, \`Filter\`, \`Pixel_x\`, \`Pixely\`, \`Pos_0\`, \`Magnitude\`, \`Error\`. This is **long-form B/V/R photometry, with NO cloud/moon quality flags**. The \`Filter\` field is the photometric filter (e.g. Johnson-B), and \`Error\` is not a sky-condition indicator. The authors' manual clear/no-moon selection (119,296 records, 28%) cannot be reconstructed from an unlabelled CSV by relabelling these fields. The existing script's \`--prepare-ground\` still fails closed; parsing is updated for the correct long schema if separately validated quality annotations are obtained.
+
+**Independent source available now:** [Robles et al. (2021), Tables 3–5](https://doi.org/10.3390/rs13081511) give published filtered **winter 01:30** UCM zenith sky brightness, 2015→2019:
+- Johnson B **19.30→18.97 mag/arcsec²: +35.5% relative linear brightness**.
+- Johnson V **18.07→17.96: +10.7%**.
+- Johnson R **17.42→17.45: −2.7%**.
+
+The paper calls **November–January** winter. The directly computed UCM **VIIRS 2015→19** same-calendar-year **January, November, December** means change **−5.9% at 3 km**, **−7.7% at 10 km** (\`cf_cvg>=3\`, all cells valid). **Important:** author winter-year assignment may cross the calendar boundary, and satellite observations are monthly averages, not synchronised with photometry; this is a nearby-season sensitivity contrast, **NOT exactly time-matched or a causal spectral-effect estimate**.
+
+[\`src/plot_madrid_ucm_published_winter_sky_brightness.py\`](../../../src/plot_madrid_ucm_published_winter_sky_brightness.py) produces a PNG, editable SVG and PDF of the independently published filtered 01:30 B/V/R versus actual UCM-local winter satellite percentages. It uses the existing monthly CSV and published table entries, not unfiltered observations or new VNL rasters.
+
+\`\`\`bash
+cd /run/media/bznwr/data/lightpollution
+git switch publication-figures
+git pull --ff-only origin publication-figures
+python src/madrid_ucm_local_ground_bridge.py --self-test
+python src/madrid_ucm_local_ground_bridge.py --inspect-ground
+python src/plot_madrid_ucm_published_winter_sky_brightness.py --self-test
+python src/plot_madrid_ucm_published_winter_sky_brightness.py
+\`\`\`
+
+For complete **published quality-filtered ANNUAL** B/V/R 2014–19, seek the article's **Supplementary Tables S1–S3**. For monthly observational records, seek the original author's per-observation manually reviewed cloud/moon labels; neither exists in the original nine-column Zenodo file. Frozen annual VIIRS/PRC unchanged.
