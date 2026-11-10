@@ -197,3 +197,14 @@ python src/plot_led_dominated_contrast_figures.py --cases rome
 ```
 
 The corrected Rome boundary source and tests are committed; **Rome's full monthly result has not yet been rerun successfully on EcoVis**. Richmond's existing completed plot does **not** need regeneration.
+
+
+## Rome and Richmond: real LED-dominated VIIRS comparison results — 10 November 2026
+
+**[Reviewed actual four figures and five CSVs, with annual/monthly results and full four-case mechanistic synthesis](./rome_richmond_real_viirs_results_2026-11-10.md).** Both municipalities' real EOG VNL V1 plots are successfully generated with the corrected European 75N060W tile and distinct local boundary masks. No new raw imagery, snow cache, PRC or annual inputs modified.
+
+**Rome stands out:** municipal VIIRS monthly **2016→17 −11.6%**, **2017→18 −9.1% (11/12 months lower)**, **2018→19 −0.3%**, corresponding to ITI43 NUTS2016 annual **2016→18 −13.0%** and post-2018 rebound to 2024. Critically, Rome ACoS independently reports *installed streetlighting luminous flux* **2016→17 −27.6%**, but **2017→18 +0.95%** while *estimated energy use* **−27.4%**. Thus **VIIRS dropped 9.1% in 2017→18 despite approximately constant *rated installed streetlighting lumens***. This is an important mechanism contrast **consistent with** LED spectral/directional changes, but *not proof*: actual output at overpass time, non-municipal sources and switching/dimming schedules remain unverified. The 2016→17 interval included a real drop in installed lumens. The whole conversion period is not a no-dimming/constant-lumen experiment.
+
+**Richmond is not a clean LED-only control:** Richmond borough's 2022 municipal VNL V1 is **−19.7%** below the 2017/18 same-month baseline, but radiance was already declining pre-2019 and the funding document's 'unchanged hours' does not rule out dimming. The 2023→24 borough decline is **−13.9%** overall but only **−4.2% in Jan–Oct**: a large portion comes from November–December; UKI75 NUTS3 (includes Hounslow) fell **−11.6% 2023→24**, which cannot automatically be attributed to Richmond's 2019–22 LED rollout.
+
+**Priority next:** a direct Rome 2016–18 **installed-lumens / regional annual / municipal monthly** juxtaposition (different units/scales explicitly marked), independently dated spectral ISS data if available, plus operational control profiles at VIIRS overpass. This preserves the two-sided attribution argument: real operating reductions **can** cause VIIRS declines (Coventry/Échirolles); LED transitions can also change VIIRS in ways that do not straightforwardly track rated luminous flux (Rome).
