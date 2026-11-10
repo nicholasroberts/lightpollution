@@ -18,6 +18,7 @@ council explicitly reports nighttime dimming profiles.
 Run:
   python src/plot_led_dominated_contrast_figures.py --self-test
   python src/plot_led_dominated_contrast_figures.py --inventory
+  python src/plot_led_dominated_contrast_figures.py --check-boundaries --cases rome
   python src/plot_led_dominated_contrast_figures.py --annual-only
   python src/plot_led_dominated_contrast_figures.py --cases richmond
   python src/plot_led_dominated_contrast_figures.py --cases rome
@@ -557,6 +558,9 @@ def main():
     ap=argparse.ArgumentParser(description=__doc__)
     ap.add_argument("--self-test",action="store_true")
     ap.add_argument("--inventory",action="store_true")
+    ap.add_argument("--check-boundaries",action="store_true",
+                    help="Download/cache and validate municipal boundary only; "
+                         "does not load satellite imagery or annual data")
     ap.add_argument("--annual-only",action="store_true")
     ap.add_argument("--strict",action="store_true",
                     help="Fail if any requested monthly comparison is incomplete")
@@ -565,6 +569,15 @@ def main():
     args=ap.parse_args()
     if args.self_test:
         self_test()
+        return
+    if args.check_boundaries:
+        for key in args.cases:
+            c = CASES[key]
+            geom, name, source = official_boundary(c)
+            km2 = float(gpd.GeoSeries(
+                [geom], crs="EPSG:4326").to_crs("EPSG:3035").area.iloc[0]/1e6)
+            print(f"{c.city}: VALIDATED {name}, area {km2:.1f} km2, "
+                  f"cached {source}")
         return
     index=raster_index() if not args.annual_only else {}
     if args.inventory:
