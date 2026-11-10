@@ -182,3 +182,18 @@ python src/plot_led_dominated_contrast_figures.py --cases richmond
 ```
 
 **Status:** Scripts/docs committed; new Rome and Richmond real-data plots remain **unrun in EcoVis** and cannot be interpreted until outputs are reviewed.
+
+## Rome municipality boundary repaired — 10 November 2026
+
+On EcoVis, the user ran the corrected **75N060W** LED comparison script. `--self-test` passed and `--inventory` confirmed **48/48 Roma 2016–19** and **96/96 Richmond 2017–24** month pairs, but the Rome runtime failed because the old river-authority ArcGIS endpoint did not supply a valid GeoJSON municipality polygon. **This was not a missing raster or annual VIIRS failure.** The new plotting script uses an **ISTAT-derived GeoJSON subset for Rome province**, matching **municipality ISTAT `058091` / cadastral `H501`**, with strict geometry/location/area validation before caching; the annual NUTS3 ITI43 remains independent of the municipal mask. See [full issue/fix](./led_dominated_contrast_plotting_protocol_2026-11-10.md#rome-municipal-boundary-runtime-fix--10-november-2026).
+
+```bash
+cd /run/media/bznwr/data/lightpollution
+git switch publication-figures
+git pull --ff-only origin publication-figures
+python src/plot_led_dominated_contrast_figures.py --self-test
+python src/plot_led_dominated_contrast_figures.py --check-boundaries --cases rome
+python src/plot_led_dominated_contrast_figures.py --cases rome
+```
+
+The corrected Rome boundary source and tests are committed; **Rome's full monthly result has not yet been rerun successfully on EcoVis**. Richmond's existing completed plot does **not** need regeneration.
