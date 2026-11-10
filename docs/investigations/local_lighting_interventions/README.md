@@ -264,3 +264,18 @@ python src/madrid_ucm_local_ground_bridge.py --download-ground --inspect-ground
 \`\`\`
 
 **Next validation gate:** share the \`--inspect-ground\` column names, first few rows and quality-field counts, so an explicit reproducible JSON configuration can be committed **without guessing flag meanings**. Once vetted, run \`--prepare-ground --ground-map ...\` and \`--plot\` for full side-by-side sky-brightness and local VIIRS comparisons.
+
+## Madrid UCM local 3/10 km results received and validated — 10 November 2026
+
+**[Actual UCM-local VIIRS results, month-by-month pixel support and winter sensitivity](./madrid_ucm_local_results_2026-11-10.md).** The investigator uploaded the successfully generated `madrid_ucm_local_viirs_2015_2019.png` and all three underlying CSVs. In **2015→19**, Madrid municipal VNL V1 **−1.94%**, UCM **3 km −2.60%** and **10 km −3.78%**, whereas published ground UCM after-midnight Johnson B sky brightness **+30.6%**, V **+11.7%**, R **−1.8%**. **The broad blue-skyglow/upward-DNB discrepancy persists at both local satellite scales**; the circles are not full skyglow source footprints and cannot identify the cause.
+
+All 60 monthly VIIRS composites had **172/172 valid cells at 3 km and 1,913/1,913 at 10 km**, unchanged even at `cf_cvg≥5`, so local pixel support is not driving this result. However declines are **concentrated in winter**: March–October 2015→19 changes just **−0.83% at 3 km and −0.88% at 10 km**. The yearly local VIIRS fell most strongly 2015→16 then partly rebounded to 2019, not a uniform sustained decrease. There is still no monthly, independently verified, clear-sky UCM B/V/R ground series to align season-by-season: **the source raw AstMon archive needs schema and flags inspected next**.
+
+```bash
+cd /run/media/bznwr/data/lightpollution
+git switch publication-figures
+git pull --ff-only origin publication-figures
+python src/madrid_ucm_local_ground_bridge.py --download-ground --inspect-ground
+```
+
+The resulting field names and quality-code distributions are the immediate next input. Do not use unfiltered ground data or claim that the measured B brightening proves a uniquely spectral VIIRS bias, rather than a mixture of lamp spectrum, directionality, light output, schedules, scattering and independent sources. Frozen European 2014–24 analyses/PRC are unchanged.
