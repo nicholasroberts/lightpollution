@@ -15,15 +15,13 @@ The switch-off cases show abrupt municipal VNL V1 declines temporally aligned wi
 
 **These annual and monthly comparisons are distinct products and geographies.** Never subtract or divide annual NUTS3 mean by monthly municipality mean, or read a regional decade decline as the effect of the municipal retrofit.
 
-### Input source constraints, particularly the EAST tile
+### Input source: European tile 75N060W — correction, 10 November 2026
 
-The 2015–2024 EOG V1 `VCMSLCFG` monthly TIFs used for Coventry, Échirolles and Richmond are the **western `75N060W`** tile. **Roma at longitude ~12.5° E is in `75N060E`**. The existing western raster coverage does NOT contain Rome.
+**Correction to the original version of this protocol:** EOG's six-tile map labels the Europe-containing tile **Tile 2 (60W75N)**, which is encoded in the files as **`75N060W`**. This tile spans longitudes roughly **60°W to 60°E** and includes **Rome (~12.5°E), Richmond and all five earlier study cities**. **Tile 3 (60E75N), encoded `75N060E`, covers East Asia/Pacific, not Rome.** The initial script/documents wrongly requested Tile 3 for Rome; this error has now been corrected. The user supplied the official EOG tile diagram to confirm.
 
-To avoid an unnecessary 10-year full eastern-tile archive acquisition, the initial Roman monthly plot is **limited to 2016–2019**, which is **48 EOG `75N060E` month pairs** (`avg_rade9h`, `cf_cvg`). That's still a large download and requires authorised EOG archive access. No raw TIFFs are fabricated; the script **reports exactly which months are missing** and can still draw the annual regional panels without Rome monthly data. A past accidental download of individual `75N060E` archives for **July/August 2024** does NOT help the requested 2016–2019 window.
+**No extra EOG data must be downloaded for the current Rome/Richmond comparison.** The pre-existing 2015–2024 extracted `VCMSLCFG` `avg_rade9h` and `cf_cvg` from `75N060W` should cover **Rome 2016–2019 (48 observation months)** and **Richmond 2017–2024 (96 months)**. The original code's search now uses the same tile for both. The `--inventory` mode checks that every actual TIF pair exists before attempting any extraction or plot; if it reports missing months, investigate source files rather than acquiring `75N060E`.
 
-Richmond's 2017–2024 western-tile data should already be available from the prior 120-month 2015–2024 extraction (the script verifies both layers, not archive presence).
-
-The pre-existing [manual archive importer](../../../src/import_eog_manual_monthly_archives.py) **already supports `--tile 75N060E`**, copying the two required layers into the existing per-year raw-data structure without deleting the source archives or mixing the east/west filenames. New code does **not** auto-download from EOG or guess user credentials.
+**Remaining separate validation:** the script needs an authoritative **Rome municipality** boundary, which is not the NUTS3 `ITI43` metropolitan boundary. If the official municipal boundary query fails, the script must halt rather than substitute metropolitan Rome. Richmond is clipped to ONS LAD E09000027, not UKI75.
 
 ## Execution
 
@@ -35,32 +33,23 @@ git pull --ff-only origin publication-figures
 # Real synthetic rendering test; no actual raw data accessed
 python src/plot_led_dominated_contrast_figures.py --self-test
 
-# Check EOG V1 month availability separately for both tile sets
+# Check EOG V1 monthly pair availability in the shared European tile
 python src/plot_led_dominated_contrast_figures.py --inventory
 
 # Generate the two FULL locked annual NUTS3 histories NOW
 python src/plot_led_dominated_contrast_figures.py --annual-only
 
-# Generate the Richmond borough monthly plot (WEST tiles already extracted)
-python src/plot_led_dominated_contrast_figures.py --cases richmond
+# Generate the Richmond borough and Rome municipality monthly plots
+python src/plot_led_dominated_contrast_figures.py --cases richmond rome
 </pre>
 
-Once the **2016–2019 `75N060E` monthly archive files** are downloaded to `~/Downloads`:
+To produce both full cases directly from the already extracted European tile:
 
-<pre>
-python src/import_eog_manual_monthly_archives.py \
-  --tile 75N060E --product vcmslcfg \
-  --years 2016 2017 2018 2019 --dry-run
+```bash
+python src/plot_led_dominated_contrast_figures.py --cases richmond rome
+```
 
-python src/import_eog_manual_monthly_archives.py \
-  --tile 75N060E --product vcmslcfg \
-  --years 2016 2017 2018 2019
-
-python src/plot_led_dominated_contrast_figures.py --inventory
-python src/plot_led_dominated_contrast_figures.py --cases rome
-</pre>
-
-If the boundary source fails, report it and obtain the authoritative local mask; **no automatic substitution of ITI43 or UKI75 for the municipality**. The initial programme window shading represents **multi-year installations**, not a known single switch-on date.
+If an error occurs after `--inventory` reports complete raster pairs, the next thing to check is **Rome's municipal polygon lookup**, not whether the imagery was downloaded from an eastern tile. Both cases are coded to use exactly `75N060W`.
 
 ## Script and outputs
 
