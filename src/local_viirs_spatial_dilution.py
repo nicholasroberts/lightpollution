@@ -16,6 +16,9 @@ from __future__ import annotations
 import argparse
 import math
 from pathlib import Path
+from tempfile import TemporaryDirectory
+
+from shapely.geometry import box
 
 import matplotlib
 matplotlib.use("Agg")
@@ -234,7 +237,7 @@ def plot_diagnostics(key, name, geom, strata, sectors, baseline, pre, post,
     vals = np.r_[post_delta[np.isfinite(post_delta)],
                  diff[np.isfinite(diff)]]
     scale = max(float(np.nanquantile(np.abs(vals), .98)), 1e-3)
-    norm = TwoSlopeNorm(-scale, vcenter=0, vmax=scale)
+    norm = TwoSlopeNorm(vcenter=0, vmin=-scale, vmax=scale)
 
     fig, axes = plt.subplots(2, 2, figsize=(12, 10),
                              constrained_layout=True)
@@ -399,6 +402,7 @@ def run_case(key, index):
 
 
 def self_test():
+    global FIG
     small = {}
     for y in (2019, 2020, 2021):
         for m in (1, 2):
@@ -433,8 +437,44 @@ def self_test():
     _, _, d, n = period_maps(
         small, 2021, (2019, 2020), (1, 2), min_cf=9)
     assert not np.isfinite(d).any()
+
+    # Plotting smoke test on synthetic data. Previously this was only an
+    # arithmetic test and missed the duplicated TwoSlopeNorm vcenter error.
+    original_fig = FIG
+    try:
+        with TemporaryDirectory(prefix="viirs-spatial-plot-test-") as tmp:
+            FIG = Path(tmp)
+            geom = box(0, 0, 4, 3)
+            grid = {
+                "inside": np.ones(anchor.shape, dtype=bool),
+                "extent": (0, 0, 4, 3),
+                "geometry": geom,
+            }
+            sectors = np.array([[0, 0, 1, 1],
+                                [0, 0, 1, 1],
+                                [2, 2, 3, 3]], dtype=np.int8)
+            plot_diagnostics(
+                "synthetic", "Synthetic", geom, strata, sectors,
+                {"grid": grid, "anchor": anchor},
+                {"delta": delta * 0.5},
+                {"delta": delta, "nmonths": 2},
+                np.full(anchor.shape, 2, dtype=int), "test")
+            # Also exercise the no-pre-event path used by Thanet.
+            plot_diagnostics(
+                "synthetic", "Synthetic", geom, strata, sectors,
+                {"grid": grid, "anchor": anchor},
+                None, {"delta": delta, "nmonths": 2},
+                np.full(anchor.shape, 2, dtype=int), "no_pre")
+            plot_strata("synthetic", "test", rows)
+            for stem in ("synthetic_test_spatial_anomalies.png",
+                         "synthetic_no_pre_spatial_anomalies.png",
+                         "synthetic_test_brightness_decomposition.png"):
+                assert (FIG / stem).is_file(), f"Missing plot: {stem}"
+    finally:
+        FIG = original_fig
+
     print("Self-test passed: fixed baseline ranks, strict common cells, "
-          "cf_cvg masks, additive contributions.")
+          "cf_cvg masks, additive contributions and plotting.")
 
 
 def main():
