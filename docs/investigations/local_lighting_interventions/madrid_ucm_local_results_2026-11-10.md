@@ -50,18 +50,23 @@ For same-calendar-month, identical-cell comparisons (`cf_cvg≥3`):
 
 ## Next validation, not yet completed
 
-The full [Robles et al. UCM Zenodo AstMon CSV](https://zenodo.org/records/4633001) needs the original *manual* **clear/moonless** flag mapping, actual time column semantics, and after-midnight window validated **before** generating monthly ground B/V/R. An attempted direct public download from the assistant's container did not succeed; the user can run the already-committed importer on EcoVis and share `--inspect-ground` output. Never substitute the full unfiltered AstMon readings for published clear/moonless photometry or invent quality codes.
+**Verified real-data blocker (10 Nov 2026):** EcoVis retrieved the original Zenodo AstMon_evol.csv and verified MD5 \`634f098973251bf41f7d8a12b0a8ab45\`. Actual fields: \`Julian_Dates\`, \`Datetime_Raw\`, \`Datetime_UTC\`, \`Filter\`, \`Pixel_x\`, \`Pixely\`, \`Pos_0\`, \`Magnitude\`, \`Error\`; there is **no published per-observation cloud/moon flag**. \`Filter\` denotes Johnson B/V/R band, NOT sky quality. The original paper manually excluded cloudy and moonlit observations, retaining 119,296 readings (~28%). We cannot truthfully reconstruct their selected monthly photometry from this CSV alone. No quality mapping/config should be fabricated.
 
-```bash
+**New directly published ground observation comparison, Robles Tables 3–5:** Winter at approximately **01:30**, paper's **Nov–Jan** season, 2015→2019 Johnson B **19.30→18.97 mag arcsec⁻² = +35.52% sky brightness**, V **18.07→17.96 = +10.66%**, R **17.42→17.45 = −2.73%**. Ground observations in these tables were filtered by the authors. In the corresponding local VIIRS CSV, a separately defined **same-calendar-year Jan, Nov, Dec** window yields **UCM 3 km −5.92%** and **UCM 10 km −7.72%**. Both results computed with actual local raster means at \`cf_cvg>=3\`; complete per-month pixel support. **Season year bins are not precisely matched**: the author's winter can span December/January, VIIRS's Jan/Nov/Dec set is within a calendar year. These are independent winter-centred measurement contrasts, **not simultaneous 01:30 satellite observations**, and do not identify a spectral-only causal mechanism.
+
+[New published-winter versus VIIRS plotting script](../../../src/plot_madrid_ucm_published_winter_sky_brightness.py) uses existing UCM-local monthly VIIRS CSV and the authors' Tables 3–5 without ever reading unfiltered AstMon raw data.
+
+\`\`\`bash
 cd /run/media/bznwr/data/lightpollution
 git switch publication-figures
 git pull --ff-only origin publication-figures
-python src/madrid_ucm_local_ground_bridge.py --download-ground --inspect-ground
-```
+python src/madrid_ucm_local_ground_bridge.py --self-test
+python src/madrid_ucm_local_ground_bridge.py --inspect-ground
+python src/plot_madrid_ucm_published_winter_sky_brightness.py --self-test
+python src/plot_madrid_ucm_published_winter_sky_brightness.py
+\`\`\`
 
-After schema inspection and reviewed flag mapping, plot:
-1. **Monthly and annual after-midnight UCM Johnson B/V/R radiance**, with observation/night count and year/month availability, aligned to local circle 3/10 km and municipality VIIRS VNL V1.
-2. **2015→19 seasonal sensitivity** with same-calendar-month observations and ideally ground sampling restricted to comparable months.
-3. The first **2014→2024 ES300 locked annual** context only; never force agreement between spatially distinct series or overfit the local VIIRS observations.
+**Next source priority:** obtain publisher's [Supplementary Tables S1–S3](https://www.mdpi.com/article/10.3390/rs13081511/s1) for the original authors' quality-filtered **annual B/V/R** medians, or the original authors' per-observation manual flag annotations for quality-controlled monthly ground photometry. The latter are NOT present in the Zenodo download, so earlier instructions to create \`astmon_columns_flags.json\` from it were incorrect.
+
 
 **Scientific scope:** Our key finding so far is that **satellite VIIRS and blue-sensitive ground sky-brightness changes can diverge even at local spatial support**, not a uniquely identified spectral artifact nor a measured polarization receptor contrast. Additional independent spectral observations and emitting-source timelines remain necessary.
