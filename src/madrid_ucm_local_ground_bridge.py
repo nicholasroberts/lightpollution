@@ -13,9 +13,11 @@ No frozen annual, snow, VIIRS input rasters or PRC arrays are modified.
   python src/madrid_ucm_local_ground_bridge.py --prepare-ground --ground-map CONFIG.json
   python src/madrid_ucm_local_ground_bridge.py --plot
 
-The ground CSV's unknown original field/flag schema must be inspected before
-specifying a CONFIG.json. In particular, never assume an integer flag means
-'no moon, no clouds'. The mapping must explicitly identify accepted flag(s).
+Original Zenodo 4633001 v1 has nine columns. Filter identifies Johnson
+passband, not cloud/moon; no QC labels are present. The published paper
+manually flagged sky conditions but the released CSV omits those flags.
+A separately reviewed per-record cloud/moon annotation is REQUIRED to run
+--prepare-ground; otherwise use the published filtered Table 6 and Tables S1–S3.
 """
 from __future__ import annotations
 
@@ -103,17 +105,49 @@ def read_original(*, nrows=None):
 
 
 def inspect_ground():
-    frame = read_original(nrows=200)
+    """Inspect actual original long-format columns; do not invent QC flags."""
+    frame = read_original()
+    expected = ['Julian_Dates', 'Datetime_Raw', 'Datetime_UTC',
+                'Filter', 'Pixel_x', 'Pixely', 'Pos_0',
+                'Magnitude', 'Error']
     print('Zenodo AstMon raw column names:', list(frame.columns))
-    print('First 6 rows:\n', frame.head(6).to_string(index=False))
-    for column in frame.columns:
-        name = str(column).lower()
-        if any(x in name for x in ('flag', 'cloud', 'moon', 'qual', 'clear', 'estado', 'status')):
-            print(f'Possible quality field {column!r}:',
-                  frame[column].astype(str).value_counts(dropna=False).head(15).to_dict())
-    print('Full file must be analysed only with a reviewed mapping of '
-          'date, B/V/R magnitude and *clear/moonless* flag(s). '
-          'No automatic quality-code interpretation is permitted.')
+    print('First 6 rows:\\n', frame.head(6).to_string(index=False))
+    print('Original records:', len(frame))
+    print('Filter distribution:', frame['Filter'].astype(str)
+          .value_counts(dropna=False).to_dict() if 'Filter' in frame else
+          'MISSING expected filter column')
+    if 'Datetime_UTC' in frame:
+        parsed = pd.to_datetime(frame['Datetime_UTC'], errors='coerce',
+                                utc=True)
+        print('UTC observation range:', parsed.min(), 'to', parsed.max(),
+              '| unparsable:', int(parsed.isna().sum()))
+    if 'Magnitude' in frame:
+        m = pd.to_numeric(frame.Magnitude, errors='coerce')
+        print('Valid numeric magnitude rows:', int(m.notna().sum()))
+    observed_flags = [str(c) for c in frame.columns if any(
+        q in str(c).casefold()
+        for q in ('cloud', 'moon', 'qual', 'clear', 'flag', 'estado', 'status'))]
+    print('Cloud/moon/quality fields:', observed_flags or 'NONE')
+    if list(frame.columns) != expected:
+        print('WARNING: Raw schema differs from originally inspected v1; '
+              'check the verified Zenodo MD5 before analysis.')
+    if not observed_flags:
+        print('BLOCKER: The original 9-column Zenodo CSV has NO '
+              'clear/moonless classification field. Filter denotes the '
+              'Johnson B/V/R photometric BAND, NOT observation quality; '
+              'Error is a photometric measurement error, NOT a cloud flag. '
+              'The paper manually selected 119,296 (28%) clear/moonless '
+              'observations, but these row labels are not included here. '
+              'DO NOT RUN --prepare-ground with invented quality codes. '
+              'Use the published verified annual statistics in the paper '
+              'or supplement Tables S1–S3, or obtain author QC labels.')
+    else:
+        for col in observed_flags:
+            print(f'Potential flag values in {col}:',frame[col].astype(str)
+                  .value_counts(dropna=False).head(20).to_dict())
+    print('This diagnostic does not calculate ground brightness changes.')
+
+
 
 
 def parse_datetime(values, spec):
@@ -133,10 +167,16 @@ def parse_datetime(values, spec):
 
 
 def prepare_ground(frame, spec, *, min_nights=3):
-    """Parse only *explicitly approved* quality flags, then robust nightly medians."""
+    """Quality-labelled ground data only; supports real long B/V/R source.
+
+    For original Zenodo v1 alone this MUST FAIL: it has no cloud/moon
+    annotations. An external, reviewed, row-linked QC source is required
+    before this function can be used for scientific comparisons.
+    """
     if not spec.get('quality_filters'):
-        raise ValueError('Mapping MUST include a nonempty quality_filters array '
-                         'with documented clear/no-moon values. See --inspect-ground.')
+        raise ValueError('No reviewed clear/moonless quality filters. '
+                         'The original nine-column Zenodo CSV contains none; '
+                         'Filter is Johnson passband, not a quality label.')
     timecol = spec['time_col']
     if timecol not in frame:
         raise ValueError(f'Ground time column {timecol!r} missing')
@@ -145,74 +185,99 @@ def prepare_ground(frame, spec, *, min_nights=3):
     for rule in spec['quality_filters']:
         col, accepted = rule['column'], rule['accepted_values']
         if col not in frame or not accepted:
-            raise ValueError(f'Unusable quality flag mapping {rule}')
+            raise ValueError(
+                f'Unusable quality flag {rule}; original Zenodo '
+                'AstMon_evol.csv contains no cloud/moon-quality fields.')
+        if col in {'Filter', 'Magnitude', 'Error', 'Pixel_x',
+                   'Pixely', 'Pos_0'}:
+            raise ValueError(
+                f'{col!r} is an instrument/photometry field, not '
+                'independently verified cloud/moon quality.')
         good = frame[col].astype(str).str.strip().str.casefold().isin(
             [str(v).strip().casefold() for v in accepted])
         selected &= good
         filter_counts[col] = {'accepted': list(accepted),
                               'matching_all_file': int(good.sum())}
     if selected.sum() < 100:
-        raise ValueError('Too few accepted clear/no-moon observations; '
-                         'check raw quality mappings, do not analyse unfiltered data')
+        raise ValueError('Too few verified clear/moonless observations')
     x = frame.loc[selected].copy()
     dt = parse_datetime(x[timecol], spec)
     x['madrid_datetime'] = dt.dt.tz_convert('Europe/Madrid')
     x = x.dropna(subset=['madrid_datetime'])
-    x = x.loc[(x.madrid_datetime.dt.year.between(2010, 2020)) &
-              (x.madrid_datetime.dt.hour >= 0) &
-              (x.madrid_datetime.dt.hour < 5)]
-    # 00:00-04:59 local; streetlights typically ramp back up ~04:45;
-    # restrict further to strictly before 04:30.
-    minute = 60*x.madrid_datetime.dt.hour + x.madrid_datetime.dt.minute
-    x = x.loc[minute < 270].copy()
+    mins = 60*x.madrid_datetime.dt.hour + x.madrid_datetime.dt.minute
+    x = x.loc[
+        x.madrid_datetime.dt.year.between(2010, 2020) &
+        (mins < 270)].copy()  # local 00:00–04:29
     if x.empty:
-        raise ValueError('No observations after quality, midnight and time filters')
+        raise ValueError('No clear/moonless records after local time filter')
     x['night'] = x.madrid_datetime.dt.date
     x['year'] = x.madrid_datetime.dt.year
     x['month'] = x.madrid_datetime.dt.month
-    records = []
+    # Long format from actual Zenodo archive: Filter='Johnson-B'/...
+    # and Magnitude is a single value per row; NOT B/V/R separate columns.
+    if spec.get('format') == 'long':
+        bandcol = spec.get('band_col', 'Filter')
+        magcol = spec.get('magnitude_col', 'Magnitude')
+        band_codes = spec.get('band_values', {
+            'B': 'Johnson-B', 'V': 'Johnson-V', 'R': 'Johnson-R'})
+        if bandcol not in x or magcol not in x:
+            raise ValueError('Long-form AstMon filter/magnitude columns missing')
+        if set(band_codes) != {'B', 'V', 'R'}:
+            raise ValueError('Specify exact Johnson B/V/R band mappings')
+        lookup = {str(code).strip().casefold(): band
+                  for band, code in band_codes.items()}
+        if len(lookup) != 3:
+            raise ValueError('Long-form band labels not distinct')
+        x['band'] = x[bandcol].astype(str).str.strip().str.casefold().map(lookup)
+        if x.band.isna().any():
+            raise ValueError('Unknown photometric Filter labels after QC')
+        x['mag'] = pd.to_numeric(x[magcol], errors='coerce')
+    else:
+        if 'bands' not in spec:
+            raise ValueError('For original Zenodo long format set format=long')
+        parts = []
+        for band in ('B', 'V', 'R'):
+            col = spec['bands'][band]
+            if col not in x:
+                raise ValueError(f'Wide ground band column {col!r} missing')
+            y = x[['year', 'month', 'night', col]].copy()
+            y['mag'] = pd.to_numeric(y[col], errors='coerce')
+            y['band'] = band
+            parts.append(y[['year','month','night','mag','band']])
+        x = pd.concat(parts, ignore_index=True)
+    x = x.loc[x.mag.between(14,24)].copy()
+    records, pooled = [], []
     for band in ('B','V','R'):
-        col = spec['bands'][band]
-        if col not in x:
-            raise ValueError(f'Ground magnitude column {col!r} missing')
-        y = x[['year','month','night',col]].copy()
-        y['mag'] = pd.to_numeric(y[col], errors='coerce')
-        y = y.loc[y.mag.between(14, 24)]
+        y = x.loc[x.band.eq(band)].copy()
         if y.empty:
-            continue
-        nights = (y.groupby(['year','month','night'], as_index=False)
-                  .agg(night_median_mag=('mag','median'), n_obs=('mag','size')))
-        months = (nights.groupby(['year','month'], as_index=False)
-                  .agg(monthly_median_mag=('night_median_mag','median'),
-                       night_count=('night','nunique'),
-                       observations=('n_obs','sum')))
+            raise ValueError(f'No valid independently quality-filtered {band}')
+        nights = y.groupby(['year','month','night'], as_index=False).agg(
+            night_median_mag=('mag','median'),n_obs=('mag','size'))
+        months = nights.groupby(['year','month'], as_index=False).agg(
+            monthly_median_mag=('night_median_mag','median'),
+            night_count=('night','nunique'),observations=('n_obs','sum'))
         months['band'] = band
-        months.loc[months.night_count < min_nights, 'monthly_median_mag'] = np.nan
-        months['month'] = months.month.astype(int)
+        months.loc[months.night_count < min_nights,
+                   'monthly_median_mag'] = np.nan
         records.append(months)
-    if len(records) != 3:
-        raise ValueError('Missing one or more AstMon B/V/R bands after filters')
-    monthly = pd.concat(records, ignore_index=True).sort_values(['year','month','band'])
-    # Pooled per-observation median (paper used a different KDE/median method),
-    # and separate equal-night-weight median to diagnose sampling effects.
-    pooled = []
-    for band in ('B','V','R'):
-        y = x[['year',spec['bands'][band]]].copy()
-        y['mag'] = pd.to_numeric(y[spec['bands'][band]], errors='coerce')
-        y = y[y.mag.between(14, 24)]
         for year, group in y.groupby('year'):
-            pooled.append({'year':int(year), 'band':band,
-                           'pooled_obs_median_mag':float(group.mag.median()),
-                           'n_observations':len(group)})
+            pooled.append({
+                'year': int(year), 'band': band,
+                'pooled_obs_median_mag': float(group.mag.median()),
+                'n_observations': len(group)})
+    monthly = pd.concat(records, ignore_index=True).sort_values(
+        ['year','month','band'])
     annual = pd.DataFrame(pooled).sort_values(['year','band'])
-    diagnostics = {'total_rows':len(frame), 'quality_rows':int(selected.sum()),
-                   'after_midnight_rows':len(x), 'filters':filter_counts,
-                   'ground_map':spec, 'source_md5':ZENODO_MD5,
-                   'monthly_min_nights':min_nights,
-                   'clock':'Europe/Madrid, local 00:00-04:29',
-                   'notes':'The author used manual cloud/moon flags and KDE; '
-                           'our ground aggregation is nightly and monthly MEDIANS, '
-                           'not a reproduction of their Table 6 estimator.'}
+    diagnostics = {
+        'total_rows': len(frame), 'quality_rows': int(selected.sum()),
+        'after_midnight_rows': len(x),
+        'filters': filter_counts, 'ground_map': spec,
+        'source_md5': ZENODO_MD5, 'monthly_min_nights': min_nights,
+        'clock': 'Europe/Madrid, local 00:00-04:29',
+        'notes': 'Author manually selected clear/moonless nights and '
+                 'used KDE; these are night/month medians from a '
+                 'separately validated QC-labelled dataset, not Table 6 '
+                 'estimator reproduction.'}
     return monthly, annual, diagnostics
 
 
@@ -370,6 +435,32 @@ def self_test():
     assert len(monthly)==3 and all(monthly.night_count==20)
     assert all(monthly.monthly_median_mag.notna())
     assert log['quality_rows']==100
+    # Real Zenodo schema is LONG: Filter identifies the photometric passband,
+    # NOT the sky condition. Verify this maps properly only when separate
+    # explicit, reviewed cloud/moon labels have been supplied.
+    long = pd.DataFrame({
+        'Datetime_UTC': ['2015-01-01T00:10:00Z'] * 3 * 20,
+        'Filter': ['Johnson-B','Johnson-V','Johnson-R'] * 20,
+        'Magnitude': [19.27,18.07,17.42] * 20,
+        'reviewed_condition': ['clear_nomoon'] * 60})
+    long['Datetime_UTC'] = [
+        str((pd.Timestamp('2015-01-01T00:10:00Z') +
+             pd.Timedelta(days=i//3)))
+        for i in range(len(long))]
+    spec_long = {
+        'time_col':'Datetime_UTC', 'time_format':'iso_utc',
+        'format':'long', 'band_col':'Filter',
+        'magnitude_col':'Magnitude',
+        'quality_filters':[{'column':'reviewed_condition',
+                            'accepted_values':['clear_nomoon']}]}
+    ground_long,annual_long,_ = prepare_ground(long,spec_long)
+    assert len(ground_long)==3 and all(ground_long.night_count==20)
+    assert len(annual_long)==3
+    try:
+        prepare_ground(long,{**spec_long, 'quality_filters':[
+            {'column':'Filter','accepted_values':['Johnson-B']}]})
+    except ValueError: pass
+    else: raise AssertionError('Photometric Filter mistaken as sky quality')
     # Actual PNG/PDF/SVG plotting pipeline with 2015--19 synthetic data.
     period = pd.period_range('2015-01', '2019-12', freq='M')
     synthetic_local = pd.DataFrame([
