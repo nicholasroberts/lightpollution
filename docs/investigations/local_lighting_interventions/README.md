@@ -2,6 +2,8 @@
 
 **Prepared:** 9 November 2026 · **Branch:** `publication-figures` · **Status:** Stage A documentary evidence plus Stage B **measured 2015–2024 monthly VIIRS pilot results** for all five cases; causal attribution, ISS event-specific validation and snow/atmospheric controls outstanding.
 
+**Primary purpose — not merely spatial mapping:** [Agreed four-point plan for distinguishing real NUTS3 lighting reductions from HPS→LED spectral artefacts](./four_point_attribution_plan_2026-11-10.md). The local analysis is supporting evidence for the **locked 2014–2024 European VIIRS radiance trends and inferred spider/moth PRC changes**. The four steps are **independently documented lighting operations/footprints → locally matched VIIRS trends and NUTS3 bridge → dated ISS B/G and G/R spectral context → triangulation without forcing a universal LED correction**. Do not add further arbitrary subcity analyses unless they discriminate LED-only vs operational dimming. Prioritise **Coventry 2024 and Échirolles 2022** as documented switch-offs, with actual commissioning/LED timing and NUTS3 linkage; Portsmouth 2020 remains inconclusive as an additional VIIRS event.
+
 This folder consolidates our original five-case register, independently authored research briefs and source-report catalogue. The study tests whether changes in DNB radiance can arise from independently documented operational switching/dimming, spectral LED conversion and/or longer lighting hours. It is supplementary validation of the locked European study; it does **not** refit PRC curves or select treatments by satellite outcome.
 
 ## Comparative motivation
