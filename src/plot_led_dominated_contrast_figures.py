@@ -3,7 +3,7 @@
 
 Designed BEFORE inspecting either case's VIIRS direction of change.
 
-Rome:  ITI43 locked annual 2014-24; municipality EOG monthly 75N060E,
+Rome:  ITI43 locked annual 2014-24; municipality EOG monthly 75N060W,
        2016-2019; event-year illustration 2018 vs same months 2017,
        when independent Rome records show near-constant *installed* lumens.
 Richmond: UKI75 locked annual 2014-24; borough EOG monthly 75N060W,
@@ -100,7 +100,7 @@ CASES = {
     ),
     "rome": Candidate(
         "rome", "Roma Capitale", "ITI43",
-        "Roma metropolitan area", "75N060E",
+        "Roma metropolitan area", "75N060W",
         2016, 2019, (2017,), 2018,
         "2015-01-01", "2020-01-01",
         (("2016-11-01", "Nov 2016: ~51k retrofit completed"),
@@ -496,9 +496,9 @@ def main():
                   f"radiance/coverage pairs ready, tile {c.tile}.")
             if by_month:
                 print("  Missing observation months:",", ".join(by_month))
-        print("Rome requires tile 75N060E, NOT western 75N060W. "
-              "Use source VCMSLCFG month archives and the existing "
-              "import_eog_manual_monthly_archives.py --tile 75N060E.")
+        print("Both Rome and Richmond use EOG tile 75N060W (60W75N), "
+              "which includes Europe and was already extracted for the "
+              "original five-city study. No eastern-tile download required.")
         return
     annual=frozen_annual()
     TABLES.mkdir(parents=True,exist_ok=True)
