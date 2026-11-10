@@ -401,6 +401,27 @@ def self_test():
         area=float(gpd.GeoSeries([poly],crs='EPSG:4326')
                    .to_crs('EPSG:3035').area.iloc[0]/1e6)
         assert abs(area/(np.pi*radius**2)-1)<.025
+    # Exercise real fixed-calendar-month common-pixel pairing with mock VIIRS.
+    original_grid = globals()['grid_month']
+    try:
+        def tiny_grid(polygon, radfile, covfile):
+            value = 10 if str(radfile).startswith('2015') else 8
+            return {'rad': np.array([[value, value], [value, np.nan]],
+                                    dtype=float),
+                    'cf': np.array([[3, 5], [1, np.nan]],dtype=float),
+                    'inside': np.array([[True, True],[True, True]]),
+                    'crs':'EPSG:4326', 'transform':(0,1,0,0,0,-1)}
+        globals()['grid_month'] = tiny_grid
+        fake_index = {f'{year}-{month:02d}':(f'{year}-{month:02d}', 'coverage')
+                      for year in (2015,2019) for month in range(1,13)}
+        local, paired = viirs_near_ucm(fake_index, years=(2015,2019),
+                                       radii=(3,))
+        assert len(local)==72 and len(paired)==36
+        p = paired[paired.cf_threshold.eq(3)]
+        assert (p.paired_pixels==2).all()
+        assert np.allclose(p.percentage_delta, -20)
+    finally:
+        globals()['grid_month'] = original_grid
     print('PASS: exact paper observatory coordinates, km-scale WGS84 geometry, '
           'fail-closed quality gate, full nightly/monthly AstMon aggregation')
 
