@@ -36,7 +36,9 @@ The wide parent NUTS3s do not have the same footprint as municipality monthly ma
 
 ## Rome — *the strongest counterpoint to a universal 'radiance = emitted lumens' interpretation*
 
-Official audited installed *streetlight* luminous flux from **Rome ACoS Relazione Annuale 2019, table 5.2**:
+**Source/meaning audit (verified 10 Nov 2026):** These are **NOT direct field measurements** of light emitted at satellite overpass. The operator ACEA's [*Bilancio di Sostenibilità 2019*, note 36](https://www.acea.it/content/dam/acea-corporate/pdf/it/sostenibilita/bilanci-sostenibilita/bilancio-sostenibilita-2019.pdf) explicitly defines *flusso luminoso a Roma* as **number of installed lamps × each lamp's manufacturer/rated ("di targa") luminous flux**. It independently publishes **2017 1,991 Mlumen, 2018 2,010 Mlumen and 2019 2,002 Mlumen**. The municipality's oversight agency ACoS transcribes the longer **2013–2018** sequence, from ACEA's 2018 Sustainability Report, in [*Relazione Annuale 2019*, printed p.122, Tavola 5.2](https://www.agenzia.roma.it/documenti/schede/relazione_annuale_2019_cap_5_servizi_a_rete.pdf). The energy figure is explicitly *estimated* ("energia impiegata stimata"). Neither figure is a measurement of actual 01:30 dimmed output, light escaping upwards or private-source emissions. **Preferred citation should use ACoS Table 5.2 for 2016–18 and ACEA 2019 note 36 for calculation provenance.**
+
+Reported nominal *installed* streetlight luminous flux from **Rome ACoS Relazione Annuale 2019, Tavola 5.2**:
 
 | Year | Total installed luminous flux, kilolumens | Estimated streetlighting energy, MWh | Municipality VNL V1 annual mean |
 |---|---:|---:|---:|
@@ -46,7 +48,7 @@ Official audited installed *streetlight* luminous flux from **Rome ACoS Relazion
 | **2019** | No comparable 2019 flux value in the table 5.2 source | Operator reports further energy savings | **17.779** |
 
 **Mechanism separation at the same city scale:**
-- **2016→17:** installed streetlight luminous flux **−27.60%**, while municipal VIIRS **−11.57%**. During the phased LED conversion, an actual fall in rated installed streetlight lumens accompanied the VIIRS decline; spectral replacement and private lighting may also have contributed. No one-to-one radiance/flux response can be inferred.
+- **2016→17:** *rated installed* streetlight luminous flux **−27.60%**, while municipal VIIRS **−11.57%**. During the phased LED conversion, an inventory-level decline in rated streetlight capacity accompanied the VIIRS decline; spectral replacement and private lighting may also have contributed. No one-to-one radiance/flux response can be inferred.
 - **2017→18:** installed streetlight luminous flux **+0.95%** (approximately constant), while municipal VIIRS **−9.10%** in **11/12 matching calendar months**. Council energy use **−27.36%** as LED conversion progressed. This is independently grounded **divergence between installed municipal streetlight lumens and VIIRS radiance**. It is **consistent with** altered LED spectral response, directional shielding, changed night-time operating profiles, and/or independently operated emitting sources. It does **not** *prove* LED spectral bias or unchanged **actual** 01:30 luminosity: official flux is *installed/rated*, NOT measured light emitted at VIIRS acquisition time.
 - **2018→19:** municipal monthly VIIRS **−0.34%** (near flat, **5/12** months declining), with annual ITI43 VNL V2 almost flat **+0.20%**; strengthens the description that the major radiance transition was concentrated in **2016–18** while later levels stabilised.
 - **Caution on timing:** Jan 2018 was already **−3.87** relative to Jan 2017 and late 2018 differences were generally smaller, not a within-2018 isolated off-switch step. 2017 itself already contained very widespread LED conversion. Avoid labelling **2017–2018** an experiment with identical streetlight inventories or controlled lamp schedules.
