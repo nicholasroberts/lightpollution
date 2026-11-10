@@ -208,3 +208,22 @@ The corrected Rome boundary source and tests are committed; **Rome's full monthl
 **Richmond is not a clean LED-only control:** Richmond borough's 2022 municipal VNL V1 is **−19.7%** below the 2017/18 same-month baseline, but radiance was already declining pre-2019 and the funding document's 'unchanged hours' does not rule out dimming. The 2023→24 borough decline is **−13.9%** overall but only **−4.2% in Jan–Oct**: a large portion comes from November–December; UKI75 NUTS3 (includes Hounslow) fell **−11.6% 2023→24**, which cannot automatically be attributed to Richmond's 2019–22 LED rollout.
 
 **Priority next:** a direct Rome 2016–18 **installed-lumens / regional annual / municipal monthly** juxtaposition (different units/scales explicitly marked), independently dated spectral ISS data if available, plus operational control profiles at VIIRS overpass. This preserves the two-sided attribution argument: real operating reductions **can** cause VIIRS declines (Coventry/Échirolles); LED transitions can also change VIIRS in ways that do not straightforwardly track rated luminous flux (Rome).
+
+
+## Madrid: ground-based sky colour and frozen VIIRS, 10 November 2026
+
+**[Reproducible Madrid dataset/figure protocol, exact paper Table 6 and source links](./madrid_viirs_astmon_comparison_protocol_2026-11-10.md).** A new independent [\`src/plot_madrid_viirs_robles_2021.py\`](../../../src/plot_madrid_viirs_robles_2021.py) assembles: **(A)** locked annual **ES300 NUTS2016 2014–24** with the existing audited 2021 snow patch; **(B)** municipality-only monthly **75N060W VNL V1 VCMSLCFG 2015–20** (or through 2024); **(C)** directly published **Robles et al. (2021) Table 6** after-midnight UCM AstMon Johnson B/V/R medians, normalized **2015=100 within each spectral band** with physically correct \`10^(-0.4 Δm)\`; and **(D)** AstMon B−V / V−R colour. The plotted 2011/2015/2019 AstMon points are the *only* published Table 6 years; no interpolation, invented ground readings or conflation of ground zenith brightness with VIIRS upward emissions.
+
+[The entire original UCM observational archive is also available as AstMon/SQM/TESS CSVs on Zenodo](https://doi.org/10.5281/zenodo.4633001) (about 140 MB total). A future full-year raw reanalysis must reproduce the paper's no-moon/no-cloud, after-midnight filters before comparing annual medians. Broad HPS-to-LED conversion 2015–16 also changed **luminaire wattage, shielding and after-midnight dimming** (HPS 80%, LED 60% according to the paper), making Madrid a **mixed-mechanism**, not LED-spectral-only control.
+
+The city's mask is **official Ayuntamiento Madrid TERM_MPAL FeatureServer layer 4 (~605 km²)**, validated and distinct from **ES300 Comunidad de Madrid**, with NO use of the wrong east Asia tile. This work does not modify locked PRC/annual inputs. **State: script/docs committed, real EcoVis figure NOT yet generated or reviewed.**
+
+\`\`\`bash
+cd /run/media/bznwr/data/lightpollution
+git switch publication-figures
+git pull --ff-only origin publication-figures
+python src/plot_madrid_viirs_robles_2021.py --self-test
+python src/plot_madrid_viirs_robles_2021.py --inventory
+python src/plot_madrid_viirs_robles_2021.py --check-boundary
+python src/plot_madrid_viirs_robles_2021.py
+\`\`\`
