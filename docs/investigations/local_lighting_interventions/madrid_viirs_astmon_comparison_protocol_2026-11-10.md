@@ -77,3 +77,34 @@ python src/plot_madrid_viirs_robles_2021.py --monthly-end 2024
 \`\`\`
 
 If Madrid municipality ArcGIS query fails, use the official council [administrative boundary downloads](https://datos.madrid.es/dataset/900012-0-limites-administrativos-mapas/downloads) to confirm the source, but do not substitute ES300 or make up polygon geometry. The first candidate graph has not yet run on EcoVis: no observed Madrid VIIRS trend is asserted until the user returns its actual output.
+
+
+## Ground SKY BRIGHTNESS is a distinct central endpoint — correction and second diagnostic figure
+
+**Added 10 November 2026 after reviewing the *actual* first Madrid four-panel figure supplied by the investigator.** The AstMon measurements are NOT just colour ratios: they are measurements of **absolute sky-surface brightness in each Johnson photometric band**. The plotted first-figure panel C used linear, within-band, 2015-normalised zenith brightness and showed **2015→2019 B +30.6%, V +11.7%, R −1.8%**, from real published after-midnight Table 6 magnitudes. Panel D is secondary sky colour, not a proxy for brightness.
+
+The original [Robles et al. 2021 paper](https://doi.org/10.3390/rs13081511) explicitly provides additional **measured sky brightness** evidence: **TESS-W +10% brightening during 2016→2019**, consistent with increased B/V, while **SQM −38% from 2012→2019** indicated darkening. **Do NOT interpret SQM's 38% as reliable real darkening**: the authors argue the SQM optical/filter sensitivity degraded with age, explaining much of its disagreement with the AstMon/TESS-W series. Their ground observatory is a **single zenith site**, not the municipality-wide average skyglow; a colour change can accompany actual absolute band-dependent brightening.
+
+The study also notes **no major change in the number/types of Madrid municipal streetlights after 2015** and explicitly considers changed light optics, city administration data, nonmunicipal sources and surrounding communities as possible explanations for the later 2015–19 brightening. Therefore **do not claim the 2015→19 ground brightening was caused entirely by replacement that occurred during 2015–16**. Strong inference is **VIIRS and ground-observed sky brightness diverge in sensitivity and direction**, not that spectral change alone has been isolated. The B increase is the strongest; V's multi-year trend was not statistically strong in the paper, despite the 2015→19 two-anchor difference.
+
+New [\`src/plot_madrid_brightness_viirs_direct_contrast.py\`](../../../src/plot_madrid_brightness_viirs_direct_contrast.py) is a **fast, read-only** second figure generator using the three CSVs already output from the *successful real* first Madrid run. It **does not reload 120 raster tiles**. The figure gives measured **brightness**, not only colour:
+
+1. **Direct within-series 2015→19 percentage-change comparison** across **ES300 annual VNL V2**, **Madrid municipality's 12-month-mean VNL V1**, and **UCM after-midnight Johnson B/V/R zenith sky brightness** (correct mag→relative-linear conversion).
+2. Full 2014–24 VIIRS NUTS3 and city monthly-mean annual trend **2015=100 within each distinct series**, revealing the historical timing without conflating absolute radiances.
+3. Independent measured Johnson B/V/R zenith sky brightness at **2011, 2015, 2019** only, each indexed to 2015; horizontal offsets prevent the three coincident 2015 values visually hiding one another. **No invented/interpolated 2012–14 or 2016–18 readings.** We keep the previous figure with true monthly VIIRS and AstMon B−V/V−R as complementary.
+
+**The proportional comparison is for relative within-band/instrument changes only.** UCM sky brightness (ground, zenith, atmospheric scattering, different spectral response), municipal upwelling VNL V1 and regional upwelling VNL V2 are *not* identical environmental measurements. Year 2015 was already within the retrofitting period; treating 2015 as a totally untreated baseline would be incorrect. Monthly VNL V1 valid pixel support changes by month; 12 monthly means are equally weighted and have not been matched to ground observing dates. This is exploratory observational comparison, not source-apportioned causal effect or directly measured celestial polarization.
+
+\`\`\`bash
+cd /run/media/bznwr/data/lightpollution
+git switch publication-figures
+git pull --ff-only origin publication-figures
+python src/plot_madrid_brightness_viirs_direct_contrast.py --self-test
+python src/plot_madrid_brightness_viirs_direct_contrast.py
+\`\`\`
+
+Files:
+- \`figures/local_lighting_interventions/madrid_ground_viirs/madrid_2015_2019_direct_sky_brightness_vs_viirs.{png,pdf,svg}\`
+- \`data/processed/local_lighting_interventions/madrid_ground_viirs/madrid_2015_2019_ground_vs_viirs_brightness.csv\`
+
+**State:** plotting code committed but its actual EcoVis municipal/monthly percent results are **not yet independently calculated in this chat**; script will print and export them. Future best improvement: filter the complete [Robles AstMon/SQM/TESS-W Zenodo original raw data](https://zenodo.org/records/4633001) to the paper's clear/moonless after-midnight observations, then assemble annual 2014–2019 UCM *brightness* values and temporal intervals aligned with the municipal monthly VIIRS series. Do not use unfiltered ground photometry or impute missing annual values.
