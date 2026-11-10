@@ -70,3 +70,22 @@ python src/plot_madrid_ucm_published_winter_sky_brightness.py
 
 
 **Scientific scope:** Our key finding so far is that **satellite VIIRS and blue-sensitive ground sky-brightness changes can diverge even at local spatial support**, not a uniquely identified spectral artifact nor a measured polarization receptor contrast. Additional independent spectral observations and emitting-source timelines remain necessary.
+
+
+## Actual winter 01:30 comparison figure received — 10 November 2026
+
+The investigator has now executed [\`src/plot_madrid_ucm_published_winter_sky_brightness.py\`](../../../src/plot_madrid_ucm_published_winter_sky_brightness.py) and uploaded its **actual output** \`madrid_ucm_winter_0130_published_sky_brightness_vs_viirs.png\`. It shows the **2015→19** percentages:
+
+| Quantity | 2015 | 2019 | Relative change |
+|---|---:|---:|---:|
+| UCM AstMon **Johnson B, winter 01:30**, published Table 3, mag arcsec⁻² | **19.30** | **18.97** | **+35.5% brightness** |
+| UCM AstMon **Johnson V, winter 01:30**, published Table 4, mag arcsec⁻² | **18.07** | **17.96** | **+10.7% brightness** |
+| UCM AstMon **Johnson R, winter 01:30**, published Table 5, mag arcsec⁻² | **17.42** | **17.45** | **−2.7% brightness** |
+| Original VIIRS VNL V1, UCM **3 km**, cf_cvg≥3, same-calendar-year Jan/Nov/Dec mean | — | — | **−5.9% upward satellite radiance** |
+| Original VIIRS VNL V1, UCM **10 km**, same selection | — | — | **−7.7% upward satellite radiance** |
+
+**Independent cross-check of paper values and semantics:** [Robles et al. (2021), Tables 3–5 and discussion](https://www.mdpi.com/2072-4292/13/8/1511) explicitly identifies the entries as **binned hourly 50th percentile (median) with associated interquartile range (IQR)**, and defines winter as **November–January**. These are **filtered author observations** after their manual cloud/moon screening. The ± values **B 2015 ±0.07, 2019 ±0.06; V ±0.11/0.02; R ±0.07/0.03** are **IQR spread reporting, NOT standard errors or confidence intervals**, and the relative change bars in our plot are point estimates without inferential error bars. Thus do not attach p-values, or claim statistical uncertainty for the relative percentages based on the IQR alone. Article states dimming/overnight switching and lamp power, diffuser geometry and spectral content changed together (municipal sodium to LED scheme primarily 2015–16).
+
+**Interpretation sharpened:** This winter-sensitive result provides a more like-for-like seasonal and local spatial juxtaposition: **ground-observed winter zenith blue-band sky brightness increased ~35.5%** at 01:30 while **local upward VIIRS observed winter-month radiance decreased ~6–8%**. It is **not** an exactly matched observation set: the paper bins November–January *winters that may straddle calendar-year boundaries* whereas satellite means average January, November, December in each *named calendar year*; ground hourly medians and satellite composites represent different nights and time/spectral/spatial supports. The two circles cannot enclose all atmospherically scattered light reaching the UCM zenith. The magnitude of the contrast therefore cannot be construed as the isolated LED spectral-response effect or an observed numerical change in animal PRC. The core descriptive result remains that **VIIRS alone did not capture this independently observed B-band winter sky-brightening**.
+
+**Immediate next task:** publisher's [Supplementary Tables S1–S3](https://www.mdpi.com/article/10.3390/rs13081511/s1) may provide the authors' original *annual* B/V/R medians for 2014–19, without unavailable raw observation-quality flags; the supplement download link needs to be verified (the web HTML fetch of /s1 was not machine-readable). Prefer those official statistics or ask the authors for the exact retained-record masks over a guessed clear/moonless filter. If pursuing stronger seasonal agreement, reconstruct **actual cross-year November–January winter grouping** in VIIRS from original monthly CSV once the authors' winter-year convention is confirmed.
