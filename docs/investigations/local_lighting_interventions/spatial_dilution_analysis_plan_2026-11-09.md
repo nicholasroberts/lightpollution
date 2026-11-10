@@ -104,3 +104,23 @@ Inspect `brightness_strata_summary.csv` for all five cases, especially Portsmout
 5. Is Thanet's 2017 +9.4% driven by the **top 5%** bright source pixels and the same two months that dominated the citywide effect?
 
 If the answer shows promising specific subareas, then join **independently documented lighting-treatment streets/circuits** (starting Coventry's official list, or Portsmouth's original 2019 pilot neighbourhoods) to the VIIRS grid; do **not** label low-ΔR pixels as switched off.
+
+
+## Plotting runtime fix — 10 November 2026
+
+The first real EcoVis run (\`--cases portsmouth bristol\`) failed **after successfully finding Portsmouth's LAD geometry and 36 required monthly files** because \`plot_diagnostics()\` incorrectly called \`TwoSlopeNorm(-scale, vcenter=0, vmax=scale)\`. In Matplotlib, the first positional argument is already \`vcenter\`; specifying \`vcenter=0\` as well raises \`TypeError: TwoSlopeNorm.__init__() got multiple values for argument 'vcenter'\`. This is a plotting API error, **not a missing input or evidence of a failed spatial calculation**.
+
+The current [\`src/local_viirs_spatial_dilution.py\`](../../../src/local_viirs_spatial_dilution.py) uses \`TwoSlopeNorm(vcenter=0, vmin=-scale, vmax=scale)\`. Its \`--self-test\` now runs **actual synthetic PNG/PDF map rendering**, including the missing-pre-event-panel branch, with temporary outputs automatically deleted, in addition to the earlier arithmetic and decomposition checks. The original self-test had passed because it never exercised plot rendering.
+
+EcoVis commands:
+
+\`\`\`bash
+cd /run/media/bznwr/data/lightpollution
+git switch publication-figures
+git pull --ff-only origin publication-figures
+python src/local_viirs_spatial_dilution.py --self-test
+python src/local_viirs_spatial_dilution.py --cases portsmouth bristol
+python src/local_viirs_spatial_dilution.py
+\`\`\`
+
+**Status:** Fix committed to GitHub. The corrected script has **not yet been rerun against EcoVis's source rasters** in this conversation. Do not describe any spatial-dilution outputs as completed until the investigator supplies them. Annual/PRC results remain untouched.
