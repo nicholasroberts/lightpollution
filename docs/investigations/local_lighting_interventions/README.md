@@ -244,3 +244,23 @@ python src/plot_madrid_brightness_viirs_direct_contrast.py
 \`\`\`
 
 **Interpretation guardrail:** The ground skyglow measurement is zenith and site-specific; satellite measurements are upward/area-based. Relative radiance can diverge for spectrum, direction, weather, timing and other-source reasons. No direct animal polarization contrast can be computed from ground B/V/R brightness alone.
+
+
+## Madrid UCM fixed-radius satellite/ground study — 10 November 2026
+
+After examining Madrid's real ES300/municipality VIIRS versus UCM AstMon plots, the next study tests the **spatial-scale confound**. The new [**\`src/madrid_ucm_local_ground_bridge.py\`**](../../../src/madrid_ucm_local_ground_bridge.py) calculates 2015–19 original \`75N060W\` EOG VNL V1 monthly VIIRS over **fixed 3 km and 10 km circles** around the precisely published UCM observatory coordinates (IAU I86), compares with the already extracted **municipality-month VIIRS**, and performs **strict same-calendar-month 2015 vs 2019 paired-pixel tests** at \`cf_cvg\` thresholds 1, 3 and 5. **No annual NUTS3 or PRC dataset changes.**
+
+The same script can download and MD5-verify the open [Robles et al. original 45.5 MB AstMon_evol.csv](https://zenodo.org/records/4633001) from Zenodo and **inspect its *actual* original columns/flag codes**. The authors manually classified their ground observations for **clouds and moon**, so the script ***refuses to generate ground trends until an investigator-reviewed, explicit clear/moonless flag mapping is provided***; it does not invent unknown original column names or numerical flag meanings. Then it produces nightly and monthly **zenith sky BRIGHTNESS** (B/V/R) median data after midnight, plus indexed ground/satellite 2015–19 brightness comparisons. Subcity VIIRS circles are spatial sensitivity supports, not physics-based zenith skyglow source footprints.
+
+[**Complete methodology, data provenance and staged EcoVis commands**](./madrid_ucm_local_astmon_viirs_plan_2026-11-10.md). The script and methods are committed; Python syntax and **synthetic** ground-flag, geographic-area and PNG/PDF/SVG tests were run in the working environment. **Real UCM-local EcoVis satellite results and the raw Zenodo quality flag schema have not yet been inspected or calculated.**
+
+\`\`\`bash
+cd /run/media/bznwr/data/lightpollution
+git switch publication-figures
+git pull --ff-only origin publication-figures
+python src/madrid_ucm_local_ground_bridge.py --self-test
+python src/madrid_ucm_local_ground_bridge.py --viirs
+python src/madrid_ucm_local_ground_bridge.py --download-ground --inspect-ground
+\`\`\`
+
+**Next validation gate:** share the \`--inspect-ground\` column names, first few rows and quality-field counts, so an explicit reproducible JSON configuration can be committed **without guessing flag meanings**. Once vetted, run \`--prepare-ground --ground-map ...\` and \`--plot\` for full side-by-side sky-brightness and local VIIRS comparisons.
