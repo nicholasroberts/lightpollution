@@ -1,0 +1,19 @@
+site_id,location,field_date,original_multiyear_monthly_viirs_mean_nW_cm2_sr,original_spider_prc,source_jurisdiction,public_streetlighting_firstpass,actual_skyglow_source_mix,confidence
+s07,"Church Hill, Wolverhampton",2019-04-20,13.6004166667,0.274,Wolverhampton,Municipal sodium-leaning,Local mixed/unknown,Moderate municipal; low overall
+s14,"Borrby Strandbad, Sweden",2018-09-21,0.36380952381,0.439,Simrishamn/Borrby,No 2018 lamp inventory found,Low artificial input; unknown sources,Low
+s13,"East Horrington, UK",2019-05-21,0.502291666667,0.419,Somerset/Wells,County public lighting mixed,Low artificial input; unknown sources,Low site; moderate county
+s12,"Gavarnie, France",2018-09-27,0.5621875,0.47,Gavarnie-Gedre,2018 lamp technology unverified,Low artificial input; unknown sources,Low site
+s05,"MINI Plant Oxford, UK",2019-05-14,25.1982692308,0.165,Oxfordshire/Oxford,Public sodium-leaning,Private industrial lighting may be substantial; technology unverified,Moderate public; low site
+s15,"Museum, Oxford",2019-05-14,37.8711538462,0.193,Oxfordshire/Oxford,Public sodium-leaning,University/building/museum illumination unverified,Moderate public; low site
+s16,"Open Square, Oxford",2019-05-14,41.8296153846,0.149,Oxfordshire/Oxford,Public sodium-leaning,Public square and building lighting technology unverified,Moderate public; low site
+s09,"Ounsdale, UK",2019-04-20,7.12395833333,0.321,Wolverhampton,Municipal sodium-leaning,Residential/other light source mix unknown,Moderate municipal; low overall
+s02,"Oxford Business Park, UK",2019-05-14,41.8296153846,0.192,Oxfordshire/Oxford,Public sodium-leaning,Private business park lighting unverified,Moderate public; low site
+s08,"Penn Cricket Club, UK",2019-04-22,10.0991111111,0.262,Wolverhampton,Municipal sodium-leaning,Cricket/sports lighting on measurement night unknown,Moderate municipal; low overall
+s10,"Skillinge, Sweden",2018-08-21,5.555,0.276,Simrishamn/Skillinge,No 2018 lamp inventory found,Village/harbour/other lighting mix unknown,Low
+s17,"Slabhouse, Wells",2019-05-21,0.498235294118,0.455,Somerset/Wells,County public lighting mixed,Low artificial input; original EOG zero at this site,Low site; excluded from locked fits
+s11,"South Horrington, UK",2019-05-21,2.89480769231,0.423,Somerset/Wells,County public lighting mixed,Residential/road lighting mix unverified,Low site; moderate county
+s04,"St Anne's College, Oxford",2019-05-14,29.0365384615,0.157,Oxfordshire/Oxford,Public sodium-leaning,Privately maintained college lighting unverified,Moderate public; low site
+s03,Waitrose / Tesco Wolverhampton,2019-04-21,35.3615555556,0.122,Wolverhampton,Municipal sodium-leaning,Supermarket/carpark light sources may be non-municipal; unverified,Moderate municipal; low site
+s18,"Worcester College Lawn, Oxford",2019-05-14,58.7311538462,0.123,Oxfordshire/Oxford,Public sodium-leaning,College/courtyard light sources unverified,Moderate public; low site
+s01,"Worcester College Pitch, Oxford",2019-05-14,48.5480769231,0.144,Oxfordshire/Oxford,Public sodium-leaning,Playing fields/building light sources unverified,Moderate public; low site
+s06,"Department of Zoology, Oxford",2019-05-14,19.6107692308,0.236,Oxfordshire/Oxford,Public sodium-leaning,University windows/facility lighting unverified,Moderate public; low site
