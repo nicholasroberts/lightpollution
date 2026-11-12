@@ -1,0 +1,3 @@
+# Wang angular/ALAN pilot; Astropy needed only for real lunar tracks.
+-r requirements-prc.txt
+astropy>=7.0
