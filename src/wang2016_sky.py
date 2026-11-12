@@ -65,7 +65,7 @@ def spectral_factor(sd,s90,ssource):
 def natural_stokes(theta,phi,source_zenith,source_azimuth,separation_deg,
                    intensity,turbidity=None,mode='eq6_horizon',spectral_s=None,
                    depolarization_multiplier=None):
-    w=complex_pattern(theta,phi,source_zenith,source_azimuth,separation_deg)
+    w=berry_normalized_pattern(theta,phi,source_zenith,source_azimuth,separation_deg)
     if mode=='eq17':
         if spectral_s is None:raise ValueError('Full eq17 requires explicitly supplied spectral S from eq16')
         weight=theta*horizon_factor(theta)+(np.pi/2-theta)*np.asarray(spectral_s)
@@ -199,3 +199,14 @@ def alan_relative_from_depth(alan_depth):
         raise ValueError('ALAN depth must be finite and nonnegative')
     with np.errstate(over='raise'):
         return np.expm1(depth)
+
+
+def berry_normalized_pattern(theta,phi,source_zenith,source_azimuth,separation_deg):
+    """Berry 2004 eq4.2 prefactor -4, in the explicit source-meridian basis.
+
+    Wang printed eq3 omits -4. Keep complex_pattern literal for equation audits.
+    This normalizes geometric polarization intensity, not radiometric Q/I by
+    derivation. Its use as a natural DoLP envelope is a declared assumption.
+    The negative sign shifts AoP by 90 degrees relative to Wang's printed phase.
+    """
+    return -4*source_meridian_pattern(theta,phi,source_zenith,source_azimuth,separation_deg)
