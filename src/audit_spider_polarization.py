@@ -68,12 +68,17 @@ def main():
     p=argparse.ArgumentParser(description=__doc__)
     p.add_argument('--run',type=Path,required=True)
     p.add_argument('--output',type=Path,required=True)
+    p.add_argument('--angular-radius-deg',type=float,default=30.,help='Eye angular radius; default 30 means 60deg full field')
     a=p.parse_args(); source=a.run.resolve(); out=a.output.resolve()
     if out==source or source in out.parents or out in source.parents:
         p.error('Output must be a separate sibling directory')
     if out.exists(): p.error('Output already exists')
     report=json.loads((source/'rotation_analysis.json').read_text())
-    center=report['reference_center_xy_px']; radius=report['radius_60_px']
+    if not 0<a.angular_radius_deg<=90: p.error('Angular radius must be in (0,90]')
+    center=report['reference_center_xy_px']
+    # Existing registration report radius refers to the earlier 60deg RADIAL mask.
+    radius=report['radius_60_px']*np.sin(np.deg2rad(a.angular_radius_deg/2))/np.sin(np.deg2rad(30))
+    field_label=f'{2*a.angular_radius_deg:g}deg full field ({a.angular_radius_deg:g}deg radius)'
     fig,axes=plt.subplots(2,3,figsize=(13,9))
     results={}
     aop_fig,aop_axes=plt.subplots(1,2,figsize=(14,8))
@@ -91,7 +96,7 @@ def main():
         stats['source_sha256']=digest(path);results[method]=stats
         # Full sky in column 1, then cropped physical field in both orientations.
         arrays=[dop,np.where(mask,dop,np.nan).T,np.where(mask,angle,np.nan).T]
-        titles=[f'{method}: full DoLP', '60deg DoLP; R display axes','60deg AoP; R display axes']
+        titles=[f'{method}: full DoLP', f'DoLP: {field_label}',f'AoP: {field_label}']
         for col,(ax,arr,title) in enumerate(zip(axes[row],arrays,titles)):
             cm=plt.get_cmap('turbo').copy() if col<2 else original_aop_cmap();cm.set_bad('lightgray')
             artist=ax.imshow(arr,cmap=cm,vmin=0 if col<2 else -90,vmax=1 if col<2 else 90)
@@ -100,12 +105,13 @@ def main():
     fig.tight_layout(rect=[0,0,1,.93])
     out.mkdir(parents=True)
     fig.savefig(out/'matched_polarization.png',dpi=170);plt.close(fig)
-    aop_fig.suptitle('AoP comparison — palette approximates original PNG legend; shared -90 to +90 degrees\nBlack circle = 60deg field; colour change only; original legend units remain unverified')
+    aop_fig.suptitle(f'AoP comparison — palette approximates original PNG legend; shared -90 to +90 degrees\nBlack circle = {field_label}; original legend units remain unverified')
     aop_fig.tight_layout(rect=[0,0,1,.93]);aop_fig.savefig(out/'matched_aop.png',dpi=180);plt.close(aop_fig)
     result=dict(aop_display=dict(palette='original_PNG_legend_approximation',limits_degrees=[-90,90],
         underlying_angles_modified=False),status='diagnostic_not_historical_validation',
         analysis_sha256=digest(source/'rotation_analysis.json'),script_sha256=digest(__file__),
-        center_xy_px=center,radius_60_px=radius,methods=results,
+        center_xy_px=center,angular_radius_deg=a.angular_radius_deg,full_field_deg=2*a.angular_radius_deg,
+        radius_px=radius,previous_60deg_radial_radius_px=report['radius_60_px'],methods=results,
         limitations=['Physical-pixel exclusion is reported, not hidden',
         'Original PNG colours are not numeric ground truth',
         'Transpose is display-only; AoP basis is unchanged',
