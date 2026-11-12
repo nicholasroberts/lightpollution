@@ -34,6 +34,15 @@ class RotationTests(unittest.TestCase):
             found=rotation.estimate_roll(ref,rotation.polar_features(moved,[127.5,127.5],115))
             self.assertLess(abs(found['scene_roll_clockwise_deg']-angle),.2)
 
+    def test_rotation_and_translation_refinement(self):
+        rng=np.random.default_rng(8)
+        im=ndimage.gaussian_filter(rng.normal(size=(256,256)),1)+10
+        moved=ndimage.shift(ndimage.rotate(im,-45,reshape=False,order=1),[7,-5],order=1)
+        fit,_=rotation.refine_registration(im,moved,[127.5]*2,[127.5]*2,85,42)
+        self.assertLess(abs(fit['scene_roll_clockwise_deg']-45),.3)
+        self.assertLess(np.linalg.norm(np.array(fit['source_center_correction_xy_px'])-[-5,7]),1)
+        self.assertGreater(fit['inner_sky_correlation'],.9)
+
     def test_single_quartet_end_to_end(self):
         rng=np.random.default_rng(42)
         with tempfile.TemporaryDirectory() as tmp:
