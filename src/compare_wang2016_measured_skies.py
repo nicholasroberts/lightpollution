@@ -1,0 +1,126 @@
+"""Compare Cottage and Oxford Business Park Stokes patterns to Wang model.
+
+Visible-source geometry is provisional until marked Moon candidate reviewed.
+No exposure UTC, compass bearing, sky-only terrain mask or spectral ALAN ratio
+is inferred. One constant AoP offset is estimated; DoLP amplitude is not fitted.
+"""
+from pathlib import Path
+import argparse,json
+import numpy as np
+from scipy import ndimage
+import matplotlib
+matplotlib.use('Agg')
+import matplotlib.pyplot as plt
+from matplotlib.patches import Circle
+from wang2016_sky import (source_meridian_pattern,wang_spectral_inputs,
+    horizon_factor,turbidity_multiplier)
+from reconstruct_spider_eye_contrast import digest
+
+
+def axial_offset_and_residual(observed,model,mask):
+    """Angles are half-complex-phase; estimates only one global basis offset."""
+    selected=mask&np.isfinite(observed)&np.isfinite(model)&(abs(observed)>.02)&(abs(model)>.02)
+    if selected.sum()<10:raise ValueError('Too few polarized pixels for AoP comparison')
+    offset=.5*np.angle(np.sum(observed[selected]*np.conj(model[selected])))
+    residual=.5*np.angle(observed[selected]*np.conj(model[selected]*np.exp(2j*offset)))
+    return float(offset),dict(pixels=int(selected.sum()),
+        median_abs_deg=float(np.rad2deg(np.median(abs(residual)))),
+        p95_abs_deg=float(np.rad2deg(np.quantile(abs(residual),.95))))
+
+
+def source_candidate(intensity,sky):
+    """Compact local brightness peak; explicitly not established Moon identity."""
+    im=np.where(sky,np.nan_to_num(intensity),0)
+    prominence=ndimage.gaussian_filter(im,2)-ndimage.gaussian_filter(im,18)
+    permitted=ndimage.binary_erosion(sky,iterations=6)
+    score=np.where(permitted,prominence,-np.inf)
+    y,x=np.unravel_index(np.argmax(score),score.shape)
+    return [float(x),float(y)],float(score[y,x])
+
+
+def compare_site(directory,source_xy,separation,turbidity,wavelength):
+    report_path=directory/'rotation_analysis.json';report=json.loads(report_path.read_text())
+    path=directory/'linear_stokes.npz'
+    with np.load(path,allow_pickle=False) as z:i,q,u=[z[k] for k in ['I','Q','U']]
+    center=np.array(report['reference_center_xy_px']);r90=report['radius_60_px']*np.sqrt(2)
+    y,x=np.indices(i.shape);dx=(x-center[0])/r90;dy=(y-center[1])/r90;r=np.hypot(dx,dy)
+    sky=r<.985;theta=2*np.arcsin(np.clip(r/np.sqrt(2),0,1));phi=np.arctan2(dy,dx)
+    if source_xy is None:source_xy,prominence=source_candidate(i,sky);selection='automatic_bright_source_candidate_UNVERIFIED'
+    else:prominence=None;selection='user_supplied_source_pixel'
+    delta=(np.array(source_xy)-center)/r90;sr=np.linalg.norm(delta)
+    if sr>=1 or sr<0:raise ValueError('Source outside nominal sky circle')
+    zs=2*np.arcsin(sr/np.sqrt(2));az=np.arctan2(delta[1],delta[0])
+    if not 0<zs<np.pi/2:raise ValueError('Source must be strictly above horizon and below zenith')
+    th=theta[sky];ph=phi[sky]
+    w=source_meridian_pattern(th,ph,zs,az,separation)
+    sd,s90,ssource,s=wang_spectral_inputs(th,ph,zs,az,turbidity,wavelength)
+    pfull=abs(w)*(th*horizon_factor(th)+(np.pi/2-th)*s)*turbidity_multiplier(turbidity)
+    pangular=abs(w)*horizon_factor(th)*turbidity_multiplier(turbidity)
+    model=np.full(i.shape,np.nan+1j*np.nan,dtype=complex)
+    physicalmodel=np.isfinite(pfull)&(pfull>=0)&(pfull<=1)
+    model[sky]=np.where(physicalmodel,pfull*np.exp(1j*np.angle(w)),np.nan)
+    with np.errstate(divide='ignore',invalid='ignore'):observed=(q+1j*u)/i
+    field=sky&(theta<=np.deg2rad(30))
+    physical=field&np.isfinite(observed)&(i>0)&(abs(observed)<=1)&np.isfinite(model)
+    offset,residual=axial_offset_and_residual(observed,model,physical)
+    model*=np.exp(2j*offset)
+    dob=abs(observed[physical]);dmod=abs(model[physical])
+    result=dict(site_id=report['site_id'],source_selection=selection,source_pixel_xy=source_xy,
+        source_candidate_prominence=prominence,source_elevation_deg=float(90-np.rad2deg(zs)),
+        source_azimuth_image_deg=float(np.rad2deg(az)%360),global_aop_offset_deg=float(np.rad2deg(offset)),
+        aop_residual_in_zenith_field=residual,field_pixels=int(field.sum()),compared_pixels=int(physical.sum()),
+        observed_mean_dop=float(np.mean(dob)),model_mean_dop=float(np.mean(dmod)),
+        dop_mean_absolute_error=float(np.mean(abs(dob-dmod))),
+        model_nonphysical_sky_pixels=int((~physicalmodel).sum()),
+        angular_reduced_max_dop=float(np.max(pangular)),full_model_max_raw_dop=float(np.nanmax(pfull)),
+        reference_s90=float(s90),reference_ssource=float(ssource),
+        rotation_report_sha256=digest(report_path),stokes_sha256=digest(path),
+        flagged_exposures=sum(bool(r['flags']) for r in report['rotations']))
+    return result,(i,observed,model,sky,field,center,r90)
+
+
+def main():
+    p=argparse.ArgumentParser(description=__doc__)
+    p.add_argument('--batch',type=Path,required=True)
+    p.add_argument('--output',type=Path,required=True)
+    p.add_argument('--cottage-moon-xy',nargs=2,type=float)
+    p.add_argument('--oxford-moon-xy',nargs=2,type=float)
+    p.add_argument('--neutral-separation-deg',type=float,required=True)
+    p.add_argument('--turbidity',type=float,default=3.)
+    p.add_argument('--wavelength-nm',type=float,default=450.)
+    a=p.parse_args();batch=a.batch.resolve();out=a.output.resolve()
+    if out.exists():p.error('Use fresh output directory')
+    if out==batch or batch in out.parents or out in batch.parents:p.error('Output must be separate from existing batch')
+    results={};fig,axes=plt.subplots(2,4,figsize=(15,8))
+    for row,(site,source) in enumerate([('Cottage',a.cottage_moon_xy),('oxfordbussinesspark',a.oxford_moon_xy)]):
+        print(f'Comparing {site}',flush=True)
+        stats,(i,observed,model,sky,field,center,r90)=compare_site(batch/site/'registration',source,
+            a.neutral_separation_deg,a.turbidity,a.wavelength_nm)
+        results[site]=stats
+        for ax,arr,title,lo,hi,cmap in zip(axes[row],
+            [abs(observed),abs(model),np.rad2deg(.5*np.angle(observed)),np.rad2deg(.5*np.angle(model))],
+            ['Measured DoLP','Wang DoLP (no amplitude fit)','Measured AoP','Wang AoP (global offset fitted)'],
+            [0,0,-90,-90],[1,1,90,90],['turbo','turbo','twilight','twilight']):
+            cm=plt.get_cmap(cmap).copy();cm.set_bad('lightgray')
+            arr=np.where(sky,arr,np.nan)
+            art=ax.imshow(arr,cmap=cm,vmin=lo,vmax=hi)
+            ax.add_patch(Circle(center,r90*np.sin(np.deg2rad(15))/np.sin(np.deg2rad(45)),fill=False,color='white',lw=.8))
+            ax.plot(*stats['source_pixel_xy'],'x',color='black',ms=7)
+            ax.set_title(f'{site}\n{title}',fontsize=10);ax.axis('off');fig.colorbar(art,ax=ax,shrink=.65)
+    fig.suptitle('Measured versus Wang source-meridian model: shared parameters, 450nm by default\nBlack cross = source candidate to verify; white circle = 60deg full animal field')
+    fig.tight_layout(rect=[0,0,1,.93]);out.mkdir(parents=True)
+    fig.savefig(out/'cottage_oxford_model_comparison.png',dpi=170);plt.close(fig)
+    payload=dict(status='PROVISIONAL_SOURCE_GEOMETRY_AND_PATTERN_COMPARISON',sites=results,
+        parameters=vars(a)|{'batch':str(batch),'output':str(out)},script_sha256=digest(__file__),
+        limitations=['Automatic bright source may be artificial light: verify each black cross before interpretation',
+        'No UTC, Moon ephemeris or compass orientation inferred',
+        '450nm model is not camera broadband integration or spider spectral weighting',
+        'No amplitude calibration or ALAN amount inferred from between-site differences',
+        'No sky/terrain segmentation; primary comparison restricted to zenith 30deg radius',
+        'Residual image registration and uncertain geometry reused',
+        'Source-meridian convention is explicit; constant AoP offset is registration, not validation',
+        'Cottage low ALAN does not mean ALAN-free; T3 and neutral separation are assumptions'])
+    (out/'cottage_oxford_model_summary.json').write_text(json.dumps(payload,indent=2,allow_nan=False)+'\n')
+    print(f'Wrote comparison PNG and summary JSON in {out}',flush=True)
+
+if __name__=='__main__':main()
