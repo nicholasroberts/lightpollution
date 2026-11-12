@@ -131,12 +131,38 @@ def refine_registration(reference, moving, reference_center, source_center, radi
         rotation_search_limit_reached=bool(abs(angle-initial_roll)>11)), correction
 
 
+
+def refine_multistart(reference, moving, reference_center, source_center, radius,
+                      initial_roll, nominal):
+    """Compare independent starts by structural image correlation, never PRC."""
+    seeds=[float(initial_roll),float(nominal),float(-nominal)]
+    unique=[]
+    for seed in seeds:
+        if all(abs((seed-old+180)%360-180)>2 for old in unique):
+            unique.append(seed)
+    trials=[]
+    for seed in unique:
+        fit,correction=refine_registration(reference,moving,reference_center,
+                                           source_center,radius,seed)
+        trials.append((fit,correction,seed))
+    best=max(trials,key=lambda t:t[0]['inner_sky_correlation'])
+    fit,correction,seed=best
+    fit['selected_seed_clockwise_deg']=seed
+    fit['multistart_trials']=[dict(seed_clockwise_deg=t[2],
+        scene_roll_clockwise_deg=t[0]['scene_roll_clockwise_deg'],
+        inner_sky_correlation=t[0]['inner_sky_correlation'],
+        rotation_search_limit_reached=t[0]['rotation_search_limit_reached'])
+        for t in trials]
+    return fit,correction
+
+
 def main():
     p=argparse.ArgumentParser(description=__doc__)
     p.add_argument('--geometry',type=Path,required=True)
     p.add_argument('--folder',type=Path,required=True)
     p.add_argument('--output',type=Path,required=True)
     p.add_argument('--site-id',default='s14')
+    p.add_argument('--multistart',action='store_true',help='Retry polar and both signed nominal rotation starts; select by structural correlation')
     a=p.parse_args()
     source=a.folder.resolve(); target=a.output.resolve()
     if source==target or source in target.parents or target in source.parents:
@@ -169,12 +195,17 @@ def main():
         estimate=estimate_roll(ref,polar_features(image,centres[num],radii[num]))
         if num==1: estimate['scene_roll_clockwise_deg']=0.
         initial_roll=estimate['scene_roll_clockwise_deg']
+        group_index=next(k for g in groups for k,n in enumerate(g) if n==num)
+        nominal=[0,45,90,135][group_index]
         if num==1:
             refinement=dict(scene_roll_clockwise_deg=0.,inner_sky_correlation=1.,
                 source_center_correction_xy_px=[0.,0.],refined_source_center_xy_px=centres[1],
                 translation_limit_reached=False,rotation_search_limit_reached=False)
         else:
-            refinement,_=refine_registration(images[1],image,centres[1],centres[num],radius60,initial_roll)
+            if a.multistart:
+                refinement,_=refine_multistart(images[1],image,centres[1],centres[num],radius60,initial_roll,nominal)
+            else:
+                refinement,_=refine_registration(images[1],image,centres[1],centres[num],radius60,initial_roll)
         estimate['initial_polar_roll_clockwise_deg']=initial_roll
         estimate['refinement']=refinement
         roll=refinement['scene_roll_clockwise_deg']
@@ -206,7 +237,7 @@ def main():
     fig.tight_layout(rect=[0,0,1,.94]); fig.savefig(target/'rotation_overlay.png',dpi=150); plt.close(fig)
     report=dict(status='unreviewed_registration_and_prc_preview',site_id=a.site_id,
         geometry_sha256=digest(a.geometry),script_sha256=digest(__file__),inputs=inputs,
-        geometry_threshold=.05,reference_center_xy_px=centres[1],radius_60_px=radius60,
+        multistart_enabled=a.multistart,geometry_threshold=.05,reference_center_xy_px=centres[1],radius_60_px=radius60,
         eye_angular_radius_deg=30,eye_full_field_deg=60,eye_radius_px=eye_radius,
         rotations=rotations,raw_images_modified=False,
         limitations=['Structural rotation estimation can be biased by polarization brightness gradients',
