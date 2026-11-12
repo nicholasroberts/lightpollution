@@ -70,6 +70,67 @@ def warp_to_reference(image, source_center, target_center, roll_deg):
         order=1,mode='constant',cval=np.nan,prefilter=False)
 
 
+def refine_registration(reference, moving, reference_center, source_center, radius, initial_roll):
+    """Local rotation search with FFT translation, using inner-sky structure.
+
+    Returns a source-coordinate centre correction. Intensities for scientific
+    output remain untouched. Translation is estimated independently of rim fit.
+    """
+    step=max(1,int(np.ceil(max(reference.shape)/600)))
+    ref=reference[::step,::step]
+    mov=moving[::step,::step]
+    rc=np.array(reference_center)/step; sc=np.array(source_center)/step
+    y,x=np.indices(ref.shape)
+    r=np.hypot(x-rc[0],y-rc[1])
+    # Exclude horizon; the biological integration region drives registration.
+    window=np.clip((radius/step-r)/8,0,1)
+    def features(im):
+        im=np.nan_to_num(im)
+        f=im-ndimage.gaussian_filter(im,2)
+        # Bound bright Moon/hot-pixel leverage; retain signed local structure.
+        limit=np.percentile(abs(f)[window>.5],99.5)+1e-12
+        return np.clip(f,-limit,limit)*window
+    rf=features(ref)
+    maxshift=max(3,int(radius/step*.15))
+    def evaluate(angle):
+        warped=warp_to_reference(mov,sc,rc,angle)
+        mf=features(warped)
+        corr=np.fft.ifft2(np.conj(np.fft.fft2(rf))*np.fft.fft2(mf)).real
+        yy=np.arange(-maxshift,maxshift+1); xx=yy.copy()
+        local=corr[np.ix_(yy%ref.shape[0],xx%ref.shape[1])]
+        iy,ix=np.unravel_index(np.argmax(local),local.shape)
+        delta=np.array([xx[ix],yy[iy]],dtype=float)
+        shifted=ndimage.shift(np.nan_to_num(warped),[-delta[1],-delta[0]],order=1)
+        ff=features(shifted)
+        score=np.sum(rf*ff)/(np.linalg.norm(rf)*np.linalg.norm(ff)+1e-12)
+        return float(score),delta
+    candidates=np.arange(initial_roll-12,initial_roll+12.001,1.)
+    coarse=[evaluate(a) for a in candidates]
+    best_angle=float(candidates[np.argmax([v[0] for v in coarse])])
+    candidates=np.arange(best_angle-1,best_angle+1.001,.1)
+    fine=[evaluate(a) for a in candidates]
+    k=int(np.argmax([v[0] for v in fine])); angle=float(candidates[k])
+    score,delta=fine[k]
+    # Continuous refinement starts from the global local-search maximum.
+    def cost(p):
+        a,dx,dy=p
+        c=np.cos(np.deg2rad(a)); t=np.sin(np.deg2rad(a))
+        center=sc+np.array([c*dx-t*dy,t*dx+c*dy])
+        mf=features(warp_to_reference(mov,center,rc,a))
+        return -np.sum(rf*mf)/(np.linalg.norm(rf)*np.linalg.norm(mf)+1e-12)
+    fit=optimize.minimize(cost,[angle,*delta],method='Powell',
+        bounds=[(angle-1,angle+1),(delta[0]-2,delta[0]+2),(delta[1]-2,delta[1]+2)],
+        options=dict(maxiter=30,xtol=.01,ftol=1e-5))
+    angle,dx,dy=fit.x
+    c=np.cos(np.deg2rad(angle)); t=np.sin(np.deg2rad(angle))
+    correction=step*np.array([c*dx-t*dy,t*dx+c*dy])
+    return dict(scene_roll_clockwise_deg=float(angle),inner_sky_correlation=float(-fit.fun),
+        source_center_correction_xy_px=correction.tolist(),
+        refined_source_center_xy_px=(np.array(source_center)+correction).tolist(),
+        translation_limit_reached=bool(abs(dx)>=maxshift-1 or abs(dy)>=maxshift-1),
+        rotation_search_limit_reached=bool(abs(angle-initial_roll)>11)), correction
+
+
 def main():
     p=argparse.ArgumentParser(description=__doc__)
     p.add_argument('--geometry',type=Path,required=True)
@@ -106,8 +167,18 @@ def main():
     for (num,image),ax in zip(images.items(),axes.flat):
         estimate=estimate_roll(ref,polar_features(image,centres[num],radii[num]))
         if num==1: estimate['scene_roll_clockwise_deg']=0.
-        roll=estimate['scene_roll_clockwise_deg']
-        aligned[num]=warp_to_reference(image,centres[num],centres[1],roll)
+        initial_roll=estimate['scene_roll_clockwise_deg']
+        if num==1:
+            refinement=dict(scene_roll_clockwise_deg=0.,inner_sky_correlation=1.,
+                source_center_correction_xy_px=[0.,0.],refined_source_center_xy_px=centres[1],
+                translation_limit_reached=False,rotation_search_limit_reached=False)
+        else:
+            refinement,_=refine_registration(images[1],image,centres[1],centres[num],radius60,initial_roll)
+        estimate['initial_polar_roll_clockwise_deg']=initial_roll
+        estimate['refinement']=refinement
+        roll=refinement['scene_roll_clockwise_deg']
+        estimate['scene_roll_clockwise_deg']=roll
+        aligned[num]=warp_to_reference(image,refinement['refined_source_center_xy_px'],centres[1],roll)
         group_index=next(k for g in groups for k,n in enumerate(g) if n==num)
         nominal=[0,45,90,135][group_index]
         error=min(abs((roll-s*nominal+180)%360-180) for s in [-1,1])
@@ -115,6 +186,10 @@ def main():
             distance_to_either_signed_nominal_deg=error,
             flags=(['rotation differs from either nominal sign by >5deg'] if error>5 else [])+
                   (['weak or ambiguous structural match'] if estimate['correlation']<.2 or estimate['peak_margin']<.03 else []))
+        if refinement['inner_sky_correlation']<.2:
+            estimate['flags'].append('refined inner-sky match remains weak')
+        if refinement['translation_limit_reached'] or refinement['rotation_search_limit_reached']:
+            estimate['flags'].append('registration search limit reached')
         rotations.append(estimate)
         im=aligned[num]
         # Display normalization is confined to this visual diagnostic.
@@ -123,7 +198,7 @@ def main():
         edge=ndimage.gaussian_gradient_magnitude(np.nan_to_num(im),1.5)
         rgb=np.stack([display(ref_edge),display(edge),display(edge)],axis=-1)
         ax.imshow(rgb); ax.add_patch(Circle(centres[1],radius60,fill=False,color='yellow',lw=.7))
-        ax.set_title(f'{num}.tif: roll {roll:.2f}deg; corr {estimate["correlation"]:.2f}')
+        ax.set_title(f'{num}.tif: roll {roll:.2f}deg; inner corr {refinement["inner_sky_correlation"]:.2f}')
         ax.axis('off')
     for ax in list(axes.flat)[len(images):]: ax.axis('off')
     fig.suptitle('ALIGNMENT REVIEW: red = reference edges; cyan = aligned exposure edges\nWhite overlap = agreement; yellow = accepted nominal 60deg field; display scales only')
@@ -133,7 +208,7 @@ def main():
         geometry_threshold=.05,reference_center_xy_px=centres[1],radius_60_px=radius60,
         rotations=rotations,raw_images_modified=False,
         limitations=['Structural rotation estimation can be biased by polarization brightness gradients',
-        'Fitted circle centres supply translations; residual parallax, tilt or distortion not corrected',
+        'Circle centres initialize translations; inner-sky structure refines them; residual parallax, tilt or distortion not corrected',
         'Nominal analyzer angles assumed; registration angles are not automatically substituted for physical analyzer calibration',
         'Common global image-plane polarization axes follow historical model; no full ray-dependent Mueller calibration',
         'No exposure or gamma correction; TIFF radiometric assumptions remain those of historical pipeline'])
