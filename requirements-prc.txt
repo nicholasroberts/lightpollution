@@ -1,0 +1,3 @@
+# Optional TIFF-image reconstruction dependencies; main pipeline unchanged.
+-r requirements.txt
+tifffile>=2023.7.10

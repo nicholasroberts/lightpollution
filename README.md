@@ -95,3 +95,16 @@ python src/run_pipeline.py validate
 ```
 
 This reports the VIIRS files found, their years and raster metadata, the expected NUTS3 file, and missing analysis years.
+
+
+## Original-sky Drassodes reconstruction (experimental)
+
+The independent Python reconstruction of the original PM-eye contrast has a
+read-only EcoVis image-folder discovery command, explicit TIFF/Stokes inputs,
+a 60-degree-radius equal-pixel eye integration and analytic maximum/minimum
+orthogonal-eye log contrast. It preserves raw images and the locked European
+VIIRS/PRC analyses. Synthetic checks pass; original-field reproduction is
+pending discovery, image geometry and alignment review on EcoVis.
+See [the reconstruction guide](docs/spider_prc_reconstruction.md) for setup,
+input conventions, processing alternatives, outputs and run commands, and the
+[12 November lab notebook](docs/lab_notebook/2026-11-12.md) for decisions and QA.

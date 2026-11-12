@@ -1,0 +1,25 @@
+{
+  "schema_version": 1,
+  "site_id": null,
+  "geometry_reviewed": false,
+  "registration_reviewed": false,
+  "input": {
+    "kind": "numbered_tiffs",
+    "directory": "../data/raw/sky_images/REPLACE_WITH_ACTUAL_FOLDER",
+    "channel": 2,
+    "groups": [["1.tif", "4.tif", "7.tif", "10.tif"], ["2.tif", "5.tif", "8.tif", "11.tif"], ["3.tif", "6.tif", "9.tif", "12.tif"]],
+    "rotation_deg_clockwise": [0, -45, -90, -135],
+    "shift_xy_px": [[0, 0], [0, 0], [0, 0], [0, 0]],
+    "stokes_method": "legacy_dop_aop",
+    "comment": "Source-based starting transforms and third channel; inspect actual data before review. Legacy processing is an explicit candidate, not proof of the spider's original intermediate."
+  },
+  "fov": {
+    "center_xy_px": null,
+    "radius_60_px": null,
+    "angular_radius_deg": 60
+  },
+  "absorbance_parallel": 0.4,
+  "absorbance_perpendicular": 0.04,
+  "response_mode": "stokes_intensity",
+  "invalid_policy": "error"
+}
