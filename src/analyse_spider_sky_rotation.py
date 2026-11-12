@@ -161,7 +161,8 @@ def main():
     target.mkdir(parents=True)
     ref=polar_features(images[1],centres[1],radii[1])
     aligned={}; rotations=[]
-    radius60=radii[1]/np.sqrt(2)
+    radius60=radii[1]/np.sqrt(2) # historical report compatibility only
+    eye_radius=radii[1]*np.sin(np.deg2rad(15))/np.sin(np.deg2rad(45))
     fig,axes=plt.subplots(int(np.ceil(len(images)/4)),4,figsize=(16,4*np.ceil(len(images)/4)),squeeze=False)
     ref_edge=ndimage.gaussian_gradient_magnitude(images[1],1.5)
     for (num,image),ax in zip(images.items(),axes.flat):
@@ -197,15 +198,16 @@ def main():
             lo,hi=np.nanpercentile(x,[10,99]); return np.nan_to_num(np.clip((x-lo)/(hi-lo+1e-12),0,1))
         edge=ndimage.gaussian_gradient_magnitude(np.nan_to_num(im),1.5)
         rgb=np.stack([display(ref_edge),display(edge),display(edge)],axis=-1)
-        ax.imshow(rgb); ax.add_patch(Circle(centres[1],radius60,fill=False,color='yellow',lw=.7))
+        ax.imshow(rgb); ax.add_patch(Circle(centres[1],eye_radius,fill=False,color='yellow',lw=.7))
         ax.set_title(f'{num}.tif: roll {roll:.2f}deg; inner corr {refinement["inner_sky_correlation"]:.2f}')
         ax.axis('off')
     for ax in list(axes.flat)[len(images):]: ax.axis('off')
-    fig.suptitle('ALIGNMENT REVIEW: red = reference edges; cyan = aligned exposure edges\nWhite overlap = agreement; yellow = accepted nominal 60deg field; display scales only')
+    fig.suptitle('ALIGNMENT REVIEW: red = reference edges; cyan = aligned exposure edges\nWhite overlap = agreement; yellow = 60deg full field (30deg radius); display scales only')
     fig.tight_layout(rect=[0,0,1,.94]); fig.savefig(target/'rotation_overlay.png',dpi=150); plt.close(fig)
     report=dict(status='unreviewed_registration_and_prc_preview',site_id=a.site_id,
         geometry_sha256=digest(a.geometry),script_sha256=digest(__file__),inputs=inputs,
         geometry_threshold=.05,reference_center_xy_px=centres[1],radius_60_px=radius60,
+        eye_angular_radius_deg=30,eye_full_field_deg=60,eye_radius_px=eye_radius,
         rotations=rotations,raw_images_modified=False,
         limitations=['Structural rotation estimation can be biased by polarization brightness gradients',
         'Circle centres initialize translations; inner-sky structure refines them; residual parallax, tilt or distortion not corrected',
@@ -219,18 +221,18 @@ def main():
         i,q,u,qa=combine_replicates(([aligned[n] for n in g] for g in groups),method)
         for mode in ['stokes_intensity','normalized_direction']:
             for factor in [.95,1.,1.05]:
-                mask=circle_mask(shape,centres[1],radius60*factor)
+                mask=circle_mask(shape,centres[1],eye_radius*factor)
                 result=eye_result(i,q,u,mask,response_mode=mode,invalid_policy='exclude')
                 report['prc_diagnostics'].append(dict(method=method,response_mode=mode,
                     radius_factor=factor,prc=result['prc'],excluded_fraction=result['excluded_fraction']))
-        mask=circle_mask(shape,centres[1],radius60)
+        mask=circle_mask(shape,centres[1],eye_radius)
         report.setdefault('analyzer_pair_closure',{})[method]=[
             dict(median_abs=float(np.nanmedian(abs(rec['closure'][mask]))),
                  p95_abs=float(np.nanpercentile(abs(rec['closure'][mask]),95))) for rec in qa]
         np.savez_compressed(target/f'{method}.npz',I=i,Q=q,U=u)
         config=dict(schema_version=1,site_id=a.site_id,geometry_reviewed=True,
             registration_reviewed=False,input=dict(kind='stokes_npz',path=f'{method}.npz'),
-            fov=dict(angular_radius_deg=60,center_xy_px=centres[1],radius_60_px=radius60),
+            fov=dict(angular_radius_deg=30,center_xy_px=centres[1],radius_px=eye_radius),
             absorbance_parallel=.4,absorbance_perpendicular=.04,
             response_mode='stokes_intensity',invalid_policy='exclude',
             processing_note=method,replicate_count=len(groups))
