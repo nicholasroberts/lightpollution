@@ -15,8 +15,8 @@
   },
   "fov": {
     "center_xy_px": null,
-    "radius_60_px": null,
-    "angular_radius_deg": 60
+    "radius_px": null,
+    "angular_radius_deg": 30
   },
   "absorbance_parallel": 0.4,
   "absorbance_perpendicular": 0.04,
