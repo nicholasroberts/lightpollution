@@ -1,0 +1,7 @@
+# Spider FOV correction — 2026-11-12
+
+Investigator explicitly corrected PM-eye FOV: 60 degrees FULL FIELD, hence 30 degrees radial angle. This supersedes earlier interpretation of 60-degree radius in reconstruction manifests, guides and diagnostic labels. Prior geometry fits of the optical rim remain usable; earlier integrated PRC values used the wrong field and are not a valid historical reproduction test.
+
+Updated audit_spider_polarization.py default angular radius to 30, explicit --angular-radius-deg option, dynamic plot labels and JSON angular radius/full-field/pixel radius metadata. Existing rotation_02 arrays can be reused. Equisolid mapping gives r30/r60=sin(15deg)/sin(30deg)=.5176380902, not exactly half the previous pixel radius. New radius is approximately 240px for Cottage. No new numerical PRC result available until EcoVis run. Do not claim this correction alone guarantees reference .439.
+
+Run with fresh output data/processed/spider_prc_cottage_fov60_full_01 and --angular-radius-deg 30. Upload polarization_summary.json and matched_aop.png (and matched_polarization.png if useful). Older core reconstruction run() still hardcodes 60 radial degrees; do NOT use it for a final 30-radius result until that validation is updated. Current corrected audit computes eye_result directly with the correct mask and reports it separately, preserving previous outputs and locked observations.
