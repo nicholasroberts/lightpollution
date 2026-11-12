@@ -12,7 +12,17 @@ import numpy as np
 import matplotlib
 matplotlib.use('Agg')
 import matplotlib.pyplot as plt
+from matplotlib.colors import LinearSegmentedColormap
 from reconstruct_spider_eye_contrast import circle_mask,eye_result,digest
+
+
+# Approximate colour progression sampled from investigator's original PNG legend.
+# Its numeric unit/range is unverified; do not infer or modify angles from it.
+ORIGINAL_AOP_COLORS=['#ff2500','#ff7900','#e6f001','#5ef901','#02f943',
+    '#04fcda','#008dff','#1933ff','#a038ff','#ff37ce','#ff284d']
+
+def original_aop_cmap():
+    return LinearSegmentedColormap.from_list('original_aop_legend',ORIGINAL_AOP_COLORS,N=256)
 
 
 def quantiles(values):
@@ -66,24 +76,34 @@ def main():
     center=report['reference_center_xy_px']; radius=report['radius_60_px']
     fig,axes=plt.subplots(2,3,figsize=(13,9))
     results={}
+    aop_fig,aop_axes=plt.subplots(1,2,figsize=(14,8))
     for row,method in enumerate(['linear_stokes','legacy_dop_aop']):
         path=source/f'{method}.npz'
         with np.load(path,allow_pickle=False) as z: i,q,u=[z[k] for k in ['I','Q','U']]
         mask=circle_mask(i.shape,center,radius)
         stats,dop,angle=summarize(i,q,u,mask)
+        aa=aop_axes[row]
+        cmap=original_aop_cmap();cmap.set_bad('lightgray')
+        art=aa.imshow(angle.T,cmap=cmap,vmin=-90,vmax=90,aspect='equal')
+        aa.contour(mask.T,levels=[.5],colors='black',linewidths=.7)
+        aa.set_title(method);aa.set_xlabel('Image row (original R x)');aa.set_ylabel('Image column (original R y)')
+        cb=aop_fig.colorbar(art,ax=aa,shrink=.8,ticks=[-90,-45,0,45,90]);cb.set_label('AoP (degrees)')
         stats['source_sha256']=digest(path);results[method]=stats
         # Full sky in column 1, then cropped physical field in both orientations.
         arrays=[dop,np.where(mask,dop,np.nan).T,np.where(mask,angle,np.nan).T]
         titles=[f'{method}: full DoLP', '60deg DoLP; R display axes','60deg AoP; R display axes']
         for col,(ax,arr,title) in enumerate(zip(axes[row],arrays,titles)):
-            cm=plt.get_cmap('turbo' if col<2 else 'twilight').copy();cm.set_bad('lightgray')
+            cm=plt.get_cmap('turbo').copy() if col<2 else original_aop_cmap();cm.set_bad('lightgray')
             artist=ax.imshow(arr,cmap=cm,vmin=0 if col<2 else -90,vmax=1 if col<2 else 90)
             ax.set_title(title);ax.set_aspect('equal');ax.axis('off');fig.colorbar(artist,ax=ax,shrink=.7)
     fig.suptitle('MATCHED POLARIZATION DIAGNOSTICS — fixed display scales; arrays unchanged\nTransposed panels match R axis ordering only; absolute AoP zero/sign not established')
     fig.tight_layout(rect=[0,0,1,.93])
     out.mkdir(parents=True)
     fig.savefig(out/'matched_polarization.png',dpi=170);plt.close(fig)
-    result=dict(status='diagnostic_not_historical_validation',
+    aop_fig.suptitle('AoP comparison — palette approximates original PNG legend; shared -90 to +90 degrees\nBlack circle = 60deg field; colour change only; original legend units remain unverified')
+    aop_fig.tight_layout(rect=[0,0,1,.93]);aop_fig.savefig(out/'matched_aop.png',dpi=180);plt.close(aop_fig)
+    result=dict(aop_display=dict(palette='original_PNG_legend_approximation',limits_degrees=[-90,90],
+        underlying_angles_modified=False),status='diagnostic_not_historical_validation',
         analysis_sha256=digest(source/'rotation_analysis.json'),script_sha256=digest(__file__),
         center_xy_px=center,radius_60_px=radius,methods=results,
         limitations=['Physical-pixel exclusion is reported, not hidden',
