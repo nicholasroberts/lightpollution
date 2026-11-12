@@ -102,6 +102,7 @@ def main():
     p.add_argument('--extinction-v',type=float,default=.2,help='Assumed V-band extinction in mag/airmass; scenario, not fitted')
     p.add_argument('--moon-anchors',type=Path,required=True);p.add_argument('--output',type=Path,required=True)
     p.add_argument('--prc-colour-limit',type=float,default=2.,help='Shared symmetric PRC colour limit for every site and atmosphere (default +/-2)')
+    p.add_argument('--site-alan-config',type=Path,help='Independent site/spectral ALAN scaling; no DoP fitting')
     p.add_argument('--spectra',type=Path);p.add_argument('--references',type=Path,default=ROOT/'data/reference/prc_spider_18_sites_verified.csv')
     p.add_argument('--atmospheric-factors',type=float,nargs='+',default=[1.,.8,.6])
     p.add_argument('--alan-ratios',type=float,nargs='+',default=[0.,.5,1.,3.])
@@ -118,6 +119,12 @@ def main():
     if any(not np.isfinite(x) or not 0<=x<=60 for x in args.tilts):p.error('Tilts must be 0..60deg')
     coefficients,spectral_info=spectral_coefficients(args.spectra)
     anchors=json.loads(args.moon_anchors.read_text())['sites'];refs={r['site_id']:r for r in csv.DictReader(args.references.open())}
+    site_config=json.loads(args.site_alan_config.read_text()) if args.site_alan_config else None
+    common_reference=None
+    if site_config:
+        if args.brightness_model!='ks91':p.error('Common site reference requires KS91')
+        ca=anchors[site_config['normalization_site']];cp,cd=lunar_phase_distance([ca['utc']])
+        common_reference=float(ks91_brightness(0.,ca['moon_elevation_deg'],np.deg2rad(90-ca['moon_elevation_deg']),float(cp[0]),args.extinction_v,float(cd[0])))
     headings=np.arange(0,360,args.heading_step);rows=[];summaries=[];tracks=[]
     args.output.mkdir(parents=True)
     for site in ['Cottage','oxfordbussinesspark']:
@@ -126,6 +133,8 @@ def main():
         phases,distances=lunar_phase_distance([t.isoformat() for t in stamps])
         cp,cd=lunar_phase_distance([anchor['utc']])
         reference_brightness=float(ks91_brightness(0.,anchor['moon_elevation_deg'],np.deg2rad(90-anchor['moon_elevation_deg']),float(cp[0]),args.extinction_v,float(cd[0]))) if args.brightness_model=='ks91' else 1.
+        alan_multiplier=1. if site_config is None else common_reference/reference_brightness*float(site_config['alan_scale_by_site'][site])*float(site_config['spectral_band_factor'])
+        if not np.isfinite(alan_multiplier) or alan_multiplier<0:raise ValueError('Invalid site ALAN scaling')
         zone=ZoneInfo(anchor['timezone']);hours=np.array([(t-stamps[0]).total_seconds()/3600+12 for t in stamps])
         print(f'{site}: computing {len(stamps)} times, {len(headings)} headings',flush=True)
         matrices={}
@@ -147,8 +156,8 @@ def main():
                 for alan in args.alan_ratios:
                     matrix=np.full_like(base,np.nan)
                     for ih,it in zip(*np.where(np.isfinite(base))):
-                        value=response_contrast(base[ih,it],atmosphere,alan,coefficients,natural[ih,it]);matrix[ih,it]=value
-                        rows.append(dict(site=site,utc=stamps[it].isoformat(),local_time=stamps[it].astimezone(zone).isoformat(),moon_elevation_deg=float(elevations[it]),moon_azimuth_deg=float(azimuths[it]),moon_phase_angle_deg=float(phases[it]),moon_distance_km=float(distances[it]),natural_intensity_relative_to_capture_zenith=float(natural[ih,it]),instantaneous_alan_natural_ratio=float(alan/natural[ih,it]),body_heading_deg=int(headings[ih]),body_tilt_deg=tilt,atmospheric_factor=atmosphere,alan_band_ratio=alan,signed_prc=value,absolute_prc=abs(value)))
+                        value=response_contrast(base[ih,it],atmosphere,alan*alan_multiplier,coefficients,natural[ih,it]);matrix[ih,it]=value
+                        rows.append(dict(site=site,utc=stamps[it].isoformat(),local_time=stamps[it].astimezone(zone).isoformat(),moon_elevation_deg=float(elevations[it]),moon_azimuth_deg=float(azimuths[it]),moon_phase_angle_deg=float(phases[it]),moon_distance_km=float(distances[it]),natural_intensity_relative_to_capture_zenith=float(natural[ih,it]),applied_alan_capture_zenith_ratio=float(alan*alan_multiplier),instantaneous_alan_natural_ratio=float(alan*alan_multiplier/natural[ih,it]),body_heading_deg=int(headings[ih]),body_tilt_deg=tilt,atmospheric_factor=atmosphere,alan_band_ratio=alan,signed_prc=value,absolute_prc=abs(value)))
                     matrices[tilt,atmosphere,alan]=matrix
                     for it in range(len(stamps)):
                         vals=abs(matrix[:,it]);vals=vals[np.isfinite(vals)]
@@ -163,7 +172,7 @@ def main():
                 for ci,alan in enumerate(args.alan_ratios):
                     ax=axes[ri,ci];cm=plt.get_cmap('RdBu_r').copy();cm.set_bad('lightgray')
                     art=ax.pcolormesh(hours,headings,matrices[tilt,atmosphere,alan],shading='nearest',cmap=cm,vmin=-limit,vmax=limit)
-                    ax.set(title=f'Tilt {tilt:g}deg; ALAN/capture zenith {alan:g}',xlabel='Local hour (24 = midnight)',ylabel='Body heading from north (deg)')
+                    ax.set(title=f'Tilt {tilt:g}deg; ALAN scenario {alan:g}; local ratio {alan*alan_multiplier:.3g}',xlabel='Local hour (24 = midnight)',ylabel='Body heading from north (deg)')
             night_hours=hours[sun<-6]
             if len(night_hours):
                 for ax in axes.ravel():ax.set_xlim(night_hours.min()-.25,night_hours.max()+.25)
@@ -183,12 +192,12 @@ def main():
                 line,=ax.plot(hours,median,label=f'ALAN {alan:g}');ax.fill_between(hours,lo,hi,color=line.get_color(),alpha=.12)
             ax.set(title=f'Tilt {tilt:g}deg; atmospheric factor {args.atmospheric_factors[0]:g}',xlabel='Local hour (24 = midnight)',ylabel='Absolute PRC');ax.legend()
         fig.suptitle(f'{site}: median and min–max over sampled headings (scenario, not confidence interval)');fig.tight_layout(rect=[0,0,1,.95]);fig.savefig(args.output/f'{site}_prc_ranges.png',dpi=140);plt.close(fig)
-        tracks.append(dict(site=site,anchor=anchor,reference=ref,capture_zenith_moon_brightness_nL=reference_brightness if args.brightness_model=='ks91' else None,valid_moonlit_night_samples=int(np.sum((sun<-6)&(elevations>.1)&(elevations<89.9)))))
+        tracks.append(dict(site=site,anchor=anchor,reference=ref,alan_multiplier_relative_to_capture_zenith=alan_multiplier,capture_zenith_moon_brightness_nL=reference_brightness if args.brightness_model=='ks91' else None,valid_moonlit_night_samples=int(np.sum((sun<-6)&(elevations>.1)&(elevations<89.9)))))
     for name,records in [('heading_responses.csv',rows),('prc_ranges.csv',summaries)]:
         if records:
             with (args.output/name).open('w',newline='') as f:
                 writer=csv.DictWriter(f,fieldnames=records[0]);writer.writeheader();writer.writerows(records)
-    payload=dict(status='FORWARD_SCENARIOS_NOT_FITTED_SITE_ALAN',parameters={k:str(v) if isinstance(v,Path) else v for k,v in vars(args).items()},spectra=spectral_info,sites=tracks,script_sha256=digest(__file__),limitations=['KS91 V-band intensity transferred to fixed spectral shape is a separable pilot, not full spectral radiative transfer; constant mode retained explicitly','ALAN uniform absolute radiance and fixed over night; input ratio referenced to capture-time zenith moonlight; each site has its own reference, not matched absolute ALAN','Atmospheric factor scales Q/U only; sensitivity analysis, not measured turbidity','No terrain/cloud masks or twilight polarization; Moon above horizon, Sun below -6deg; KS91 excludes fields with separation <10deg; no moonless background','Body tilts and eye alignment are hypotheses; analyzer axes parallel transported over field','Berry unity-peak intensity interpreted as DoLP envelope; no restoration of Wang spectral eq17','Spectra separable from spatial pattern, fixed across night; wavelength effects only as supplied','No behavioral threshold or probabilities assigned to headings; ranges describe sampled scenarios','Cottage date confirmed as 21 August 2018; stale September reference flag in old anchors is superseded by investigator correction; other site matching flags retained'])
+    payload=dict(status='FORWARD_SCENARIOS_NOT_FITTED_SITE_ALAN',parameters={k:str(v) if isinstance(v,Path) else v for k,v in vars(args).items()},spectra=spectral_info,independent_alan_config=site_config,sites=tracks,script_sha256=digest(__file__),limitations=['KS91 V-band intensity transferred to fixed spectral shape is a separable pilot, not full spectral radiative transfer; constant mode retained explicitly','ALAN fixed over night: independent_alan_config specifies common-reference site/spectral scaling when present; otherwise legacy per-site capture reference','Atmospheric factor scales Q/U only; sensitivity analysis, not measured turbidity','No terrain/cloud masks or twilight polarization; Moon above horizon, Sun below -6deg; KS91 excludes fields with separation <10deg; no moonless background','Body tilts and eye alignment are hypotheses; analyzer axes parallel transported over field','Berry unity-peak intensity interpreted as DoLP envelope; no restoration of Wang spectral eq17','Spectra separable from spatial pattern, fixed across night; wavelength effects only as supplied','No behavioral threshold or probabilities assigned to headings; ranges describe sampled scenarios','Cottage date confirmed as 21 August 2018; stale September reference flag in old anchors is superseded by investigator correction; other site matching flags retained'])
     (args.output/'provenance.json').write_text(json.dumps(payload,indent=2,allow_nan=False)+'\n')
     print(f'Wrote {len(rows)} heading responses to {args.output}',flush=True)
 
