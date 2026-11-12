@@ -12,8 +12,7 @@ import matplotlib
 matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 from matplotlib.patches import Circle
-from wang2016_sky import (source_meridian_pattern,wang_spectral_inputs,
-    horizon_factor,turbidity_multiplier)
+from wang2016_sky import (source_meridian_pattern,horizon_factor,alan_relative_from_depth)
 from reconstruct_spider_eye_contrast import digest
 
 
@@ -50,7 +49,11 @@ def ephemeris_source_pixel(anchor,center,r90):
     return (np.array(center)+radius*vector/length).tolist()
 
 
-def compare_site(directory,source_xy,separation,turbidity,wavelength,anchor=None):
+def compare_site(directory,source_xy,separation,turbidity=None,wavelength=None,anchor=None,alan_relative=0.):
+    if turbidity is not None or wavelength is not None:
+        raise ValueError("This comparison uses a turbidity-free angular/horizon model; spectral/turbidity arguments are unsupported")
+    if not np.isfinite(alan_relative) or alan_relative<0:
+        raise ValueError("ALAN relative intensity must be finite and nonnegative")
     report_path=directory/'rotation_analysis.json';report=json.loads(report_path.read_text())
     path=directory/'linear_stokes.npz'
     with np.load(path,allow_pickle=False) as z:i,q,u=[z[k] for k in ['I','Q','U']]
@@ -70,9 +73,9 @@ def compare_site(directory,source_xy,separation,turbidity,wavelength,anchor=None
     if not 0<zs<np.pi/2:raise ValueError('Source must be strictly above horizon and below zenith')
     th=theta[sky];ph=phi[sky]
     w=source_meridian_pattern(th,ph,zs,az,separation)
-    sd,s90,ssource,s=wang_spectral_inputs(th,ph,zs,az,turbidity,wavelength)
-    pfull=abs(w)*(th*horizon_factor(th)+(np.pi/2-th)*s)*turbidity_multiplier(turbidity)
-    pangular=abs(w)*horizon_factor(th)*turbidity_multiplier(turbidity)
+    pangular=abs(w)*horizon_factor(th)
+    # I_total=I_natural*(1+a), Q/U unchanged: no atmospheric attenuation.
+    pfull=pangular/(1+alan_relative)
     model=np.full(i.shape,np.nan+1j*np.nan,dtype=complex)
     physicalmodel=np.isfinite(pfull)&(pfull>=0)&(pfull<=1)
     model[sky]=np.where(physicalmodel,pfull*np.exp(1j*np.angle(w)),np.nan)
@@ -90,7 +93,8 @@ def compare_site(directory,source_xy,separation,turbidity,wavelength,anchor=None
         dop_mean_absolute_error=float(np.mean(abs(dob-dmod))),
         model_nonphysical_sky_pixels=int((~physicalmodel).sum()),
         angular_reduced_max_dop=float(np.max(pangular)),full_model_max_raw_dop=float(np.nanmax(pfull)),
-        reference_s90=float(s90),reference_ssource=float(ssource),
+        model_structure="Wang angular/horizon eq6+eq8; no eq7 or spectral extension",
+        alan_relative_intensity=float(alan_relative),alan_depth=float(np.log1p(alan_relative)),
         rotation_report_sha256=digest(report_path),stokes_sha256=digest(path),
         flagged_exposures=sum(bool(r['flags']) for r in report['rotations']))
     if anchor is not None:
@@ -107,9 +111,12 @@ def main():
     p.add_argument('--cottage-moon-xy',nargs=2,type=float)
     p.add_argument('--oxford-moon-xy',nargs=2,type=float)
     p.add_argument('--neutral-separation-deg',type=float,required=True)
-    p.add_argument('--turbidity',type=float,default=3.)
-    p.add_argument('--wavelength-nm',type=float,default=450.)
+    group=p.add_mutually_exclusive_group()
+    group.add_argument('--alan-relative',type=float,default=None,help='I_ALAN/I_natural; default 0')
+    group.add_argument('--alan-depth',type=float,help='ln(1+I_ALAN/I_natural); not atmospheric turbidity')
     a=p.parse_args();batch=a.batch.resolve();out=a.output.resolve()
+    addition=float(alan_relative_from_depth(a.alan_depth)) if a.alan_depth is not None else (a.alan_relative or 0.)
+    if not np.isfinite(addition) or addition<0:p.error('ALAN addition must be finite and nonnegative')
     if out.exists():p.error('Use fresh output directory')
     if out==batch or batch in out.parents or out in batch.parents:p.error('Output must be separate from existing batch')
     anchors=json.loads(a.moon_anchors.read_text())['sites'] if a.moon_anchors else {}
@@ -117,7 +124,7 @@ def main():
     for row,(site,source) in enumerate([('Cottage',a.cottage_moon_xy),('oxfordbussinesspark',a.oxford_moon_xy)]):
         print(f'Comparing {site}',flush=True)
         stats,(i,observed,model,sky,field,center,r90)=compare_site(batch/site/'registration',source,
-            a.neutral_separation_deg,a.turbidity,a.wavelength_nm,anchors.get(site))
+            a.neutral_separation_deg,anchor=anchors.get(site),alan_relative=addition)
         results[site]=stats
         for ax,arr,title,lo,hi,cmap in zip(axes[row],
             [abs(observed),abs(model),np.rad2deg(.5*np.angle(observed)),np.rad2deg(.5*np.angle(model))],
@@ -129,19 +136,21 @@ def main():
             ax.add_patch(Circle(center,r90*np.sin(np.deg2rad(15))/np.sin(np.deg2rad(45)),fill=False,color='white',lw=.8))
             ax.plot(*stats['source_pixel_xy'],'x',color='black',ms=7)
             ax.set_title(f'{site}\n{title}',fontsize=10);ax.axis('off');fig.colorbar(art,ax=ax,shrink=.65)
-    fig.suptitle('Measured versus Wang source-meridian model: shared parameters, 450nm by default\nBlack cross = selected Moon geometry; white circle = 60deg full animal field')
+    fig.suptitle(f'Measured versus Wang source-meridian model: angular/horizon model; no turbidity; ALAN relative I = {addition:g}\nBlack cross = selected Moon geometry; white circle = 60deg full animal field')
     fig.tight_layout(rect=[0,0,1,.93]);out.mkdir(parents=True)
     fig.savefig(out/'cottage_oxford_model_comparison.png',dpi=170);plt.close(fig)
     payload=dict(status='PROVISIONAL_SOURCE_GEOMETRY_AND_PATTERN_COMPARISON',sites=results,
         parameters=vars(a)|{'batch':str(batch),'output':str(out),'moon_anchors':str(a.moon_anchors) if a.moon_anchors else None},script_sha256=digest(__file__),
         limitations=['Automatic bright source may be artificial light: verify each black cross before interpretation',
         'No UTC, Moon ephemeris or compass orientation inferred',
-        '450nm model is not camera broadband integration or spider spectral weighting',
+        'Reduced angular/horizon model: spectral eq17 omitted to avoid hidden atmospheric turbidity',
+        'ALAN addition is proportional to natural intensity across the sky; not uniform absolute skyglow',
+        'No-turbidity angular model is not established as a theoretical maximum DoLP',
         'No amplitude calibration or ALAN amount inferred from between-site differences',
         'No sky/terrain segmentation; primary comparison restricted to zenith 30deg radius',
         'Residual image registration and uncertain geometry reused',
         'Source-meridian convention is explicit; constant AoP offset is registration, not validation',
-        'Cottage low ALAN does not mean ALAN-free; T3 and neutral separation are assumptions'])
+        'Cottage low ALAN does not mean ALAN-free; neutral separation remains an assumption'])
     (out/'cottage_oxford_model_summary.json').write_text(json.dumps(payload,indent=2,allow_nan=False)+'\n')
     print(f'Wrote comparison PNG and summary JSON in {out}',flush=True)
 
