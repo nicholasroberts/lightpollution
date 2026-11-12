@@ -98,6 +98,7 @@ def night_track(anchor,latitude,longitude,step):
 def main():
     p=argparse.ArgumentParser(description=__doc__)
     p.add_argument('--moon-anchors',type=Path,required=True);p.add_argument('--output',type=Path,required=True)
+    p.add_argument('--prc-colour-limit',type=float,default=2.,help='Shared symmetric PRC colour limit for every site and atmosphere (default +/-2)')
     p.add_argument('--spectra',type=Path);p.add_argument('--references',type=Path,default=ROOT/'data/reference/prc_spider_18_sites_verified.csv')
     p.add_argument('--atmospheric-factors',type=float,nargs='+',default=[1.,.8,.6])
     p.add_argument('--alan-ratios',type=float,nargs='+',default=[0.,.5,1.,3.])
@@ -106,6 +107,7 @@ def main():
     p.add_argument('--neutral-separation-deg',type=float,default=24.)
     args=p.parse_args()
     if args.output.exists():p.error('Use fresh output directory')
+    if not np.isfinite(args.prc_colour_limit) or args.prc_colour_limit<=0:p.error('Colour limit must be positive and finite')
     if not 0<args.step_minutes<=120 or not 0<args.heading_step<=90 or args.samples<64:p.error('Invalid sampling')
     if any(not np.isfinite(x) or not 0<=x<=1 for x in args.atmospheric_factors):p.error('Atmospheric factors must be in [0,1]')
     if any(not np.isfinite(x) or x<0 for x in args.alan_ratios):p.error('ALAN ratios must be nonnegative')
@@ -140,7 +142,9 @@ def main():
         # One figure per atmospheric factor, all posture/ALAN combinations.
         for atmosphere in args.atmospheric_factors:
             fig,axes=plt.subplots(len(args.tilts),len(args.alan_ratios),figsize=(4*len(args.alan_ratios),3*len(args.tilts)),squeeze=False)
-            limit=max([np.nanmax(abs(m)) for key,m in matrices.items() if key[1]==atmosphere and np.isfinite(m).any()] or [1.])
+            limit=args.prc_colour_limit
+            if any(np.any(abs(m[np.isfinite(m)])>limit) for key,m in matrices.items() if key[1]==atmosphere):
+                raise ValueError('PRC exceeds shared display limit; increase --prc-colour-limit for all figures')
             for ri,tilt in enumerate(args.tilts):
                 for ci,alan in enumerate(args.alan_ratios):
                     ax=axes[ri,ci];cm=plt.get_cmap('RdBu_r').copy();cm.set_bad('lightgray')
