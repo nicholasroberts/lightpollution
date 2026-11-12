@@ -8,7 +8,7 @@ For now model a horizontal body, yaw 0–360 degrees, no tilt sweep. Default --t
 
 Species spectrum unknown: use a declared wolf-spider-inspired proxy, alpha peak 510nm and secondary UV band centred at365nm (sensitivity scenarios 360–370nm). DeVoe1972 doi10.1085/jgp.59.3.247 / PMID5058960 reports principal-eye peak510nm plus360–370nm or shorter and very variable UV/visible ratios. Secondary anterior-lateral cells peak510nm with shoulder near380nm. Therefore the requested365nm band is not evidence for the target species or posterior median eyes. Do not assume a fixed UV amplitude or interpret it as automatically a beta band of a single pigment. Compare UV-band centres365 and380nm and UV strengths independently.
 
-Stavenga2010 doi10.1007/s00359-010-0560-z (https://pmc.ncbi.nlm.nih.gov/articles/PMC2962788/) compares invertebrate pigment templates. Alpha templates agree well above400nm; below400nm beta-band predictions diverge. A510nm alpha template plus a separately declared UV-band sensitivity scenario is preferable to claiming a validated whole-eye action spectrum. Distinguish absorbance from sensitivity to avoid applying the same pigment weighting twice. Use consistent photon units.
+Stavenga2010 doi10.1007/s00359-010-0568-7 (https://pmc.ncbi.nlm.nih.gov/articles/PMC2962788/) compares invertebrate pigment templates. Alpha templates agree well above400nm; below400nm beta-band predictions diverge. A510nm alpha template plus a separately declared UV-band sensitivity scenario is preferable to claiming a validated whole-eye action spectrum. Distinguish absorbance from sensitivity to avoid applying the same pigment weighting twice. Use consistent photon units.
 
 ## Primary spectral sources found
 
@@ -33,3 +33,6 @@ Keep attenuation/scattering used to predict I separate from empirical depolariza
 ## Execution status
 
 GitHub reference date and horizontal default updated. This turn's local compute environment became unavailable; those small edits were not executed locally. Prior generated arrays unchanged. No pigment arrays, measured spectra or lunar-brightness code claimed complete.
+
+
+Update: compute restored; see 2026-11-12-spectral-nightly-pilot.md for retrieved numerical arrays, tested KS91 integration and visible-only runs. This supersedes the earlier execution-status paragraph.
