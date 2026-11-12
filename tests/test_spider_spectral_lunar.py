@@ -28,4 +28,19 @@ class SpectralLunarTests(unittest.TestCase):
         self.assertAlmostEqual(response_contrast(.3,1,0,co),response_contrast(.6,1,0,co,2))
         self.assertGreater(abs(response_contrast(.6,1,1,co,2)),abs(response_contrast(.3,1,1,co)))
 
+class SkySnapshotTests(unittest.TestCase):
+    def test_mixed_stokes_and_zero_alan(self):
+        import tempfile
+        from plot_spider_spectral_pilot import sky_dop_snapshot
+        p={'sites':[{'site':'Cottage','anchor':{'moon_elevation_deg':20.,'moon_compass_azimuth_deg':150.,'utc':'2018-08-21T20:37:47'}}],
+           'parameters':{'brightness_model':'constant','neutral_separation_deg':24.}}
+        with tempfile.TemporaryDirectory() as td:
+            path=Path(td)/'s.csv'
+            path.write_text('wavelength_nm,natural,alan,sensitivity\n450,1,1,1\n750,1,1,1\n')
+            arrays,_=sky_dop_snapshot(p,path,'Cottage',.8,1,grid=51)
+            mask=np.isfinite(arrays[0]);np.testing.assert_allclose(arrays[1][mask],arrays[0][mask]/2)
+            zero,_=sky_dop_snapshot(p,path,'Cottage',.8,0,grid=51)
+            np.testing.assert_allclose(zero[0],zero[1],equal_nan=True)
+            self.assertLessEqual(float(np.nanmax(arrays[0])),.8)
+
 if __name__=='__main__':unittest.main()
