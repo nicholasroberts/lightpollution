@@ -114,9 +114,9 @@ def discover(roots, output, max_dirs=100000):
                       "shift_xy_px": [[0, 0]] * 4,
                       "stokes_method": "REVIEW_REQUIRED",
                       "comment": "Candidate angle grouping; confirm layout/order and rotation sign before use."},
-            "fov": {"center_xy_px": None, "radius_60_px": None,
-                    "angular_radius_deg": 60,
-                    "comment": "Measure radius for 60 degrees; do not assume image-edge calibration."},
+            "fov": {"center_xy_px": None, "radius_px": None,
+                    "angular_radius_deg": 30,
+                    "comment": "Measure radius for 30 degrees (60-degree full field); do not assume image-edge calibration."},
             "absorbance_parallel": 0.4, "absorbance_perpendicular": 0.04,
             "response_mode": "stokes_intensity", "invalid_policy": "error",
             "comment": "Each circular-FOV pixel contributes equally; no solid-angle weights."
@@ -502,10 +502,10 @@ def run(manifest, output, preview_only=False):
                                 and config.get("registration_reviewed") is True):
         raise ValueError("Review geometry and registration first; use --preview-only for QC")
     fov = config["fov"]
-    if fov.get("angular_radius_deg") != 60:
-        raise ValueError("This reconstruction requires the specified 60-degree angular radius")
-    if fov.get("center_xy_px") is None or fov.get("radius_60_px") is None:
-        raise ValueError("Set measured center_xy_px and radius_60_px; no inferred fisheye calibration")
+    if fov.get("angular_radius_deg") != 30:
+        raise ValueError("Spider reconstruction requires 30-degree radius (60-degree full field); older 60-radius manifests must be corrected explicitly")
+    if fov.get("center_xy_px") is None or fov.get("radius_px") is None:
+        raise ValueError("Set measured center_xy_px and radius_px; no inferred fisheye calibration")
     # Reject source/output overlap before creating outputs.
     inp = config["input"]
     source = relative_path(inp.get("directory", inp.get("path", ".")), manifest.parent)
@@ -515,7 +515,7 @@ def run(manifest, output, preview_only=False):
     if source == target or source in target.parents or target in source.parents:
         raise ValueError("Output must be separate from input image directory/file")
     i, q, u, records, qa = load_sky(config, manifest.parent)
-    mask = circle_mask(i.shape, fov["center_xy_px"], fov["radius_60_px"])
+    mask = circle_mask(i.shape, fov["center_xy_px"], fov["radius_px"])
     result = eye_result(i, q, u, mask, config["absorbance_parallel"],
                         config["absorbance_perpendicular"], config["response_mode"],
                         config["invalid_policy"])
@@ -541,7 +541,7 @@ def run(manifest, output, preview_only=False):
                   "qa": [{k:v for k,v in rec.items() if k != "closure"} for rec in qa],
                   "python_version": platform.python_version(), "dependencies": dependencies,
                   "raw_images_modified": False,
-                  "limitations": ["60-degree pixel radius must be independently calibrated",
+                  "limitations": ["30-degree pixel radius must be independently calibrated",
                     "global eye-axis optimisation is not exposure image registration",
                     "common circular FOV and global image-plane axes; no inferred eye curvature",
                     "no spectral correction, no VIIRS refit",
