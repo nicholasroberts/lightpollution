@@ -63,7 +63,7 @@ def spectral_factor(sd,s90,ssource):
 
 
 def natural_stokes(theta,phi,source_zenith,source_azimuth,separation_deg,
-                   intensity,turbidity=3.,mode='eq6_horizon',spectral_s=None,
+                   intensity,turbidity=None,mode='eq6_horizon',spectral_s=None,
                    depolarization_multiplier=None):
     w=complex_pattern(theta,phi,source_zenith,source_azimuth,separation_deg)
     if mode=='eq17':
@@ -73,7 +73,8 @@ def natural_stokes(theta,phi,source_zenith,source_azimuth,separation_deg,
         # Explicit reduced pilot: eq6 multiplied by eq8, NOT full eq17.
         weight=horizon_factor(theta)
     else:raise ValueError('Choose eq17 or explicit reduced eq6_horizon pilot')
-    m=turbidity_multiplier(turbidity) if depolarization_multiplier is None else float(depolarization_multiplier)
+    # Atmospheric depolarization is opt-in for archival equation audits only.
+    m=(1. if turbidity is None else turbidity_multiplier(turbidity)) if depolarization_multiplier is None else float(depolarization_multiplier)
     if m<0:raise ValueError('Depolarization multiplier cannot be negative')
     i=np.broadcast_to(np.asarray(intensity,dtype=float),np.shape(theta)).copy()
     p=abs(w)*weight*m
@@ -189,3 +190,12 @@ def source_meridian_pattern(theta,phi,source_zenith,source_azimuth,separation_de
     """
     rotation=source_azimuth-np.pi/2
     return complex_pattern(theta,phi-rotation,source_zenith,np.pi/2,separation_deg)*np.exp(2j*rotation)
+
+
+def alan_relative_from_depth(alan_depth):
+    """Dimensionless ALAN depth t=ln(1+I_ALAN/I_natural); not atmospheric turbidity."""
+    depth=np.asarray(alan_depth,dtype=float)
+    if np.any(~np.isfinite(depth)) or np.any(depth<0):
+        raise ValueError('ALAN depth must be finite and nonnegative')
+    with np.errstate(over='raise'):
+        return np.expm1(depth)
