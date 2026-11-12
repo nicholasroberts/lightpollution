@@ -81,16 +81,17 @@ def main():
     snap=snapshots[len(snapshots)//2]
     for addition,curve in snap[5].items():axes[1].plot(range(0,180,2),curve,label=f'ALAN {addition:g}')
     axes[1].set(xlabel='Body heading relative to model axes (deg)',ylabel='Signed eye log contrast',title=f'Example: source elevation {snap[1]:.1f}deg');axes[1].legend(fontsize=8)
-    fig.suptitle('Wang eq6 + eq8 reduced pilot; uniform relative intensity; not full spectral model')
+    fig.suptitle('Berry-normalized Wang angular/horizon pilot; uniform relative intensity; not full spectral model')
     fig.tight_layout();fig.savefig(a.output/'wang_spider_pilot.png',dpi=170);plt.close(fig)
     (a.output/'provenance.json').write_text(json.dumps(dict(status='REDUCED_MODEL_PILOT_NOT_EMPIRICAL_VALIDATION',
-        track_kind=kind,parameters=vars(a)|{'output':str(a.output)},model='Wang eqs1/3/4/5/6/8; atmospheric eq7 omitted; no eq17 spectral factor',
+        track_kind=kind,parameters=vars(a)|{'output':str(a.output)},model='Berry eq4.2 (-4 prefactor) in source-meridian convention + Wang eq8; no atmospheric eq7 or eq17',
         paper_doi='10.1088/2040-8978/18/6/065601',script_sha256=digest(__file__),
         limitations=['Uniform natural I=1 retained at every time: lunar brightness/phase not simulated',
         'ALAN is relative unpolarized intensity, not VIIRS radiance or HPS/LED conversion',
         'Solar model extended to lunar positions provisionally',
         'Neutral separation explicitly supplied, not recovered from paper',
         'No original photograph fit; no timestamp validation; no terrain mask',
-        'Paper stereographic AoP convention retained; image/lab basis correspondence unverified']),indent=2)+'\n')
+        'Berry source-meridian phase used; absolute image/lab basis correspondence unverified',
+        'Unity-peak geometric polarization intensity used as natural DoLP envelope assumption']),indent=2)+'\n')
 
 if __name__=='__main__':main()
