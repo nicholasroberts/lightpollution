@@ -161,12 +161,12 @@ class FileWorkflowTests(unittest.TestCase):
             self.assertEqual(len(report["other_image_folders"]),1)
             candidate=json.loads((Path(directory)/"inventory/candidate_0000.json").read_text())
             self.assertFalse(candidate["geometry_reviewed"])
-            self.assertIsNone(candidate["fov"]["radius_60_px"])
+            self.assertIsNone(candidate["fov"]["radius_px"])
 
     def make_config(self, path):
         return {"schema_version":1,"geometry_reviewed":True,"registration_reviewed":True,
             "site_id":None,"input":{"kind":"stokes_npz","path":str(path)},
-            "fov":{"center_xy_px":[5,5],"radius_60_px":4,"angular_radius_deg":60},
+            "fov":{"center_xy_px":[5,5],"radius_px":4,"angular_radius_deg":30},
             "absorbance_parallel":.4,"absorbance_perpendicular":.04,
             "response_mode":"stokes_intensity","invalid_policy":"error"}
 
@@ -194,7 +194,7 @@ class FileWorkflowTests(unittest.TestCase):
             manifest.write_text(json.dumps(config))
             with self.assertRaisesRegex(ValueError,"Review geometry"):
                 model.run(manifest,root/"out")
-            config["fov"]["radius_60_px"]=None
+            config["fov"]["radius_px"]=None
             manifest.write_text(json.dumps(config))
             with self.assertRaisesRegex(ValueError,"measured"):
                 model.run(manifest,root/"out",preview_only=True)
