@@ -12,7 +12,7 @@ import matplotlib
 matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 from matplotlib.patches import Circle
-from wang2016_sky import (source_meridian_pattern,horizon_factor,alan_relative_from_depth)
+from wang2016_sky import (berry_normalized_pattern,horizon_factor,alan_relative_from_depth)
 from reconstruct_spider_eye_contrast import digest
 
 
@@ -72,7 +72,7 @@ def compare_site(directory,source_xy,separation,turbidity=None,wavelength=None,a
     zs=2*np.arcsin(sr/np.sqrt(2));az=np.arctan2(delta[1],delta[0])
     if not 0<zs<np.pi/2:raise ValueError('Source must be strictly above horizon and below zenith')
     th=theta[sky];ph=phi[sky]
-    w=source_meridian_pattern(th,ph,zs,az,separation)
+    w=berry_normalized_pattern(th,ph,zs,az,separation)
     pangular=abs(w)*horizon_factor(th)
     # I_total=I_natural*(1+a), Q/U unchanged: no atmospheric attenuation.
     pfull=pangular/(1+alan_relative)
@@ -93,7 +93,7 @@ def compare_site(directory,source_xy,separation,turbidity=None,wavelength=None,a
         dop_mean_absolute_error=float(np.mean(abs(dob-dmod))),
         model_nonphysical_sky_pixels=int((~physicalmodel).sum()),
         angular_reduced_max_dop=float(np.max(pangular)),full_model_max_raw_dop=float(np.nanmax(pfull)),
-        model_structure="Wang angular/horizon eq6+eq8; no eq7 or spectral extension",
+        model_structure="Berry eq4.2 (-4 prefactor) + Wang horizon eq8; no atmospheric turbidity or spectral extension",
         alan_relative_intensity=float(alan_relative),alan_depth=float(np.log1p(alan_relative)),
         rotation_report_sha256=digest(report_path),stokes_sha256=digest(path),
         flagged_exposures=sum(bool(r['flags']) for r in report['rotations']))
@@ -136,7 +136,7 @@ def main():
             ax.add_patch(Circle(center,r90*np.sin(np.deg2rad(15))/np.sin(np.deg2rad(45)),fill=False,color='white',lw=.8))
             ax.plot(*stats['source_pixel_xy'],'x',color='black',ms=7)
             ax.set_title(f'{site}\n{title}',fontsize=10);ax.axis('off');fig.colorbar(art,ax=ax,shrink=.65)
-    fig.suptitle(f'Measured versus Wang source-meridian model: angular/horizon model; no turbidity; ALAN relative I = {addition:g}\nBlack cross = selected Moon geometry; white circle = 60deg full animal field')
+    fig.suptitle(f'Measured versus Wang source-meridian model: Berry-normalized angular/horizon model; no turbidity; ALAN relative I = {addition:g}\nBlack cross = selected Moon geometry; white circle = 60deg full animal field')
     fig.tight_layout(rect=[0,0,1,.93]);out.mkdir(parents=True)
     fig.savefig(out/'cottage_oxford_model_comparison.png',dpi=170);plt.close(fig)
     payload=dict(status='PROVISIONAL_SOURCE_GEOMETRY_AND_PATTERN_COMPARISON',sites=results,
@@ -145,7 +145,8 @@ def main():
         'No UTC, Moon ephemeris or compass orientation inferred',
         'Reduced angular/horizon model: spectral eq17 omitted to avoid hidden atmospheric turbidity',
         'ALAN addition is proportional to natural intensity across the sky; not uniform absolute skyglow',
-        'No-turbidity angular model is not established as a theoretical maximum DoLP',
+        'Berry unity-peak polarization intensity used as a DoLP envelope assumption, not radiometric derivation',
+        'Berry minus sign rotates raw AoP by 90deg; one global fitted basis offset compensates in comparison',
         'No amplitude calibration or ALAN amount inferred from between-site differences',
         'No sky/terrain segmentation; primary comparison restricted to zenith 30deg radius',
         'Residual image registration and uncertain geometry reused',
