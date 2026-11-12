@@ -114,9 +114,12 @@ Use the generated candidate manifest, or copy
   selection. TIFFs must already be suitable linear-intensity products; this
   script does not demosaic NEFs, reverse gamma, estimate darks or exposure-match
   images. Establish their processing/exposure identity before scientific use.
-- `groups`: the three replicates at 0/45/90/135 degrees; recovered ordering
+- `groups`: one to three explicit replicates at 0/45/90/135 degrees; recovered three-replicate ordering
   is (1,4,7,10), (2,5,8,11), (3,6,9,12). Other filenames can be supplied
   explicitly. No filesystem order is used to establish angle or replicate.
+  Waitrose's single replicate is now investigator-confirmed as files
+  1,2,3,4 at 0,45,90,135 degrees respectively. Use [["1.tif","2.tif","3.tif","4.tif"]]
+  for that site, never repeat those files to manufacture additional replicates.
 - `rotation_deg_clockwise`, `shift_xy_px`: rotate about the image centre,
   then translate in displayed x-right/y-down coordinates. Starting -45/-90/-135
   values come from the R source but R/OpenCV/SciPy sign conventions are not
@@ -166,6 +169,12 @@ not a new nearest-neighbour or rescaled raw observation. SciPy registration
 is not claimed numerically identical to the original RNiftyReg process.
 
 ### Saved map inputs
+
+TIFF inputs may use either `numbered_tiffs` (existing manifests) or the alias
+`tiff_groups`. Both now accept one to three explicitly ordered four-angle groups.
+Discovery also creates unreviewed single-quartet candidates for folders with
+exactly files 1–4; this is a layout candidate, not proof that other incomplete
+12-image folders are genuine one-replicate observations.
 
 For already processed maps, set `input.kind` to:
 
@@ -222,3 +231,41 @@ registration sign/borders, legacy processing conventions, folder discovery,
 16-bit TIFF loading, unchanged raw file hashes, and overwrite protection.
 Use the EcoVis inventory and a selected real case to establish actual input
 coverage and compare against the original value before using spectral scenarios.
+
+## TIFF header inspection before choosing the image geometry
+
+The uploaded EcoVis inventory contains 20 numbered 12-image folders and one
+four-image Waitrose folder: 244 TIFF filenames, 43 directories scanned,
+no duplicate numbered images and no discovery warnings. It is a filename
+audit, not a pixel-integrity or scientific-alignment check. The original
+`archives_not_extracted` field merely listed ZIP files encountered, even where
+their extracted folders already existed. Version 2 calls this field
+`archive_files_found`; no new extraction is requested.
+
+The investigator has since renamed Waitrose's DSC_5080–DSC_5083 TIFFs to 1–4
+and explicitly confirmed their angle order. The old inventory retains those
+historical names, but `inspect` lists current TIFF filenames in that inventory's
+other-image folders, so it will inspect the renamed Waitrose files correctly.
+
+To check headers across the inventory and produce an unaligned Gavarnie input
+quicklook without guessing a 60-degree pixel radius:
+
+```bash
+python src/reconstruct_spider_eye_contrast.py inspect \
+  --inventory data/processed/spider_prc_filename_audit_01/inventory.json \
+  --preview-folder data/raw/skyimages/gavarnie/OneDrive_12_12-11-2026_extracted \
+  --output data/processed/spider_prc_tiff_inspection_01
+```
+
+Outputs are `tiff_inspection.json` (page-0 shapes/dtypes, available tags,
+compression, page count, file sizes, read errors) and `input_quicklook.png`.
+The four raw input previews use the first numbered quartet 1,4,7,10 when
+available; filenames remain visible and no exposure registration is performed.
+They use individual display scales and the third colour channel (or grayscale
+for 2D TIFFs), solely for viewing, not normalization of scientific responses.
+All headers are inspected, but not all image pixel data are decoded/tested.
+The header report is saved before preview creation so unsupported codecs do
+not erase the metadata audit. No exposure tags are assumed to exist.
+
+If site folders are renamed, rerun discovery with a fresh output directory
+before inspection because the old inventory contains their former paths.

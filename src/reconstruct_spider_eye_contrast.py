@@ -20,7 +20,7 @@ import subprocess
 import numpy as np
 
 
-VERSION = "spider-eye-reconstruction-1"
+VERSION = "spider-eye-reconstruction-2"
 ROOT = Path(__file__).resolve().parents[1]
 GROUPS = [[1, 4, 7, 10], [2, 5, 8, 11], [3, 6, 9, 12]]
 
@@ -85,7 +85,11 @@ def discover(roots, output, max_dirs=100000):
             missing = sorted(set(range(1, 13)) - numbered.keys())
             duplicates = {str(k): v for k, v in numbered.items() if len(v) != 1}
             complete = not missing and not duplicates
+            single = set(numbered) == {1,2,3,4} and not duplicates
             entry = {"folder": str(folder), "complete_1_to_12": complete,
+                     "single_1_to_4_candidate": single,
+                     "layout": "three_replicates" if complete else
+                               ("single_quartet_requires_confirmation" if single else "incomplete"),
                      "missing": missing, "duplicates": duplicates,
                      "files": numbered}
             candidates.append(entry)
@@ -93,22 +97,23 @@ def discover(roots, output, max_dirs=100000):
     report = {"version": VERSION, "roots": list(map(str, roots)),
               "directories_scanned": count, "warnings": warnings,
               "candidates": candidates, "other_image_folders": other_image_folders,
-              "archives_not_extracted": archives,
+              "archive_files_found": archives,
               "raw_images_modified": False}
     (out / "inventory.json").write_text(json.dumps(report, indent=2) + "\n")
     for i, candidate in enumerate(candidates):
-        if not candidate["complete_1_to_12"]:
+        if not (candidate["complete_1_to_12"] or candidate["single_1_to_4_candidate"]):
             continue
+        groups = GROUPS if candidate["complete_1_to_12"] else [[1,2,3,4]]
         config = {
             "schema_version": 1, "site_id": None,
             "geometry_reviewed": False, "registration_reviewed": False,
             "input": {"kind": "numbered_tiffs", "directory": candidate["folder"],
                       "channel": 2,
-                      "groups": [[candidate["files"][n][0] for n in g] for g in GROUPS],
+                      "groups": [[candidate["files"][n][0] for n in g] for g in groups],
                       "rotation_deg_clockwise": [0, -45, -90, -135],
                       "shift_xy_px": [[0, 0]] * 4,
                       "stokes_method": "REVIEW_REQUIRED",
-                      "comment": "Rotation guesses from R source; inspect sign and alignment."},
+                      "comment": "Candidate angle grouping; confirm layout/order and rotation sign before use."},
             "fov": {"center_xy_px": None, "radius_60_px": None,
                     "angular_radius_deg": 60,
                     "comment": "Measure radius for 60 degrees; do not assume image-edge calibration."},
@@ -120,8 +125,9 @@ def discover(roots, output, max_dirs=100000):
     print(json.dumps({"inventory": str(out / "inventory.json"),
                       "candidate_folders": len(candidates),
                       "complete_sets": sum(c["complete_1_to_12"] for c in candidates),
+                      "single_quartet_candidates": sum(c["single_1_to_4_candidate"] for c in candidates),
                       "other_image_folders": len(other_image_folders),
-                      "archives_not_extracted": len(archives),
+                      "archive_files_found": len(archives),
                       "warnings": warnings}, indent=2))
     return report
 
@@ -187,6 +193,110 @@ def tiff_channel(path, channel):
     metadata["integer_max_fraction"] = (float(np.mean(image == np.iinfo(raw.dtype).max))
                                         if np.issubdtype(raw.dtype, np.integer) else None)
     return image.astype(np.float64), metadata
+
+
+def inspect_inventory(inventory_path, output, preview_folder=None):
+    """Read TIFF headers for the known inventory; optional first-quartet quicklook.
+
+    No automatic analyzer order, site match or fisheye radius is assigned.
+    Header inspection does not decode/test every pixel or validate TIFF integrity.
+    """
+    try:
+        import tifffile
+    except ImportError as error:
+        raise ValueError("Install requirements-prc.txt for TIFF inspection") from error
+    report = json.loads(Path(inventory_path).read_text())
+    folders = []
+    for entry in report.get("candidates", []):
+        folders.append((Path(entry["folder"]),
+                        [name for names in entry["files"].values() for name in names]))
+    for entry in report.get("other_image_folders", []):
+        # Listing the actual folder, not just the inventory's first-20 sample.
+        folder = Path(entry["folder"])
+        names = ([p.name for p in folder.iterdir() if p.is_file()
+                  and p.suffix.lower() in (".tif", ".tiff")] if folder.is_dir() else [])
+        folders.append((folder, names))
+    target = Path(output).resolve()
+    for folder, _ in folders:
+        source = folder.resolve()
+        if source == target or source in target.parents or target in source.parents:
+            raise ValueError("Inspection output must be separate from all source folders")
+    out = new_directory(target)
+    records, errors = [], []
+    for folder, names in folders:
+        if not folder.is_dir():
+            errors.append({"folder": str(folder), "error": "Missing image directory"})
+            continue
+        for name in sorted(names):
+            path = folder/name
+            try:
+                with tifffile.TiffFile(path) as tiff:
+                    page = tiff.pages[0]
+                    tags = {}
+                    for tag_name in ("BitsPerSample", "SamplesPerPixel", "Orientation",
+                                     "ExposureTime", "FNumber", "ISOSpeedRatings", "DateTime",
+                                     "Make", "Model", "Software"):
+                        tag = page.tags.get(tag_name)
+                        if tag is not None:
+                            value = tag.value
+                            # Lossless numeric/string metadata when JSON-compatible;
+                            # retain a bounded representation otherwise.
+                            try:
+                                json.dumps(value, allow_nan=False)
+                            except (TypeError, ValueError):
+                                value = repr(value)[:500]
+                            tags[tag_name] = value
+                    records.append({"folder": str(folder), "filename": name,
+                        "size_bytes": path.stat().st_size, "page_count": len(tiff.pages),
+                        "page0_shape": list(page.shape), "page0_dtype": str(page.dtype),
+                        "page0_photometric": str(page.photometric),
+                        "page0_compression": str(page.compression), "tags": tags})
+            except (OSError, ValueError, IndexError, tifffile.TiffFileError) as error:
+                errors.append({"path": str(path), "error": str(error)})
+    summary = {"version": VERSION, "scope": "TIFF headers only; not complete pixel integrity validation",
+        "inventory_sha256": digest(inventory_path), "folder_count": len(folders),
+        "tiff_headers_read": len(records), "errors": errors, "records": records,
+        "raw_images_modified": False, "preview": None}
+    # Preserve the header report even if a preview codec/layout is unsupported.
+    (out/"tiff_inspection.json").write_text(json.dumps(summary,indent=2,allow_nan=False)+"\n")
+    if preview_folder is not None:
+        selected = Path(preview_folder).expanduser().resolve()
+        listed = {f.resolve(): names for f,names in folders}
+        if selected not in listed:
+            raise ValueError("Preview folder must be an exact folder in this inventory")
+        # Known numbered-set first replicate, explicitly stated in output. For
+        # arbitrary names show up to four only as filenames, never as angle IDs.
+        names = listed[selected]
+        quartet = [f"{n}.tif" for n in GROUPS[0]]
+        chosen = quartet if all(n in names for n in quartet) else sorted(names)[:4]
+        if not chosen:
+            raise ValueError("No preview TIFFs in chosen folder")
+        import matplotlib
+        matplotlib.use("Agg")
+        import matplotlib.pyplot as plt
+        fig, axes = plt.subplots(1, len(chosen), figsize=(4*len(chosen),4), squeeze=False)
+        previews=[]
+        for ax, name in zip(axes.flat, chosen):
+            path=selected/name
+            with tifffile.TiffFile(path) as tiff:
+                shape=tiff.pages[0].shape
+            channel=None if len(shape)==2 else 2
+            image, metadata=tiff_channel(path,channel)
+            stride=max(1,math.ceil(max(image.shape)/900))
+            ax.imshow(image[::stride,::stride],cmap="gray")
+            ax.set_title(f"{name}\n{image.shape[1]} x {image.shape[0]}, {metadata['dtype']}")
+            ax.set_axis_off()
+            previews.append({"filename":name,"display_channel":channel,"sha256":metadata["sha256"]})
+        fig.suptitle("UNALIGNED INPUT QUICKLOOK — individual display scales; no FOV calibration")
+        fig.tight_layout()
+        fig.savefig(out/"input_quicklook.png",dpi=130)
+        plt.close(fig)
+        summary["preview"]={"folder":str(selected),"images":previews,
+            "label":"unaligned inputs; not analyzer-order or registration validation"}
+    (out/"tiff_inspection.json").write_text(json.dumps(summary,indent=2,allow_nan=False)+"\n")
+    print(json.dumps({"output":str(out),"tiff_headers_read":len(records),
+                      "errors":errors,"preview_created":summary["preview"] is not None},indent=2))
+    return summary
 
 
 def combine_replicates(replicates, method):
@@ -270,14 +380,14 @@ def load_sky(config, base):
                 else:
                     raise ValueError("Intensity-mode DoP/AoP input must include I")
                 q, u = i*d*np.cos(2*a), i*d*np.sin(2*a)
-    elif kind == "numbered_tiffs":
+    elif kind in ("numbered_tiffs", "tiff_groups"):
         directory = relative_path(inp["directory"], base)
         groups = inp["groups"]
-        if len(groups) != 3 or any(len(g) != 4 for g in groups):
-            raise ValueError("Numbered TIFF mode requires the three four-angle groups")
+        if not 1 <= len(groups) <= 3 or any(len(g) != 4 for g in groups):
+            raise ValueError("TIFF mode requires one to three explicit four-angle groups")
         paths = [relative_path(f, directory) for g in groups for f in g]
-        if len(set(paths)) != 12:
-            raise ValueError("All 12 TIFF inputs must be distinct")
+        if len(set(paths)) != 4*len(groups):
+            raise ValueError("All TIFF inputs must be distinct; do not duplicate a replicate")
         rotations, shifts = inp["rotation_deg_clockwise"], inp["shift_xy_px"]
         if len(rotations) != 4 or len(shifts) != 4:
             raise ValueError("One rotation/translation per analyzer required")
@@ -410,6 +520,7 @@ def run(manifest, output, preview_only=False):
                         config["absorbance_perpendicular"], config["response_mode"],
                         config["invalid_policy"])
     result["status"] = "UNREVIEWED_PREVIEW" if preview_only else "RECONSTRUCTED_NOT_HISTORICALLY_VALIDATED"
+    result["replicate_count"] = len(qa) if inp["kind"] in ("numbered_tiffs", "tiff_groups") else None
     result["reference"] = reference_comparison(config.get("site_id"), result["prc"])
     for record in qa:
         values = record["closure"][mask]
@@ -462,6 +573,10 @@ def main():
     inventory.add_argument("--root", type=Path, action="append", required=True)
     inventory.add_argument("--output", type=Path, required=True)
     inventory.add_argument("--max-dirs", type=int, default=100000)
+    inspect = commands.add_parser("inspect", help="Audit TIFF headers and optionally preview one folder")
+    inspect.add_argument("--inventory", type=Path, required=True)
+    inspect.add_argument("--output", type=Path, required=True)
+    inspect.add_argument("--preview-folder", type=Path)
     process = commands.add_parser("run", help="Process one explicitly selected manifest")
     process.add_argument("--manifest", type=Path, required=True)
     process.add_argument("--output", type=Path, required=True)
@@ -470,6 +585,8 @@ def main():
     try:
         if args.command == "discover":
             discover(args.root, args.output, args.max_dirs)
+        elif args.command == "inspect":
+            inspect_inventory(args.inventory, args.output, args.preview_folder)
         else:
             run(args.manifest, args.output, args.preview_only)
     except (ValueError, KeyError, OSError) as error:

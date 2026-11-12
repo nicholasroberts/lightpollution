@@ -245,6 +245,73 @@ class FileWorkflowTests(unittest.TestCase):
             self.assertEqual(records[0]["dtype"],"uint16")
             self.assertEqual(hashes,{p.name:model.digest(p) for p in raw.iterdir()})
 
+    @unittest.skipUnless(importlib.util.find_spec("tifffile"),"optional TIFF dependency")
+    def test_single_explicitly_ordered_tiff_replicate(self):
+        import tifffile
+        with tempfile.TemporaryDirectory() as directory:
+            root=Path(directory);raw=root/"raw";raw.mkdir()
+            names=[f"{n}.tif" for n in range(1,5)]
+            for name,value in zip(names,[650,700,350,300]):
+                tifffile.imwrite(raw/name,np.full((11,11,3),value,dtype=np.uint16))
+            config=self.make_config(raw)
+            config["input"]={"kind":"tiff_groups","directory":str(raw),"channel":2,
+                "groups":[names],"rotation_deg_clockwise":[0,0,0,0],
+                "shift_xy_px":[[0,0]]*4,"stokes_method":"linear_stokes"}
+            i,q,u,records,qa=model.load_sky(config,root)
+            np.testing.assert_array_equal(i,np.full((11,11),1000))
+            np.testing.assert_array_equal(q,np.full((11,11),300))
+            np.testing.assert_array_equal(u,np.full((11,11),400))
+            self.assertEqual(len(qa),1);self.assertEqual(len(records),4)
+            # These synthetic filenames carry a TEST-defined order; no field order inferred.
+            config["input"]["groups"]=[names,names,names]
+            with self.assertRaisesRegex(ValueError,"do not duplicate"):
+                model.load_sky(config,root)
+
+    def test_discovery_marks_four_images_candidate_not_three_replicates(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root=Path(directory);raw=root/"raw";raw.mkdir()
+            for n in range(1,5):
+                (raw/f"{n}.tif").touch()
+            with contextlib.redirect_stdout(io.StringIO()):
+                result=model.discover([raw],root/"inventory")
+            entry=result["candidates"][0]
+            self.assertTrue(entry["single_1_to_4_candidate"])
+            self.assertFalse(entry["complete_1_to_12"])
+            config=json.loads((root/"inventory/candidate_0000.json").read_text())
+            self.assertEqual(config["input"]["groups"],[["1.tif","2.tif","3.tif","4.tif"]])
+            self.assertFalse(config["registration_reviewed"])
+
+    @unittest.skipUnless(importlib.util.find_spec("tifffile"),"optional TIFF dependency")
+    def test_header_inspection_and_unaligned_quicklook(self):
+        import tifffile
+        with tempfile.TemporaryDirectory() as directory:
+            root=Path(directory);raw=root/"raw";raw.mkdir()
+            names=[f"DSC_{n}.tif" for n in range(5080,5084)]
+            for name in names:
+                tifffile.imwrite(raw/name,np.full((11,11,3),100,dtype=np.uint16))
+            inventory=root/"inventory.json"
+            inventory.write_text(json.dumps({"candidates":[],"other_image_folders":[
+                {"folder":str(raw),"first_20_filenames":names}]}))
+            before={p.name:model.digest(p) for p in raw.iterdir()}
+            with contextlib.redirect_stdout(io.StringIO()):
+                report=model.inspect_inventory(inventory,root/"inspection",raw)
+            self.assertEqual(report["tiff_headers_read"],4)
+            self.assertEqual(report["errors"],[])
+            self.assertEqual(report["records"][0]["page0_dtype"],"uint16")
+            self.assertTrue((root/"inspection/input_quicklook.png").is_file())
+            self.assertEqual(before,{p.name:model.digest(p) for p in raw.iterdir()})
+
+    @unittest.skipUnless(importlib.util.find_spec("tifffile"),"optional TIFF dependency")
+    def test_header_inspection_reports_unreadable_file(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root=Path(directory);raw=root/"raw";raw.mkdir();(raw/"1.tif").write_text("bad file")
+            inventory=root/"inventory.json"
+            inventory.write_text(json.dumps({"candidates":[{"folder":str(raw),"files":{"1":["1.tif"]}}]}))
+            with contextlib.redirect_stdout(io.StringIO()):
+                report=model.inspect_inventory(inventory,root/"inspection")
+            self.assertEqual(report["tiff_headers_read"],0)
+            self.assertEqual(len(report["errors"]),1)
+
 
 if __name__=="__main__":
     unittest.main()
