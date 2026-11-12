@@ -102,7 +102,7 @@ def main():
     p.add_argument('--spectra',type=Path);p.add_argument('--references',type=Path,default=ROOT/'data/reference/prc_spider_18_sites_verified.csv')
     p.add_argument('--atmospheric-factors',type=float,nargs='+',default=[1.,.8,.6])
     p.add_argument('--alan-ratios',type=float,nargs='+',default=[0.,.5,1.,3.])
-    p.add_argument('--tilts',type=float,nargs='+',default=[0.,30.,60.]);p.add_argument('--step-minutes',type=int,default=20)
+    p.add_argument('--tilts',type=float,nargs='+',default=[0.]);p.add_argument('--step-minutes',type=int,default=20)
     p.add_argument('--heading-step',type=int,default=10);p.add_argument('--samples',type=int,default=1024)
     p.add_argument('--neutral-separation-deg',type=float,default=24.)
     args=p.parse_args()
@@ -173,7 +173,7 @@ def main():
         if records:
             with (args.output/name).open('w',newline='') as f:
                 writer=csv.DictWriter(f,fieldnames=records[0]);writer.writeheader();writer.writerows(records)
-    payload=dict(status='FORWARD_SCENARIOS_NOT_FITTED_SITE_ALAN',parameters={k:str(v) if isinstance(v,Path) else v for k,v in vars(args).items()},spectra=spectral_info,sites=tracks,script_sha256=digest(__file__),limitations=['Natural radiance constant over directions and night; lunar phase/extinction/brightness not simulated','ALAN spatially uniform absolute radiance and constant over night; its ratio uses constant natural baseline','Atmospheric factor scales Q/U only; sensitivity analysis, not measured turbidity','No terrain/cloud masks or twilight polarization; modeled Moon above horizon and Sun below -6deg only','Body tilts and eye alignment are hypotheses; analyzer axes parallel transported over field','Berry unity-peak intensity interpreted as DoLP envelope; no restoration of Wang spectral eq17','Spectra separable from spatial pattern, fixed across night; wavelength effects only as supplied','No behavioral threshold or probabilities assigned to headings; ranges describe sampled scenarios','Capture dates and site matching retain input flags; Cottage date discrepancy unresolved'])
+    payload=dict(status='FORWARD_SCENARIOS_NOT_FITTED_SITE_ALAN',parameters={k:str(v) if isinstance(v,Path) else v for k,v in vars(args).items()},spectra=spectral_info,sites=tracks,script_sha256=digest(__file__),limitations=['Natural radiance constant over directions and night; lunar phase/extinction/brightness not simulated','ALAN spatially uniform absolute radiance and constant over night; its ratio uses constant natural baseline','Atmospheric factor scales Q/U only; sensitivity analysis, not measured turbidity','No terrain/cloud masks or twilight polarization; modeled Moon above horizon and Sun below -6deg only','Body tilts and eye alignment are hypotheses; analyzer axes parallel transported over field','Berry unity-peak intensity interpreted as DoLP envelope; no restoration of Wang spectral eq17','Spectra separable from spatial pattern, fixed across night; wavelength effects only as supplied','No behavioral threshold or probabilities assigned to headings; ranges describe sampled scenarios','Cottage date confirmed as 21 August 2018; stale September reference flag in old anchors is superseded by investigator correction; other site matching flags retained'])
     (args.output/'provenance.json').write_text(json.dumps(payload,indent=2,allow_nan=False)+'\n')
     print(f'Wrote {len(rows)} heading responses to {args.output}',flush=True)
 
