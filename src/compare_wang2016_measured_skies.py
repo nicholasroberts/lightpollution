@@ -38,14 +38,31 @@ def source_candidate(intensity,sky):
     return [float(x),float(y)],float(score[y,x])
 
 
-def compare_site(directory,source_xy,separation,turbidity,wavelength):
+def ephemeris_source_pixel(anchor,center,r90):
+    if anchor.get('candidate_pixel_xy') is None:
+        raise ValueError('No image bearing available for Moon anchor')
+    elevation=float(anchor['moon_elevation_deg'])
+    if not 0<elevation<90:raise ValueError('Moon elevation must be within (0,90)')
+    vector=np.array(anchor['candidate_pixel_xy'],dtype=float)-np.array(center)
+    length=np.linalg.norm(vector)
+    if length<=0:raise ValueError('Moon image bearing cannot be inferred from image centre')
+    radius=r90*np.sin(np.deg2rad((90-elevation)/2))/np.sin(np.pi/4)
+    return (np.array(center)+radius*vector/length).tolist()
+
+
+def compare_site(directory,source_xy,separation,turbidity,wavelength,anchor=None):
     report_path=directory/'rotation_analysis.json';report=json.loads(report_path.read_text())
     path=directory/'linear_stokes.npz'
     with np.load(path,allow_pickle=False) as z:i,q,u=[z[k] for k in ['I','Q','U']]
     center=np.array(report['reference_center_xy_px']);r90=report['radius_60_px']*np.sqrt(2)
     y,x=np.indices(i.shape);dx=(x-center[0])/r90;dy=(y-center[1])/r90;r=np.hypot(dx,dy)
     sky=r<.985;theta=2*np.arcsin(np.clip(r/np.sqrt(2),0,1));phi=np.arctan2(dy,dx)
-    if source_xy is None:source_xy,prominence=source_candidate(i,sky);selection='automatic_bright_source_candidate_UNVERIFIED'
+    if anchor is not None:
+        if anchor['source_report_sha256']!=digest(report_path):raise ValueError('Moon anchor belongs to another alignment run')
+        if source_xy is not None:raise ValueError('Choose either explicit Moon pixels or ephemeris anchors')
+        source_xy=ephemeris_source_pixel(anchor,center,r90);prominence=None
+        selection='ephemeris_elevation_with_reviewed_image_bearing'
+    elif source_xy is None:source_xy,prominence=source_candidate(i,sky);selection='automatic_bright_source_candidate_UNVERIFIED'
     else:prominence=None;selection='user_supplied_source_pixel'
     delta=(np.array(source_xy)-center)/r90;sr=np.linalg.norm(delta)
     if sr>=1 or sr<0:raise ValueError('Source outside nominal sky circle')
@@ -76,6 +93,9 @@ def compare_site(directory,source_xy,separation,turbidity,wavelength):
         reference_s90=float(s90),reference_ssource=float(ssource),
         rotation_report_sha256=digest(report_path),stokes_sha256=digest(path),
         flagged_exposures=sum(bool(r['flags']) for r in report['rotations']))
+    if anchor is not None:
+        result['ephemeris_anchor']=anchor
+        result['geometry_note']='Ephemeris elevation fixes radial coordinate; image candidate fixes bearing; level-camera assumption retained'
     return result,(i,observed,model,sky,field,center,r90)
 
 
@@ -83,6 +103,7 @@ def main():
     p=argparse.ArgumentParser(description=__doc__)
     p.add_argument('--batch',type=Path,required=True)
     p.add_argument('--output',type=Path,required=True)
+    p.add_argument('--moon-anchors',type=Path,help='Reviewed moon_ephemeris_anchors.json')
     p.add_argument('--cottage-moon-xy',nargs=2,type=float)
     p.add_argument('--oxford-moon-xy',nargs=2,type=float)
     p.add_argument('--neutral-separation-deg',type=float,required=True)
@@ -91,11 +112,12 @@ def main():
     a=p.parse_args();batch=a.batch.resolve();out=a.output.resolve()
     if out.exists():p.error('Use fresh output directory')
     if out==batch or batch in out.parents or out in batch.parents:p.error('Output must be separate from existing batch')
+    anchors=json.loads(a.moon_anchors.read_text())['sites'] if a.moon_anchors else {}
     results={};fig,axes=plt.subplots(2,4,figsize=(15,8))
     for row,(site,source) in enumerate([('Cottage',a.cottage_moon_xy),('oxfordbussinesspark',a.oxford_moon_xy)]):
         print(f'Comparing {site}',flush=True)
         stats,(i,observed,model,sky,field,center,r90)=compare_site(batch/site/'registration',source,
-            a.neutral_separation_deg,a.turbidity,a.wavelength_nm)
+            a.neutral_separation_deg,a.turbidity,a.wavelength_nm,anchors.get(site))
         results[site]=stats
         for ax,arr,title,lo,hi,cmap in zip(axes[row],
             [abs(observed),abs(model),np.rad2deg(.5*np.angle(observed)),np.rad2deg(.5*np.angle(model))],
@@ -107,11 +129,11 @@ def main():
             ax.add_patch(Circle(center,r90*np.sin(np.deg2rad(15))/np.sin(np.deg2rad(45)),fill=False,color='white',lw=.8))
             ax.plot(*stats['source_pixel_xy'],'x',color='black',ms=7)
             ax.set_title(f'{site}\n{title}',fontsize=10);ax.axis('off');fig.colorbar(art,ax=ax,shrink=.65)
-    fig.suptitle('Measured versus Wang source-meridian model: shared parameters, 450nm by default\nBlack cross = source candidate to verify; white circle = 60deg full animal field')
+    fig.suptitle('Measured versus Wang source-meridian model: shared parameters, 450nm by default\nBlack cross = selected Moon geometry; white circle = 60deg full animal field')
     fig.tight_layout(rect=[0,0,1,.93]);out.mkdir(parents=True)
     fig.savefig(out/'cottage_oxford_model_comparison.png',dpi=170);plt.close(fig)
     payload=dict(status='PROVISIONAL_SOURCE_GEOMETRY_AND_PATTERN_COMPARISON',sites=results,
-        parameters=vars(a)|{'batch':str(batch),'output':str(out)},script_sha256=digest(__file__),
+        parameters=vars(a)|{'batch':str(batch),'output':str(out),'moon_anchors':str(a.moon_anchors) if a.moon_anchors else None},script_sha256=digest(__file__),
         limitations=['Automatic bright source may be artificial light: verify each black cross before interpretation',
         'No UTC, Moon ephemeris or compass orientation inferred',
         '450nm model is not camera broadband integration or spider spectral weighting',
