@@ -23,8 +23,7 @@ def main():
     p.add_argument('--latitude',type=float);p.add_argument('--longitude',type=float)
     p.add_argument('--step-minutes',type=int,default=15)
     p.add_argument('--neutral-separation-deg',type=float,required=True)
-    p.add_argument('--turbidity',type=float,default=3.)
-    p.add_argument('--replace-turbidity-with-alan',action='store_true',help='Set natural amplitude multiplier to 1 and model dilution only via explicit ALAN')
+    p.add_argument('--replace-turbidity-with-alan',action='store_true',help='Compatibility flag: ALAN-only dilution is now always used')
     a=p.parse_args()
     if a.output.exists():p.error('Use fresh output directory')
     if a.step_minutes<=0:p.error('Step must be positive')
@@ -52,8 +51,8 @@ def main():
         print(f'{label}: source elevation {el:.2f}deg, azimuth {az:.2f}deg',flush=True)
         if el<=0:continue
         i,q,u=natural_stokes(theta,phi,np.deg2rad(90-el),np.deg2rad(az),
-            a.neutral_separation_deg,np.ones_like(theta),turbidity=a.turbidity,mode='eq6_horizon',
-            depolarization_multiplier=1. if a.replace_turbidity_with_alan else None)
+            a.neutral_separation_deg,np.ones_like(theta),mode='eq6_horizon',
+            depolarization_multiplier=1.)
         curves={}
         for addition in [0.,.5,1.,3.]:
             ii,qq,uu=add_unpolarized(i,q,u,addition)
@@ -85,7 +84,7 @@ def main():
     fig.suptitle('Wang eq6 + eq8 reduced pilot; uniform relative intensity; not full spectral model')
     fig.tight_layout();fig.savefig(a.output/'wang_spider_pilot.png',dpi=170);plt.close(fig)
     (a.output/'provenance.json').write_text(json.dumps(dict(status='REDUCED_MODEL_PILOT_NOT_EMPIRICAL_VALIDATION',
-        track_kind=kind,parameters=vars(a)|{'output':str(a.output)},model='Wang eqs1/3/4/5/6/7/8; no eq17 spectral factor',
+        track_kind=kind,parameters=vars(a)|{'output':str(a.output)},model='Wang eqs1/3/4/5/6/8; atmospheric eq7 omitted; no eq17 spectral factor',
         paper_doi='10.1088/2040-8978/18/6/065601',script_sha256=digest(__file__),
         limitations=['Uniform natural I=1 retained at every time: lunar brightness/phase not simulated',
         'ALAN is relative unpolarized intensity, not VIIRS radiance or HPS/LED conversion',
