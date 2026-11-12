@@ -21,6 +21,8 @@ changes of direction.
 
 - [2026-11-06 — Behavioural degree-of-polarization thresholds in insects, spiders and other arthropods (literature review)](2026-11-06_arthropod_polarization_behavioural_thresholds_literature_review.md)
 
+- [2026-11-12 — Drassodes original image-script recovery, algebra audit and missing eye-integration stage](2026-11-12.md)
+
 The current restart point is also mirrored in [`docs/CURRENT_STATE.md`](../CURRENT_STATE.md) so a new session does not have to reconstruct the last terminal state from chat history.
 
 ## Convention
