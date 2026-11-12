@@ -1,0 +1,169 @@
+"""Register camera-roll sky exposures; write diagnostic, unreviewed PRC previews.
+
+No TIFFs are altered. Uses the accepted 5% Cottage circle fits, rotates each
+exposure about its own centre into image 1 coordinates, without resizing.
+Scene clockwise roll is the source-sampling angle, not an eye-axis rotation.
+Analyzer convention remains nominal 0,45,90,135 in common coordinates; reversing
+all analyzer angles changes U sign but not maximized integrated contrast.
+This is the historical global image-plane model, not a calibrated full fisheye
+polarimetric ray model. Registration does not normalize image brightness.
+"""
+from pathlib import Path
+import argparse
+import json
+import math
+import numpy as np
+from scipy import ndimage, optimize
+import matplotlib
+matplotlib.use('Agg')
+import matplotlib.pyplot as plt
+from matplotlib.patches import Circle
+from reconstruct_spider_eye_contrast import (tiff_channel, digest,
+    combine_replicates, run, GROUPS, circle_mask, eye_result)
+
+
+def polar_features(image, center, radius, angles=720):
+    # Local spatial contrast reduces broad analyzer-dependent brightness changes.
+    image=np.asarray(image,dtype=float)
+    detail=image-ndimage.gaussian_filter(image,6)
+    radial=np.linspace(.15*radius,.985*radius,200)
+    theta=np.arange(angles)*2*np.pi/angles
+    x=center[0]+radial[:,None]*np.cos(theta)
+    y=center[1]+radial[:,None]*np.sin(theta)
+    polar=ndimage.map_coordinates(detail,[y,x],order=1,mode='constant',cval=0)
+    polar-=polar.mean(axis=1,keepdims=True)
+    norms=np.sqrt(np.mean(polar**2,axis=1,keepdims=True))
+    # Limit leverage of near-empty annuli while retaining stars and skyline.
+    polar/=np.maximum(norms,np.percentile(norms,30)+1e-12)
+    return polar
+
+
+def estimate_roll(reference, moving):
+    """Positive angle: scene in moving image is clockwise from reference."""
+    n=reference.shape[1]
+    if moving.shape!=reference.shape: raise ValueError('Polar dimensions differ')
+    denom=np.linalg.norm(reference)*np.linalg.norm(moving)
+    if denom<=1e-12: raise ValueError('No structural signal for rotation')
+    corr=np.fft.irfft(np.conj(np.fft.rfft(reference,axis=1))*
+        np.fft.rfft(moving,axis=1),n=n,axis=1).sum(axis=0)/denom
+    best=int(np.argmax(corr))
+    # Subsample phase interpolation, bounded around the global peak.
+    def score(shift):
+        shifted=np.fft.irfft(np.fft.rfft(moving,axis=1)*
+            np.exp(2j*np.pi*np.fft.rfftfreq(n)*shift),n=n,axis=1)
+        return float(np.sum(reference*shifted)/denom)
+    fit=optimize.minimize_scalar(lambda s:-score(s),bounds=(best-1,best+1),method='bounded')
+    angle=(fit.x*360/n+180)%360-180
+    distance=abs((np.arange(n)-fit.x+n/2)%n-n/2)*360/n
+    alternate=float(corr[distance>15].max())
+    return dict(scene_roll_clockwise_deg=float(angle),correlation=score(fit.x),
+        alternate_peak_outside_15deg=alternate,peak_margin=score(fit.x)-alternate)
+
+
+def warp_to_reference(image, source_center, target_center, roll_deg):
+    y,x=np.indices(image.shape,dtype=float)
+    dx=x-target_center[0]; dy=y-target_center[1]
+    a=np.deg2rad(roll_deg)
+    sx=source_center[0]+np.cos(a)*dx-np.sin(a)*dy
+    sy=source_center[1]+np.sin(a)*dx+np.cos(a)*dy
+    return ndimage.map_coordinates(np.asarray(image,dtype=float),[sy,sx],
+        order=1,mode='constant',cval=np.nan,prefilter=False)
+
+
+def main():
+    p=argparse.ArgumentParser(description=__doc__)
+    p.add_argument('--geometry',type=Path,required=True)
+    p.add_argument('--folder',type=Path,required=True)
+    p.add_argument('--output',type=Path,required=True)
+    p.add_argument('--site-id',default='s14')
+    a=p.parse_args()
+    source=a.folder.resolve(); target=a.output.resolve()
+    if source==target or source in target.parents or target in source.parents:
+        p.error('Output must be separate from TIFF input folder')
+    if target.exists(): p.error('Output already exists; use a fresh folder')
+    geometry=json.loads(a.geometry.read_text())
+    records={Path(r['file']).name:r for r in geometry['records']}
+    groups=GROUPS if len(records)==12 else [[1,2,3,4]] if len(records)==4 else None
+    if groups is None: p.error('Expected twelve or four geometry records')
+    channel=geometry['channel']
+    images={}; centres={}; radii={}; inputs=[]
+    for num in sorted(n for g in groups for n in g):
+        name=f'{num}.tif'; rec=records[name]
+        path=source/name
+        image,meta=tiff_channel(path,channel)
+        if meta['sha256']!=rec['sha256']: raise ValueError(f'Geometry hash mismatch: {name}')
+        f=next(f for f in rec['fits'] if f['threshold_fraction']==.05 and 'error' not in f)
+        images[num]=image; centres[num]=[f['center_x_px'],f['center_y_px']]
+        radii[num]=f['rim_radius_px']; inputs.append(meta)
+    shape=images[1].shape
+    if any(im.shape!=shape for im in images.values()): raise ValueError('Image dimensions differ')
+    target.mkdir(parents=True)
+    ref=polar_features(images[1],centres[1],radii[1])
+    aligned={}; rotations=[]
+    radius60=radii[1]/np.sqrt(2)
+    fig,axes=plt.subplots(int(np.ceil(len(images)/4)),4,figsize=(16,4*np.ceil(len(images)/4)),squeeze=False)
+    ref_edge=ndimage.gaussian_gradient_magnitude(images[1],1.5)
+    for (num,image),ax in zip(images.items(),axes.flat):
+        estimate=estimate_roll(ref,polar_features(image,centres[num],radii[num]))
+        if num==1: estimate['scene_roll_clockwise_deg']=0.
+        roll=estimate['scene_roll_clockwise_deg']
+        aligned[num]=warp_to_reference(image,centres[num],centres[1],roll)
+        group_index=next(k for g in groups for k,n in enumerate(g) if n==num)
+        nominal=[0,45,90,135][group_index]
+        error=min(abs((roll-s*nominal+180)%360-180) for s in [-1,1])
+        estimate.update(filename=f'{num}.tif',nominal_analyzer_deg=nominal,
+            distance_to_either_signed_nominal_deg=error,
+            flags=(['rotation differs from either nominal sign by >5deg'] if error>5 else [])+
+                  (['weak or ambiguous structural match'] if estimate['correlation']<.2 or estimate['peak_margin']<.03 else []))
+        rotations.append(estimate)
+        im=aligned[num]
+        # Display normalization is confined to this visual diagnostic.
+        def display(x):
+            lo,hi=np.nanpercentile(x,[10,99]); return np.nan_to_num(np.clip((x-lo)/(hi-lo+1e-12),0,1))
+        edge=ndimage.gaussian_gradient_magnitude(np.nan_to_num(im),1.5)
+        rgb=np.stack([display(ref_edge),display(edge),display(edge)],axis=-1)
+        ax.imshow(rgb); ax.add_patch(Circle(centres[1],radius60,fill=False,color='yellow',lw=.7))
+        ax.set_title(f'{num}.tif: roll {roll:.2f}deg; corr {estimate["correlation"]:.2f}')
+        ax.axis('off')
+    for ax in list(axes.flat)[len(images):]: ax.axis('off')
+    fig.suptitle('ALIGNMENT REVIEW: red = reference edges; cyan = aligned exposure edges\nWhite overlap = agreement; yellow = accepted nominal 60deg field; display scales only')
+    fig.tight_layout(rect=[0,0,1,.94]); fig.savefig(target/'rotation_overlay.png',dpi=150); plt.close(fig)
+    report=dict(status='unreviewed_registration_and_prc_preview',site_id=a.site_id,
+        geometry_sha256=digest(a.geometry),script_sha256=digest(__file__),inputs=inputs,
+        geometry_threshold=.05,reference_center_xy_px=centres[1],radius_60_px=radius60,
+        rotations=rotations,raw_images_modified=False,
+        limitations=['Structural rotation estimation can be biased by polarization brightness gradients',
+        'Fitted circle centres supply translations; residual parallax, tilt or distortion not corrected',
+        'Nominal analyzer angles assumed; registration angles are not automatically substituted for physical analyzer calibration',
+        'Common global image-plane polarization axes follow historical model; no full ray-dependent Mueller calibration',
+        'No exposure or gamma correction; TIFF radiometric assumptions remain those of historical pipeline'])
+    (target/'rotation_analysis.json').write_text(json.dumps(report,indent=2)+'\n')
+    # Two explicitly separate reconstructions; no historical value is overwritten.
+    report['prc_diagnostics']=[]
+    for method in ['linear_stokes','legacy_dop_aop']:
+        i,q,u,qa=combine_replicates(([aligned[n] for n in g] for g in groups),method)
+        for mode in ['stokes_intensity','normalized_direction']:
+            for factor in [.95,1.,1.05]:
+                mask=circle_mask(shape,centres[1],radius60*factor)
+                result=eye_result(i,q,u,mask,response_mode=mode,invalid_policy='exclude')
+                report['prc_diagnostics'].append(dict(method=method,response_mode=mode,
+                    radius_factor=factor,prc=result['prc'],excluded_fraction=result['excluded_fraction']))
+        mask=circle_mask(shape,centres[1],radius60)
+        report.setdefault('analyzer_pair_closure',{})[method]=[
+            dict(median_abs=float(np.nanmedian(abs(rec['closure'][mask]))),
+                 p95_abs=float(np.nanpercentile(abs(rec['closure'][mask]),95))) for rec in qa]
+        np.savez_compressed(target/f'{method}.npz',I=i,Q=q,U=u)
+        config=dict(schema_version=1,site_id=a.site_id,geometry_reviewed=True,
+            registration_reviewed=False,input=dict(kind='stokes_npz',path=f'{method}.npz'),
+            fov=dict(angular_radius_deg=60,center_xy_px=centres[1],radius_60_px=radius60),
+            absorbance_parallel=.4,absorbance_perpendicular=.04,
+            response_mode='stokes_intensity',invalid_policy='exclude',
+            processing_note=method,replicate_count=len(groups))
+        manifest=target/f'{method}_manifest.json';manifest.write_text(json.dumps(config,indent=2)+'\n')
+        try: run(manifest,target/f'{method}_preview',preview_only=True)
+        except ValueError as e:
+            (target/f'{method}_preview_error.txt').write_text(str(e)+'\n')
+    (target/'rotation_analysis.json').write_text(json.dumps(report,indent=2)+'\n')
+    print(f'Review {target}/rotation_overlay.png and rotation_analysis.json before accepting PRC previews')
+
+if __name__=='__main__': main()
