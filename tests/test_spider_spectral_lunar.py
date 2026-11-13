@@ -10,7 +10,8 @@ class SpectralLunarTests(unittest.TestCase):
         no= pigment_proxy(wave,uv_amplitude=0.)
         self.assertEqual(wave[np.argmax(no)],510)
         self.assertAlmostEqual(float(pigment_proxy(510)),1)
-        self.assertGreater(float(pigment_proxy(365)),float(pigment_proxy(365,uv_amplitude=0)))
+        np.testing.assert_array_equal(pigment_proxy(wave),no)
+        self.assertAlmostEqual(float(pigment_proxy(365)),.03768134740129467)
     def test_ks91_published_implementation_example(self):
         b=ks91_brightness(np.deg2rad(20),20,np.deg2rad(50),45,.15)
         magnitude=(20.7233-np.log(b/34.08))/.92104
