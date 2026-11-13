@@ -63,6 +63,7 @@ def main():
     p.add_argument('--moon-anchors',type=Path,nargs='+',required=True)
     p.add_argument('--reviewed-sites',nargs='+',default=['Cottage','oxfordbussinesspark'],help='Only independently reviewed Moon candidates are admitted')
     p.add_argument('--calibration-site',default='Cottage')
+    p.add_argument('--fixed-offset-audit',type=Path,help='Prior convention_and_atmosphere_audit.json; reuse offsets without any refit')
     p.add_argument('--neutral-separation-deg',type=float,required=True)
     p.add_argument('--sky-masks',type=Path)
     p.add_argument('--capture-alan-ratios',type=Path,help='JSON {SITE: capture ALAN/natural ratio}, independently justified, same camera band; never inferred from VIIRS directly')
@@ -118,7 +119,13 @@ def main():
     if a.calibration_site not in loaded:p.error('Calibration site missing or not independently reviewed')
     a.output.mkdir(parents=True)
     cal=loaded[a.calibration_site];sel=cal['ao']
-    offsets={name:float(fit_offset(cal['obs'][sel],transform(cal['model'][sel],cal['phi'][sel],name))) for name in HYPOTHESES}
+    if a.fixed_offset_audit:
+        frozen=json.loads(a.fixed_offset_audit.read_text())
+        if frozen['calibration_site']!=a.calibration_site:p.error('Frozen calibration site mismatch')
+        offsets={name:float(np.deg2rad(frozen['common_offsets_deg'][name])) for name in HYPOTHESES}
+        if not all(np.isfinite(list(offsets.values()))):p.error('Nonfinite frozen offset')
+    else:
+        offsets={name:float(fit_offset(cal['obs'][sel],transform(cal['model'][sel],cal['phi'][sel],name))) for name in HYPOTHESES}
     metrics={};dop={};profile_rows=[]
     for site,d in loaded.items():
         metrics[site]={};fig,axes=plt.subplots(2,3,figsize=(12,8),layout='constrained')
@@ -129,7 +136,7 @@ def main():
             im=ax.imshow(np.where(d['ao'],residual,np.nan),cmap='twilight',vmin=-90,vmax=90)
             ax.set_title(f'{name}\nMAE {metrics[site][name]["mae_deg"]:.1f} deg');ax.set_axis_off()
         fig.colorbar(im,ax=list(axes.flat),label='Axial AoP residual (deg)',shrink=.7)
-        role='offset calibration' if site==a.calibration_site else 'fixed-offset check (no site refit)'
+        role='frozen-offset check (no refit)' if a.fixed_offset_audit else ('offset calibration' if site==a.calibration_site else 'fixed-offset check (no site refit)')
         fig.suptitle(f'{site}: {role}; camera basis hypotheses remain provisional')
         fig.savefig(a.output/f'{site}_aop_conventions.png',dpi=160);plt.close(fig)
         if site in DARK_SITES:
@@ -162,6 +169,10 @@ def main():
         common_offsets_deg={k:float(np.rad2deg(v)) for k,v in offsets.items()},aop_metrics=metrics,dark_site_dop=dop,
         reference_sha256=sha(a.reference),anchor_sha256={str(p):sha(p) for p in a.moon_anchors},script_sha256=sha(Path(__file__)),
         capture_alan_ratios_sha256=sha(a.capture_alan_ratios) if a.capture_alan_ratios else None,
+        fixed_offset_audit_sha256=sha(a.fixed_offset_audit) if a.fixed_offset_audit else None,
+        neutral_separation_deg=a.neutral_separation_deg,
+        selected_camera_comparison_convention='conjugate',
+        convention_selection_basis='Cottage/Oxford audit 2026-11-13; provisional until more sites tested',
         interpretation=['All hypotheses retained; no production convention automatically changed.',
         'Radial spin alternatives diagnose global-versus-local basis mistakes; they are not an instrument calibration.',
         'Cottage estimates offsets; held-out sites use them unchanged. Spatial image parity is not independently established.',
