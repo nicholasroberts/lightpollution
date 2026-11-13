@@ -1,0 +1,9 @@
+{
+  "status": "VISUAL_BEARING_ESTIMATES_FROM_UPLOADED_INTENSITY_OVERLAY",
+  "source": "Investigator-uploaded moon_ephemeris_anchors(1).png, 2026-11-13",
+  "method": "Approximate visible bright-source positions in original pixel axes; used for bearing only. Ephemeris elevation determines radial source position.",
+  "sites": {
+    "Skillinge": {"candidate_pixel_xy": [650.0, 1135.0], "approximate_pixel_uncertainty": 25.0, "note": "Lower-left bright source, replacing automatic upper-left skyline edge"},
+    "slabhouse": {"candidate_pixel_xy": [1570.0, 600.0], "approximate_pixel_uncertainty": 25.0, "note": "Bright source at right, replacing automatic edge above it"}
+  }
+}
