@@ -131,8 +131,10 @@ def main():
             ax.set_title(f'{site}: {title}\n{geometry["anchor"]["local_time"]} local',fontsize=10);ax.axis('off')
             if col==0:ax.text(.04,.95,'N ↑',transform=ax.transAxes,ha='left',va='top');ax.text(.96,.5,'E →',transform=ax.transAxes,ha='right',va='center')
     fig.colorbar(art,ax=skyaxes,label='Photon-sensitivity-weighted sky DoLP (450–750nm)',shrink=.75)
-    (a.output/'sky_snapshot_settings.json').write_text(json.dumps(dict(atmospheric_factor=a.atmospheric_factor,fixed_alan_capture_zenith_ratio=a.alan_ratio,sites=summary,independent_alan_config=hp.get('independent_alan_config'),note='Natural-only retains atmospheric factor; models integrate proxy-weighted Stokes; measured maps use original camera channel. No DoP fitting'),indent=2)+'\n')
-    fig.suptitle('VISIBLE-ONLY pilot: horizontal body, rotating 360deg; KS91 changing moonlight\nAtmospheric factor '+str(a.atmospheric_factor)+'; independent ALAN scenario '+str(a.alan_ratio)+'; sky maps at capture time\nWhite circle = 60deg full field; cross = Moon; measured camera channel differs from model spider weighting; no DoP fit',fontsize=11)
+    (a.output/'sky_snapshot_settings.json').write_text(json.dumps(dict(atmospheric_factor=a.atmospheric_factor,alan_scenario_level=a.alan_ratio,sites=summary,independent_alan_config=hp.get('independent_alan_config'),note='Natural-only retains atmospheric factor; models integrate proxy-weighted Stokes; measured maps use original camera channel. Any explicit user Cottage target is recorded in config; no experimental-map fitting'),indent=2)+'\n')
+    adjustment=(hp.get('independent_alan_config') or {}).get('cottage_adjustment')
+    setting='Cottage HPS target '+str(adjustment['target_mean_local_dop'])+' at level '+str(adjustment['reference_level']) if adjustment else 'Independent site-scaling scenario'
+    fig.suptitle('VISIBLE-ONLY pilot: horizontal body, rotating 360deg; KS91 changing moonlight\nAtmospheric factor '+str(a.atmospheric_factor)+'; ALAN level '+str(a.alan_ratio)+'; '+setting+'\nWhite circle = 60deg full field; cross = Moon; measured camera channel differs from model spider weighting; measured maps not fitted',fontsize=11)
     fig.savefig(a.output/'visible_spectral_nightly_comparison.png',dpi=160);plt.close(fig)
 
 if __name__=='__main__':main()
