@@ -1,0 +1,7 @@
+# Lunar UV/visible input preparation and nightly PRC workflow
+numpy
+scipy
+matplotlib
+astropy
+h5py
+openpyxl
