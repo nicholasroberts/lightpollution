@@ -1,4 +1,4 @@
-"""Summarize visible spectral scenarios and the separate unvalidated UV proxy."""
+"""Summarize spectral scenarios with a single510nm green-sensitive pigment."""
 from pathlib import Path
 import argparse,csv,json
 from datetime import datetime
@@ -75,6 +75,13 @@ def measured_north_up(batch,site,geometry,grid=241):
     return np.where(physical,p,np.nan),dict(stokes_sha256=digest(folder/'linear_stokes.npz'),rotation_report_sha256=digest(rp),note='Original measured camera-channel DoLP; spectral response not matched to spider proxy; Moon bearing fixes display orientation')
 
 
+def fov_statistics(array,geometry):
+    """Local DoLP statistics in zenith30deg cap on an equal-solid-angle display."""
+    y,x=np.indices(array.shape);mask=(x-geometry['center'])**2+(y-geometry['center'])**2<=geometry['fov_radius']**2
+    valid=mask&np.isfinite(array);values=array[valid]
+    return dict(mean=float(np.mean(values)) if values.size else None,median=float(np.median(values)) if values.size else None,valid_samples=int(values.size),field_samples=int(mask.sum()),valid_fraction=float(valid.sum()/mask.sum()))
+
+
 def main():
     p=argparse.ArgumentParser(description=__doc__)
     for name in ['spectra','hps','led','output']:p.add_argument('--'+name,type=Path,required=True)
@@ -96,9 +103,9 @@ def main():
         ax.plot(wave,values/trapezoid(values,wave),label=label)
     ax.set(title='Source + power-law transfer scenarios; equal band energy',xlabel='Wavelength (nm)',ylabel='Normalized energy spectrum (per nm)');ax.legend(fontsize=8)
     ax=axes[0,1];wave=np.arange(300.,751.)
-    for amplitude in [0,.29,1]:ax.plot(wave,pigment_proxy(wave,uv_amplitude=amplitude),label=f'UV amplitude {amplitude:g}')
-    ax.axvspan(450,750,color='gray',alpha=.1,label='Current PRC calculation band')
-    ax.set(title='510nm pigment proxy; UV strength is a scenario',xlabel='Wavelength (nm)',ylabel='Relative photon sensitivity');ax.legend(fontsize=8)
+    ax.plot(wave,pigment_proxy(wave),label='510nm green alpha band')
+    ax.axvspan(float(d['wavelength_nm'][0]),float(d['wavelength_nm'][-1]),color='gray',alpha=.1,label='PRC calculation band')
+    ax.set(title='Single green-sensitive pigment; no added UV peak',xlabel='Wavelength (nm)',ylabel='Relative photon sensitivity');ax.legend(fontsize=8)
     for ax,site in zip(axes[1],['Cottage','oxfordbussinesspark']):
         for label,folder in [('HPS',a.hps),('LED 2958–3969K group',a.led)]:
             rows=[r for r in csv.DictReader((folder/'prc_ranges.csv').open()) if r['site']==site and float(r['atmospheric_factor'])==a.atmospheric_factor and float(r['alan_band_ratio'])==a.alan_ratio and float(r['body_tilt_deg'])==0]
@@ -123,18 +130,22 @@ def main():
         if a.batch:
             observed,obs_meta=measured_north_up(a.batch,site,geometry)
             summary[site]['measured']=obs_meta;panels.insert(0,('Measured camera channel',observed))
+        summary[site]['fov_statistics']={}
         for col,(title,arr) in enumerate(panels):
+            stats=fov_statistics(arr,geometry);summary[site]['fov_statistics'][title]=stats
             ax=fig.add_subplot(lower[row,col]);skyaxes.append(ax);cm=plt.get_cmap('turbo').copy();cm.set_bad('lightgray')
             art=ax.imshow(arr,cmap=cm,vmin=0,vmax=1)
             ax.add_patch(Circle((geometry['center'],geometry['center']),geometry['fov_radius'],fill=False,color='white',lw=1))
             ax.plot(*geometry['moon_xy'],'kx',ms=6)
-            ax.set_title(f'{site}: {title}\n{geometry["anchor"]["local_time"]} local',fontsize=10);ax.axis('off')
+            ax.set_title(f'{site}: {title}\n{geometry["anchor"]["local_time"]} local',fontsize=9);ax.axis('off')
+            label='FoV: no valid pixels' if stats['mean'] is None else f"FoV mean {stats['mean']:.3f}; median {stats['median']:.3f}"
+            ax.text(.5,-.03,label,transform=ax.transAxes,ha='center',va='top',fontsize=8)
             if col==0:ax.text(.04,.95,'N ↑',transform=ax.transAxes,ha='left',va='top');ax.text(.96,.5,'E →',transform=ax.transAxes,ha='right',va='center')
-    fig.colorbar(art,ax=skyaxes,label='Photon-sensitivity-weighted sky DoLP (450–750nm)',shrink=.75)
+    fig.colorbar(art,ax=skyaxes,label=f"DoLP (0–1); model band {geometry['band_nm'][0]:g}–{geometry['band_nm'][1]:g}nm; measured camera channel separate",shrink=.75)
     (a.output/'sky_snapshot_settings.json').write_text(json.dumps(dict(atmospheric_factor=a.atmospheric_factor,alan_scenario_level=a.alan_ratio,sites=summary,independent_alan_config=hp.get('independent_alan_config'),note='Natural-only retains atmospheric factor; models integrate proxy-weighted Stokes; measured maps use original camera channel. Any explicit user Cottage target is recorded in config; no experimental-map fitting'),indent=2)+'\n')
     adjustment=(hp.get('independent_alan_config') or {}).get('cottage_adjustment')
     setting='Cottage HPS target '+str(adjustment['target_mean_local_dop'])+' at level '+str(adjustment['reference_level']) if adjustment else 'Independent site-scaling scenario'
-    fig.suptitle('VISIBLE-ONLY pilot: horizontal body, rotating 360deg; KS91 changing moonlight\nAtmospheric factor '+str(a.atmospheric_factor)+'; ALAN level '+str(a.alan_ratio)+'; '+setting+'\nWhite circle = 60deg full field; cross = Moon; measured camera channel differs from model spider weighting; measured maps not fitted',fontsize=11)
+    fig.suptitle('Spectral pilot: horizontal body, rotating 360deg; KS91 changing moonlight\nAtmospheric factor '+str(a.atmospheric_factor)+'; ALAN level '+str(a.alan_ratio)+'; '+setting+'\nWhite circle = 60deg full field; cross = Moon; measured camera channel differs from model spider weighting; measured maps not fitted',fontsize=11)
     fig.savefig(a.output/'visible_spectral_nightly_comparison.png',dpi=160);plt.close(fig)
 
 if __name__=='__main__':main()
