@@ -2,12 +2,13 @@
 
 KS1991 doi10.1086/132921 eqs3,8,9,15,21; separation >=10deg.
 Stavenga alpha template: x=log10(lambda/lambda_max), exp(-380*x^2*(1+6.09*x+3/8*(6.09*x)^2)).
-UV band is a separate explicit Gaussian scenario, not a measured action spectrum.
+Default is one green-sensitive alpha band at510nm. Optional legacy UV Gaussian
+is inactive by default; no molecular RH1 identity is inferred.
 """
 import numpy as np
 
 
-def pigment_proxy(wavelength_nm,peak_nm=510.,uv_peak_nm=365.,uv_amplitude=.29,uv_width_nm=40.):
+def pigment_proxy(wavelength_nm,peak_nm=510.,uv_peak_nm=365.,uv_amplitude=0.,uv_width_nm=40.):
     w=np.asarray(wavelength_nm,dtype=float)
     if np.any(~np.isfinite(w)) or np.any(w<=0) or not np.isfinite([peak_nm,uv_peak_nm,uv_amplitude,uv_width_nm]).all() or min(peak_nm,uv_peak_nm,uv_width_nm)<=0 or uv_amplitude<0:raise ValueError('Invalid pigment parameters')
     x=np.log10(w/peak_nm);bx=6.09*x
