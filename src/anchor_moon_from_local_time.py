@@ -19,7 +19,7 @@ from matplotlib.patches import Circle
 from wang2016_sky import lunar_track
 from reconstruct_spider_eye_contrast import digest
 ROOT=Path(__file__).resolve().parents[1]
-SITES={'Cottage':('s14','Europe/Stockholm'),'oxfordbussinesspark':('s02','Europe/London')}
+SITES={'Cottage':('s14','Europe/Stockholm'),'oxfordbussinesspark':('s02','Europe/London'),'Skillinge':('s10','Europe/Stockholm'),'slabhouse':('s17','Europe/London')}
 
 
 def local_to_utc(text,zone):
@@ -44,14 +44,20 @@ def main():
     p.add_argument('--batch',type=Path,required=True);p.add_argument('--output',type=Path,required=True)
     p.add_argument('--cottage-local-time',help='Explicit corrected local timestamp YYYY:MM:DD HH:MM:SS')
     p.add_argument('--oxford-local-time',help='Explicit corrected local timestamp YYYY:MM:DD HH:MM:SS')
+    p.add_argument('--sites',nargs='+',choices=list(SITES),default=['Cottage','oxfordbussinesspark'])
+    p.add_argument('--local-time-overrides',type=Path,help='JSON {SITE: YYYY:MM:DD HH:MM:SS}; use only independently confirmed dates/times')
     a=p.parse_args();out=a.output.resolve()
+    overrides=json.loads(a.local_time_overrides.read_text()) if a.local_time_overrides else {}
     if out.exists():p.error('Use new output directory')
     refs={r['site_id']:r for r in csv.DictReader((ROOT/'data/reference/prc_spider_18_sites_verified.csv').open())}
-    fig,axes=plt.subplots(1,2,figsize=(13,6));results={}
-    for ax,(site,(site_id,zone)) in zip(axes,SITES.items()):
+    fig,axes=plt.subplots(1,len(a.sites),figsize=(6.5*len(a.sites),6),squeeze=False);results={}
+    for ax,site in zip(axes.flat,a.sites):
+        site_id,zone=SITES[site]
         folder=a.batch/site/'registration';report=json.loads((folder/'rotation_analysis.json').read_text())
         raw=next(r for r in report['inputs'] if Path(r['path']).name=='1.tif')
-        explicit=a.cottage_local_time if site=='Cottage' else a.oxford_local_time
+        explicit=overrides.get(site)
+        if site=='Cottage' and a.cottage_local_time:explicit=a.cottage_local_time
+        if site=='oxfordbussinesspark' and a.oxford_local_time:explicit=a.oxford_local_time
         stamp,origin=(explicit,'explicit user timestamp') if explicit else capture_time(Path(raw['path']))
         utc,offset=local_to_utc(stamp,zone)
         reference=refs[site_id];lat=float(reference['latitude']);lon=float(reference['longitude'])
