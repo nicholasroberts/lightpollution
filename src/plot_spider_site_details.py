@@ -38,6 +38,39 @@ def selected_rows(rows,site,atmosphere,level):
         float(r['alan_band_ratio'])==level and float(r['body_tilt_deg'])==0],key=lambda r:r['utc'])
 
 
+def locked_measured(lockpath,site,anchor,grid=241):
+    """Read frozen products; never rerun registration or infer north here."""
+    root=lockpath.parent;manifest=json.loads(lockpath.read_text())
+    checks=json.loads((root/'reference_sha256.json').read_text())
+    if digest(lockpath)!=checks.get(lockpath.name):raise ValueError('Reference manifest hash mismatch')
+    record=manifest['sites'][site]
+    if record['status']!='numerically_locked_awaiting_visual_review':
+        raise ValueError('Registration unresolved: '+record['status'])
+    for key in ['utc','timezone','moon_elevation_deg','moon_compass_azimuth_deg']:
+        if (record.get('astronomical_anchor') or {}).get(key)!=anchor.get(key):
+            raise ValueError('Locked astronomical anchor differs: '+key)
+    center=np.asarray(record['reference_center_xy_px']);radius=record['rim_radius_px']
+    north=record.get('north_up_dop_path')
+    if north:
+        path=root/north
+        if digest(path)!=checks.get(str(path.relative_to(root))):raise ValueError('North display hash mismatch')
+        with np.load(path,allow_pickle=False) as z:values=z['DoLP']
+        orientation='North up; Moon-based pure rotation; provisional identity'
+    else:
+        path=root/site/'registration/linear_stokes.npz'
+        if digest(path)!=checks.get(str(path.relative_to(root))):raise ValueError('Stokes product hash mismatch')
+        with np.load(path,allow_pickle=False) as z:
+            with np.errstate(divide='ignore',invalid='ignore'):values=np.hypot(z['Q'],z['U'])/z['I']
+        orientation='Registered camera frame; north unresolved'
+    y,x=np.indices((grid,grid),dtype=float);c=(grid-1)/2;r=c*.96
+    dx=(x-c)/r;dy=(y-c)/r
+    arr=map_coordinates(values,[center[1]+dy*radius,center[0]+dx*radius],order=1,mode='constant',cval=np.nan)
+    arr=np.where((np.hypot(dx,dy)<.985)&(arr>=0)&(arr<=1),arr,np.nan)
+    return arr,dict(reference_lock_sha256=digest(lockpath),orientation=orientation,
+        registration_status=record['status'],moon_localization=record.get('moon_localization'),
+        note='Frozen products; numerical landmark checks passed; visual review still required'),bool(north)
+
+
 def main():
     p=argparse.ArgumentParser(description=__doc__)
     p.add_argument('--run',type=Path,required=True,help='all_sites directory containing hps/ and led/')
@@ -46,6 +79,7 @@ def main():
     p.add_argument('--alan-level',type=float,default=5.)
     p.add_argument('--atmospheric-factor',type=float,default=.8)
     p.add_argument('--use-saved-bearings',action='store_true',help='Opt in to saved candidate image bearings; these are not independently verified by this script')
+    p.add_argument('--reference-lock',type=Path,help='Frozen locked_site_references.json; use these registered experimental products and fixed north rotations')
     a=p.parse_args()
     if a.output.exists():p.error('Use a fresh output directory')
     sources=['hps','led'];provs={s:json.loads((a.run/s/'provenance.json').read_text()) for s in sources}
@@ -104,9 +138,13 @@ def main():
             aligned=a.use_saved_bearings and anchor.get('candidate_pixel_xy') is not None
             observed=None;obsmeta={};obsstatus='unavailable'
             try:
-                if aligned:observed,obsmeta=measured_north_up(a.batch,site,geometry)
-                else:observed,obsmeta=measured_camera_frame(a.batch,site)
-                obsstatus='saved bearing; orientation provisional' if aligned else 'camera frame; north unknown'
+                if a.reference_lock:
+                    observed,obsmeta,aligned=locked_measured(a.reference_lock,site,anchor)
+                    obsstatus=obsmeta['orientation']
+                else:
+                    if aligned:observed,obsmeta=measured_north_up(a.batch,site,geometry)
+                    else:observed,obsmeta=measured_camera_frame(a.batch,site)
+                    obsstatus='saved bearing; orientation provisional' if aligned else 'camera frame; north unknown'
             except (FileNotFoundError,ValueError,KeyError) as exc:
                 obsmeta={'reason':str(exc)};obsstatus='unavailable: '+str(exc)
             panels=[('Measured camera DoLP',observed),('Natural only',snapshots['hps'][0]),('Natural + HPS',snapshots['hps'][1]),('Natural + LED',snapshots['led'][1])]
