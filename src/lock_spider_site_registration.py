@@ -192,9 +192,11 @@ def process_site(site,batch,out,anchor,overrides,saved_site=None,registration_mo
     if linear_raw_manifest is not None:
         if saved_site is not None:raise ValueError('New RAW images require fresh landmarks, not --from-lock')
         raw_set=json.loads(Path(linear_raw_manifest).read_text())
-        if raw_set.get('status')!='linear_raw_blue_prepared_not_registered_complete':raise ValueError('Linear RAW conversion is incomplete')
+        raw_channel=raw_set.get('camera_channel','blue')
+        if raw_channel not in ('blue','green'):raise ValueError('Unsupported RAW camera channel')
+        if raw_set.get('status')!='linear_raw_'+raw_channel+'_prepared_not_registered_complete':raise ValueError('Linear RAW conversion is incomplete')
         settings=raw_set.get('processing',{})
-        if settings.get('method')!='visible_Bayer_blue_samples_minus_camera_reported_black':raise ValueError('Unknown linear RAW preparation method')
+        if settings.get('method')!='visible_Bayer_'+raw_channel+'_samples_minus_camera_reported_black':raise ValueError('Unknown linear RAW preparation method')
         for key in ['white_balance_applied','gamma_applied','color_matrix_applied','display_profile_or_look_applied','auto_brightness_applied']:
             if settings.get(key) is not False:raise ValueError('RAW preparation must disable '+key)
         raw_frames={int(f['exposure']):f for f in raw_set['frames']}
@@ -218,7 +220,7 @@ def process_site(site,batch,out,anchor,overrides,saved_site=None,registration_mo
             if digest(path)!=frame['output_sha256']:raise ValueError('Linear RAW hash mismatch: '+str(path))
             image,meta=tiff_channel(path,None)
             if not np.isfinite(image).all():raise ValueError('Nonfinite linear RAW pixels')
-            meta.update(radiometry='black_subtracted_linear_camera_blue',source_raw_sha256=frame['source_sha256'],
+            meta.update(radiometry='black_subtracted_linear_camera_'+raw_channel,source_raw_sha256=frame['source_sha256'],
                 datetime_original=frame['datetime_original'])
         else:image,meta=tiff_channel(path,channel)
         images[n]=image;inputs.append(meta)
@@ -311,7 +313,7 @@ def process_site(site,batch,out,anchor,overrides,saved_site=None,registration_mo
     if shared_geometry is not None:lock['shared_image_geometry']=shared_geometry
     if raw_set is not None:
         lock.update(linear_raw_manifest_sha256=digest(linear_raw_manifest),analyzer_groups=groups,
-            excluded_exposures=raw_set['excluded_exposures'],radiometry_status='black_subtracted_linear_camera_blue',
+            excluded_exposures=raw_set['excluded_exposures'],radiometry_status='black_subtracted_linear_camera_'+raw_channel,camera_channel=raw_channel,
             geometry_transfer=geometry_transfer,
             geometry_status='Provisional canvas-scaled reference geometry; newly fitted RAW landmarks; not independent angular calibration')
     if all_pass:

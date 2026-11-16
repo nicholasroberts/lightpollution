@@ -80,7 +80,7 @@ def main():
     for f in [a.reference_lock,npz]:
         if checks.get(str(f.relative_to(base)))!=digest(f):p.error('Locked input checksum mismatch: '+str(f))
     site=json.loads(a.reference_lock.read_text())['sites'][a.site]
-    if site.get('radiometry_status')!='black_subtracted_linear_camera_blue':p.error('Requires the linear RAW registration lock')
+    if site.get('radiometry_status') not in ('black_subtracted_linear_camera_blue','black_subtracted_linear_camera_green'):p.error('Requires the linear RAW registration lock')
     if site.get('status')!='numerically_locked_awaiting_visual_review':p.error('Registration numerical checks must pass')
     with np.load(npz) as z:
         original_shape=z['I'].shape
@@ -145,11 +145,11 @@ def main():
             ax.plot(north_predicted_moon[0],north_predicted_moon[1],'+',color='red',ms=6,mew=1.2)
             ax.text(.03,.95,'N ↑',transform=ax.transAxes,fontsize=10)
             ax.text(.88,.5,'E →',transform=ax.transAxes,fontsize=8)
-    fig.suptitle(a.site+'; handedness hypothesis: '+a.handedness+'; shared Moon-anchored north-up frame; fixed Sun/Moon geometry\nBlack ×: locked observed Moon; red +: astronomical Moon under provisional zenith-axis projection.\nOne common coordinate transform; no rotation fitted to polarization. Outside mask is extrapolation.',fontsize=11)
+    fig.suptitle(a.site+'; '+site.get('camera_channel','blue')+' channel; handedness hypothesis: '+a.handedness+'; shared Moon-anchored north-up frame; fixed Sun/Moon geometry\nBlack ×: locked observed Moon; red +: astronomical Moon under provisional zenith-axis projection.\nOne common coordinate transform; no rotation fitted to polarization. Outside mask is extrapolation.',fontsize=11)
     fig.savefig(a.output/'twilight_moon_fit.png',dpi=150);plt.close(fig)
     np.savez_compressed(a.output/'twilight_moon_fit_arrays.npz',measured_dolp=obs,train=train,withheld=test,
         moon_dolp=arrays['moon'][2],sun_dolp=arrays['sun'][2],mixed_dolp=arrays['mixed'][2],mixed_I=arrays['mixed'][0],mixed_Q=arrays['mixed'][1].real,mixed_U=arrays['mixed'][1].imag)
-    report=dict(handedness_hypothesis=a.handedness,coordinate_transform_determinant=float(np.linalg.det(north_matrix[:,:2])),reflection_hypothesis_applied=a.handedness=='reversed',display_frame='shared Moon-anchored north up; east right under stated parity hypothesis',display_camera_to_north_xy=north_matrix.tolist(),display_rotation_clockwise_deg=north_angle,observed_moon_north_xy=north_moon.tolist(),predicted_moon_north_xy=north_predicted_moon.tolist(),moon_pixel_separation=float(np.linalg.norm(observed_moon-predicted_moon)),site=a.site,status='exploratory_fit_not_production_model',models=models,
+    report=dict(camera_channel=site.get('camera_channel','blue'),handedness_hypothesis=a.handedness,coordinate_transform_determinant=float(np.linalg.det(north_matrix[:,:2])),reflection_hypothesis_applied=a.handedness=='reversed',display_frame='shared Moon-anchored north up; east right under stated parity hypothesis',display_camera_to_north_xy=north_matrix.tolist(),display_rotation_clockwise_deg=north_angle,observed_moon_north_xy=north_moon.tolist(),predicted_moon_north_xy=north_predicted_moon.tolist(),moon_pixel_separation=float(np.linalg.norm(observed_moon-predicted_moon)),site=a.site,status='exploratory_fit_not_production_model',models=models,
         parameter_definitions=dict(moon=['unpolarized_background / lunar_zenith_I'],sun=['unpolarized_background / solar_zenith_I'],mixed=['solar_zenith_I / lunar_zenith_I','unpolarized_background / lunar_zenith_I']),
         fixed_pmax=a.pmax,solar=solar,astronomical_anchor=site['astronomical_anchor'],
         source_lock_sha256=digest(a.reference_lock),stokes_sha256=digest(npz),script_sha256=digest(Path(__file__)),sky_mask_sha256=mask_hash,

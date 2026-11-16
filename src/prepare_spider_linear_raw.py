@@ -1,4 +1,4 @@
-"""Extract linear camera-blue Bayer samples; no rendered RGB or white balance.
+"""Extract linear camera-channel Bayer samples; no rendered RGB or white balance.
 
 Default exposure mapping is museum DSC_5245..DSC_5256, verified against the
 uploaded TIFF XMP. Other datasets require an explicit mapping JSON. This is
@@ -81,6 +81,27 @@ def blue_bayer_plane(mosaic,colors,black_levels,color_desc):
                       dropped_bottom_rows=int(mosaic.shape[0]%2),dropped_right_columns=int(mosaic.shape[1]%2))
 
 
+def green_bayer_plane(mosaic,colors,black_levels,color_desc):
+    """Mean of two individually black-subtracted green sites per Bayer cell."""
+    mosaic=np.asarray(mosaic);colors=np.asarray(colors)
+    if mosaic.ndim!=2 or colors.shape!=(2,2):raise ValueError('Expected visible Bayer mosaic and 2x2 CFA phase')
+    desc=color_desc.decode('ascii') if isinstance(color_desc,bytes) else str(color_desc)
+    positions=[(y,x,int(colors[y,x])) for y in range(2) for x in range(2)
+               if int(colors[y,x])<len(desc) and desc[int(colors[y,x])]=='G']
+    if len(positions)!=2:raise ValueError('Expected two green sites per Bayer cell')
+    h,w=mosaic.shape[0]//2,mosaic.shape[1]//2
+    if min(h,w)<2:raise ValueError('RAW mosaic too small')
+    planes=[mosaic[y:2*h:2,x:2*w:2].astype(np.float32)-float(black_levels[i]) for y,x,i in positions]
+    mean=(planes[0]+planes[1])*.5
+    valid=(planes[0]>0)&(planes[1]>0)
+    ratios=(planes[0][valid]-planes[1][valid])/mean[valid]
+    return mean,dict(green_offsets_yx=[[y,x] for y,x,i in positions],green_color_indices=[i for y,x,i in positions],
+        green_black_levels=[float(black_levels[i]) for y,x,i in positions],
+        green_pair_median_fractional_difference=float(np.median(ratios)) if ratios.size else None,
+        green_pair_p95_absolute_fractional_difference=float(np.percentile(abs(ratios),95)) if ratios.size else None,
+        dropped_bottom_rows=int(mosaic.shape[0]%2),dropped_right_columns=int(mosaic.shape[1]%2))
+
+
 def output_shape(shape,long_edge):
     if long_edge<=0:return tuple(shape)
     ratio=min(1.,long_edge/max(shape))
@@ -91,6 +112,7 @@ def main():
     p=argparse.ArgumentParser(description=__doc__)
     p.add_argument('--raw-dir',type=Path,required=True,help='One folder containing the original NEF or DNG files')
     p.add_argument('--output',type=Path,help='Fresh output directory; originals are read only')
+    p.add_argument('--channel',choices=['blue','green'],default='blue')
     p.add_argument('--inspect',action='store_true',help='Print RAW settings without converting or creating files')
     p.add_argument('--exclude-exposures',type=int,nargs='+',default=[],
         help='Omit specified exposures (1..12); reconstruction groups retain complete quartets only')
@@ -139,9 +161,9 @@ def main():
         p.error('Install numpy rawpy exifread tifffile opencv-python-headless: '+str(exc))
     except (ValueError,KeyError,OSError) as exc:p.error(str(exc))
     a.output.mkdir(parents=True)
-    manifest=dict(schema_version=1,status='linear_raw_blue_prepared_not_registered',
+    manifest=dict(schema_version=1,status='linear_raw_'+a.channel+'_prepared_not_registered',camera_channel=a.channel,
         mapping_origin='explicit_json' if a.mapping else 'museum_TIFF_XMP_DSC_5245_to_DSC_5256',
-        processing=dict(method='visible_Bayer_blue_samples_minus_camera_reported_black',
+        processing=dict(method='visible_Bayer_'+a.channel+'_samples_minus_camera_reported_black',
             units='RAW_digital_counts_above_camera_black',white_balance_applied=False,gamma_applied=False,
             color_matrix_applied=False,display_profile_or_look_applied=False,auto_brightness_applied=False,
             demosaicing_applied=False,negative_values_retained=True,per_frame_brightness_normalization=False,
@@ -151,7 +173,7 @@ def main():
         software=dict(rawpy=rawpy.__version__,numpy=np.__version__,opencv=cv2.__version__,tifffile=tifffile.__version__),
         script_sha256=sha256(__file__),input_shape=None,output_shape=None,frames=[],
         limitations=['Not a full polarimetric instrument calibration.',
-            'Blue Bayer extraction is a single camera channel, not rendered Adobe RGB blue.',
+            'Linear Bayer '+a.channel+' channel; green uses the mean of two individually black-subtracted samples.',
             'New raw decoding/CFA sampling can change pixel geometry; re-register this set.',
             'Do not substitute these files into old checksum-locked registration folders.',
             'Astronomical anchors, theoretical patterns and ALAN settings are not fitted or modified.'])
@@ -161,42 +183,45 @@ def main():
                 mosaic=raw.raw_image_visible
                 if mosaic is None:raise ValueError('No visible Bayer mosaic: '+path.name)
                 colors=raw.raw_colors_visible[:2,:2].copy()
-                plane,info=blue_bayer_plane(mosaic,colors,raw.black_level_per_channel,raw.color_desc)
+                extract=blue_bayer_plane if a.channel=='blue' else green_bayer_plane
+                plane,info=extract(mosaic,colors,raw.black_level_per_channel,raw.color_desc)
                 input_shape=list(mosaic.shape);shape=output_shape(plane.shape,a.long_edge)
                 if manifest['input_shape'] is None:
                     manifest['input_shape']=input_shape;manifest['output_shape']=list(shape)
                 elif input_shape!=manifest['input_shape'] or list(shape)!=manifest['output_shape']:
                     raise ValueError('RAW geometry differs within the set: '+path.name)
                 if manifest['frames'] and (colors.tolist()!=manifest['frames'][0]['cfa_visible_2x2']
-                    or info['blue_offset_yx']!=manifest['frames'][0]['blue_offset_yx']):
+                    or info.get('blue_offset_yx',info.get('green_offsets_yx'))!=manifest['frames'][0].get('blue_offset_yx',manifest['frames'][0].get('green_offsets_yx'))):
                     raise ValueError('Visible CFA phase differs within the set: '+path.name)
-                oy,ox=info['blue_offset_yx'];h,w=plane.shape
+                offsets=[info['blue_offset_yx']] if a.channel=='blue' else info['green_offsets_yx'];h,w=plane.shape
                 white=float(raw.white_level)
-                saturation_fraction=float(np.mean(mosaic[oy:2*h:2,ox:2*w:2]>=white))
+                saturated=[float(np.mean(mosaic[oy:2*h:2,ox:2*w:2]>=white)) for oy,ox in offsets]
+                saturation_fraction=float(np.mean(saturated))
                 if plane.shape!=shape:plane=cv2.resize(plane,(shape[1],shape[0]),interpolation=cv2.INTER_AREA)
                 output=a.output/f"{record['exposure']}.tif"
-                description=json.dumps(dict(kind='linear_raw_camera_blue',channel=None,
+                description=json.dumps(dict(kind='linear_raw_camera_'+a.channel,channel=None,
                     datetime_original=metadata['datetime_original'],source_file=path.name,
-                    camera_blue_color_index=info['blue_color_index'],no_display_encoding=True))
+                    camera_channel=a.channel,no_display_encoding=True))
                 tifffile.imwrite(output,plane.astype(np.float32),photometric='minisblack',
                     compression='zlib',metadata=None,description=description)
                 frame=dict(exposure=record['exposure'],source_path=str(path.resolve()),source_sha256=sha256(path),
                     output_path=str(output.resolve()),output_sha256=sha256(output),channel=None,
-                    dtype='float32',raw_white_level=white,raw_blue_saturated_fraction=saturation_fraction,
+                    dtype='float32',raw_white_level=white,raw_channel_saturated_fraction=saturation_fraction,raw_sample_saturated_fractions=saturated,
                     cfa_visible_2x2=colors.tolist(),black_level_per_channel=list(raw.black_level_per_channel),
                     color_desc=raw.color_desc.decode('ascii'),**metadata,**info)
                 manifest['frames'].append(frame)
                 (a.output/'linear_raw_manifest.json').write_text(json.dumps(manifest,indent=2)+'\n')
                 print(f"{ordinal:2d}/{len(prepared)} {path.name} -> {output.name}; exposure {record['exposure']}; shape {plane.shape}",flush=True)
-        manifest['status']='linear_raw_blue_prepared_not_registered_complete'
+        manifest['status']='linear_raw_'+a.channel+'_prepared_not_registered_complete'
         (a.output/'linear_raw_manifest.json').write_text(json.dumps(manifest,indent=2)+'\n')
     except Exception as exc:
         manifest['status']='conversion_incomplete';manifest['error']=str(exc)
         (a.output/'linear_raw_manifest.json').write_text(json.dumps(manifest,indent=2)+'\n')
         raise
-    print(f'Prepared {len(prepared)} linear camera-blue TIFFs and linear_raw_manifest.json. Complete quartets: {complete_groups}. Re-registration is required.')
+    print(f'Prepared {len(prepared)} linear camera-{a.channel} TIFFs and linear_raw_manifest.json. Complete quartets: {complete_groups}. Re-registration is required.')
 
 
 if __name__=='__main__':main()
+
 
 
