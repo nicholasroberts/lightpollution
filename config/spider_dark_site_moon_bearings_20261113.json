@@ -1,9 +1,24 @@
 {
-  "status": "VISUAL_BEARING_ESTIMATES_FROM_UPLOADED_INTENSITY_OVERLAY",
-  "source": "Investigator-uploaded moon_ephemeris_anchors(1).png, 2026-11-13",
+  "status": "INVESTIGATOR_CORRECTED_SKILLINGE_BEARING_20261116",
+  "source": "Investigator 2026-11-16: Skillinge prior bright source is streetlight; Moon bearing is 180deg opposite",
   "method": "Approximate visible bright-source positions in original pixel axes; used for bearing only. Ephemeris elevation determines radial source position.",
   "sites": {
-    "Skillinge": {"candidate_pixel_xy": [650.0, 1135.0], "approximate_pixel_uncertainty": 25.0, "note": "Lower-left bright source, replacing automatic upper-left skyline edge"},
-    "slabhouse": {"candidate_pixel_xy": [1570.0, 600.0], "approximate_pixel_uncertainty": 25.0, "note": "Bright source at right, replacing automatic edge above it"}
+    "Skillinge": {
+      "candidate_pixel_xy": [
+        650.0,
+        1135.0
+      ],
+      "approximate_pixel_uncertainty": 25.0,
+      "note": "Input point [650,1135] is the REJECTED streetlight; rotate its bearing 180deg around saved camera centre, retain ephemeris elevation",
+      "bearing_rotation_deg": 180.0
+    },
+    "slabhouse": {
+      "candidate_pixel_xy": [
+        1570.0,
+        600.0
+      ],
+      "approximate_pixel_uncertainty": 25.0,
+      "note": "Bright source at right, replacing automatic edge above it"
+    }
   }
 }
