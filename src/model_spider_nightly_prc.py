@@ -107,6 +107,7 @@ def main():
     p.add_argument('--atmospheric-factors',type=float,nargs='+',default=[1.,.8,.6])
     p.add_argument('--alan-ratios',type=float,nargs='+',default=[0.,.5,1.,3.])
     p.add_argument('--tilts',type=float,nargs='+',default=[0.]);p.add_argument('--step-minutes',type=int,default=20)
+    p.add_argument('--sites',nargs='+',help='Site names in anchors/reference; default Cottage and Oxford')
     p.add_argument('--heading-step',type=int,default=10);p.add_argument('--samples',type=int,default=1024)
     p.add_argument('--neutral-separation-deg',type=float,default=10.)
     p.add_argument('--natural-dop-law',choices=NATURAL_DOP_LAWS,default='rayleigh_normalized')
@@ -128,9 +129,15 @@ def main():
         if args.brightness_model!='ks91':p.error('Common site reference requires KS91')
         ca=anchors[site_config['normalization_site']];cp,cd=lunar_phase_distance([ca['utc']])
         common_reference=float(ks91_brightness(0.,ca['moon_elevation_deg'],np.deg2rad(90-ca['moon_elevation_deg']),float(cp[0]),args.extinction_v,float(cd[0])))
+    selected_sites=args.sites or ['Cottage','oxfordbussinesspark']
+    if len(set(selected_sites))!=len(selected_sites):p.error('Duplicate sites')
+    for site in selected_sites:
+        if site not in anchors or anchors[site]['site_id'] not in refs:p.error('Missing anchor/reference for '+site)
+        if site_config and site not in site_config['alan_scale_by_site']:p.error('Missing ALAN scale for '+site)
     headings=np.arange(0,360,args.heading_step);rows=[];summaries=[];tracks=[]
     args.output.mkdir(parents=True)
-    for site in ['Cottage','oxfordbussinesspark']:
+    for site in selected_sites:
+        site_record_start=len(rows)
         anchor=anchors[site];ref=refs[anchor['site_id']]
         stamps,elevations,azimuths,sun=night_track(anchor,float(ref['latitude']),float(ref['longitude']),args.step_minutes)
         phases,distances=lunar_phase_distance([t.isoformat() for t in stamps])
@@ -196,7 +203,7 @@ def main():
                 line,=ax.plot(hours,median,label=f'ALAN {alan:g}');ax.fill_between(hours,lo,hi,color=line.get_color(),alpha=.12)
             ax.set(title=f'Tilt {tilt:g}deg; atmospheric factor {args.atmospheric_factors[0]:g}',ylabel='Absolute PRC');format_time_axis(ax,zone);ax.legend()
         fig.suptitle(f'{site}; {source_label}: {args.natural_dop_law}; median and min–max over headings (scenario, not confidence interval)');fig.tight_layout(rect=[0,0,1,.95]);fig.savefig(args.output/f'{site}_prc_ranges.png',dpi=140);plt.close(fig)
-        tracks.append(dict(site=site,anchor=anchor,reference=ref,alan_multiplier_relative_to_capture_zenith=alan_multiplier,capture_zenith_moon_brightness_nL=reference_brightness if args.brightness_model=='ks91' else None,valid_moonlit_night_samples=int(np.sum((sun<-6)&(elevations>.1)&(elevations<89.9)))))
+        tracks.append(dict(site=site,heading_records=len(rows)-site_record_start,anchor=anchor,reference=ref,alan_multiplier_relative_to_capture_zenith=alan_multiplier,capture_zenith_moon_brightness_nL=reference_brightness if args.brightness_model=='ks91' else None,valid_moonlit_night_samples=int(np.sum((sun<-6)&(elevations>.1)&(elevations<89.9)))))
     for name,records in [('heading_responses.csv',rows),('prc_ranges.csv',summaries)]:
         if records:
             with (args.output/name).open('w',newline='') as f:
