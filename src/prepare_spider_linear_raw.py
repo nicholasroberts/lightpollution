@@ -90,12 +90,14 @@ def output_shape(shape,long_edge):
 def main():
     p=argparse.ArgumentParser(description=__doc__)
     p.add_argument('--raw-dir',type=Path,required=True,help='One folder containing the original NEF or DNG files')
-    p.add_argument('--output',type=Path,required=True,help='Fresh output directory; originals are read only')
+    p.add_argument('--output',type=Path,help='Fresh output directory; originals are read only')
+    p.add_argument('--inspect',action='store_true',help='Print RAW settings without converting or creating files')
     p.add_argument('--raw-kind',choices=['auto','nef','dng'],default='auto',help='auto prefers NEF if both formats exist')
     p.add_argument('--mapping',type=Path,help='JSON list of {exposure,stem,datetime_original}; default is the verified museum mapping')
     p.add_argument('--long-edge',type=int,default=2000,help='Common area-downsampled long edge; 0 retains the blue Bayer grid')
     a=p.parse_args()
-    if a.output.exists():p.error('Use a fresh output directory')
+    if not a.inspect and a.output is None:p.error('--output is required unless --inspect is used')
+    if not a.inspect and a.output.exists():p.error('Use a fresh output directory')
     if not a.raw_dir.is_dir():p.error('RAW folder not found')
     if a.long_edge<0:p.error('--long-edge must be nonnegative')
     mapping=json.loads(a.mapping.read_text()) if a.mapping else MUSEUM_MAPPING
@@ -103,7 +105,6 @@ def main():
         p.error('Mapping must contain exactly exposures 1..12')
     mapping=sorted(mapping,key=lambda r:r['exposure'])
     try:
-        import rawpy,cv2,tifffile
         sources=select_sources(a.raw_dir,mapping,a.raw_kind)
         prepared=[]
         for record,path in sources:
@@ -111,12 +112,20 @@ def main():
             if metadata['datetime_original']!=record['datetime_original']:
                 raise ValueError('RAW capture timestamp differs from mapped TIFF: '+path.name)
             prepared.append((record,path,metadata))
+        print('Exposure  File                  Time                 Seconds       ISO       f-number',flush=True)
+        for record,path,metadata in prepared:
+            print(f"{record['exposure']:8d}  {path.name:20s}  {metadata['datetime_original']:19s}  "
+                  f"{metadata['exposure_seconds']:10g}  {metadata['iso']:8g}  {metadata['f_number']:8g}",flush=True)
+        if a.inspect:return
+        import rawpy,cv2,tifffile
         first=prepared[0][2]
+        differences=[]
         for _,path,metadata in prepared[1:]:
-            if any(not np.isclose(metadata[k],first[k],rtol=0,atol=1e-8)
-                   for k in ('iso','exposure_seconds','f_number')):
-                raise ValueError('Exposure/ISO/aperture changes within the set: '+path.name)
+            changed=[f"{k}: {first[k]:g} -> {metadata[k]:g}" for k in ('iso','exposure_seconds','f_number')
+                     if not np.isclose(metadata[k],first[k],rtol=0,atol=1e-8)]
+            if changed:differences.append(path.name+' ('+', '.join(changed)+')')
             if metadata['model']!=first['model']:raise ValueError('Camera model changes within the set')
+        if differences:raise ValueError('Exposure settings differ from '+prepared[0][1].name+': '+'; '.join(differences))
     except ImportError as exc:
         p.error('Install numpy rawpy exifread tifffile opencv-python-headless: '+str(exc))
     except (ValueError,KeyError,OSError) as exc:p.error(str(exc))
@@ -179,3 +188,4 @@ def main():
 
 
 if __name__=='__main__':main()
+
