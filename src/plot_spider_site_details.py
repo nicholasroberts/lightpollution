@@ -45,6 +45,7 @@ def main():
     p.add_argument('--output',type=Path,required=True)
     p.add_argument('--alan-level',type=float,default=5.)
     p.add_argument('--atmospheric-factor',type=float,default=.8)
+    p.add_argument('--use-saved-bearings',action='store_true',help='Opt in to saved candidate image bearings; these are not independently verified by this script')
     a=p.parse_args()
     if a.output.exists():p.error('Use a fresh output directory')
     sources=['hps','led'];provs={s:json.loads((a.run/s/'provenance.json').read_text()) for s in sources}
@@ -100,12 +101,12 @@ def main():
             for s in sources:
                 snapshots[s],g=sky_dop_snapshot(provs[s],spectra[s][0],site,a.atmospheric_factor,a.alan_level)
                 if geometry is None:geometry=g
-            aligned=anchor.get('candidate_pixel_xy') is not None
+            aligned=a.use_saved_bearings and anchor.get('candidate_pixel_xy') is not None
             observed=None;obsmeta={};obsstatus='unavailable'
             try:
                 if aligned:observed,obsmeta=measured_north_up(a.batch,site,geometry)
                 else:observed,obsmeta=measured_camera_frame(a.batch,site)
-                obsstatus='north-up using reviewed anchor' if aligned else 'camera frame; north unknown'
+                obsstatus='saved bearing; orientation provisional' if aligned else 'camera frame; north unknown'
             except (FileNotFoundError,ValueError,KeyError) as exc:
                 obsmeta={'reason':str(exc)};obsstatus='unavailable: '+str(exc)
             panels=[('Measured camera DoLP',observed),('Natural only',snapshots['hps'][0]),('Natural + HPS',snapshots['hps'][1]),('Natural + LED',snapshots['led'][1])]
