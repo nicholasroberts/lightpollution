@@ -2,7 +2,7 @@ import sys,unittest
 from pathlib import Path
 sys.path.insert(0,str(Path(__file__).resolve().parents[1]/'src'))
 import numpy as np
-from fit_spider_twilight_moon import component,mixture,fit_model,errors
+from fit_spider_twilight_moon import component,mixture,fit_model,errors,moon_plane_reflection
 from audit_spider_lunar_aop import rays,fixed_moon_in_camera
 
 class MixtureTest(unittest.TestCase):
@@ -20,6 +20,25 @@ class MixtureTest(unittest.TestCase):
         for kind in ['moon','sun']:
             _,I,Z=fit_model(obs,moon,sun,train,kind)
             self.assertGreater(errors(obs,abs(Z)/I,test)['rmse'],.01)
+    def test_moon_anchor_preserved_under_both_parities(self):
+        from lock_spider_site_registration import north_rotation
+        c=np.array([100.,80.]);pixel=np.array([43.,75.]);az=187.15
+        matrix,_=north_rotation(c,pixel,az);R=matrix[:,:2]
+        F=moon_plane_reflection(c,pixel)
+        np.testing.assert_allclose(F@F,np.eye(2),atol=1e-12)
+        self.assertAlmostEqual(np.linalg.det(F),-1)
+        np.testing.assert_allclose(R@(pixel-c),R@F@(pixel-c),atol=1e-12)
+        target=np.deg2rad(az-90)
+        bearing=R@(pixel-c)
+        self.assertAlmostEqual(np.arctan2(bearing[1],bearing[0]),target)
+        for A in [0.,90.,180.,270.,319.08]:
+            n=np.array([np.sin(np.deg2rad(A)),-np.cos(np.deg2rad(A))])
+            for T in [R,R@F]:
+                np.testing.assert_allclose(T@(T.T@n),n,atol=1e-12)
+        # Wrong parity retains Moon but changes Sun location in the camera.
+        sun=np.array([np.sin(np.deg2rad(319.08)),-np.cos(np.deg2rad(319.08))])
+        self.assertGreater(np.linalg.norm(R.T@sun-F@R.T@sun),1)
+
     def test_stokes_addition_cancels_orthogonal_components(self):
         I,z=mixture((np.array([1.]),np.array([.4+0j])),(np.array([1.]),np.array([-.4+0j])),1,0)
         np.testing.assert_allclose(I,[2]);np.testing.assert_allclose(z,[0])

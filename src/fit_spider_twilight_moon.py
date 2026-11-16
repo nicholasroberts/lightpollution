@@ -12,6 +12,14 @@ from audit_spider_lunar_aop import (digest,block_mean,rays,lunar_phase,
 from lock_spider_site_registration import north_rotation
 
 
+def moon_plane_reflection(center,moon_pixel):
+    """Orthogonal reflection about observed Moon/zenith meridian, not a fit."""
+    u=np.asarray(moon_pixel,dtype=float)-center
+    if np.linalg.norm(u)<1:raise ValueError('Moon too close to zenith to anchor handedness')
+    u=u/np.linalg.norm(u)
+    return 2*np.outer(u,u)-np.eye(2)
+
+
 def component(view,source,pmax):
     """Rayleigh-shaped intensity and complex linear polarization, zenith I=1.
 
@@ -58,6 +66,7 @@ def main():
     p=argparse.ArgumentParser(description=__doc__)
     p.add_argument('--reference-lock',type=Path,required=True)
     p.add_argument('--site',default='museum')
+    p.add_argument('--handedness',choices=['original','reversed'],default='original',help='Explicit camera parity hypothesis; no automatic selection')
     p.add_argument('--reference',type=Path,default=Path(__file__).resolve().parents[1]/'data/reference/prc_spider_18_sites_verified.csv')
     p.add_argument('--output',type=Path,required=True)
     p.add_argument('--bin-size',type=int,default=8)
@@ -82,11 +91,16 @@ def main():
     observed_moon=np.asarray(site['moon_pixel_xy'])
     north_matrix,north_angle=north_rotation(c,observed_moon,site['astronomical_anchor']['moon_compass_azimuth_deg'])
     if not np.allclose(north_matrix,site['camera_to_north_xy'],atol=1e-6):p.error('Saved north rotation disagrees with locked observed Moon; audit registration lock first')
-    north_xy=np.stack([x,y],axis=-1)@north_matrix[:,:2].T+north_matrix[:,2]
-    north_moon=north_matrix[:,:2]@observed_moon+north_matrix[:,2]
     view=rays(np.stack([x,y],axis=-1),c,r)
     m=fixed_moon_in_camera(site['astronomical_anchor'],site['camera_to_north_xy'])
     s,solar=solar_geometry(site['astronomical_anchor'],a.site,a.reference,site['camera_to_north_xy'])
+    if a.handedness=='reversed':
+        reflection=moon_plane_reflection(c,observed_moon)
+        m=np.r_[reflection@m[:2],m[2]];s=np.r_[reflection@s[:2],s[2]]
+        rotation=north_matrix[:,:2]@reflection
+        north_matrix=np.column_stack([rotation,c-rotation@c])
+    north_xy=np.stack([x,y],axis=-1)@north_matrix[:,:2].T+north_matrix[:,2]
+    north_moon=north_matrix[:,:2]@observed_moon+north_matrix[:,2]
     moon=component(view,m,a.pmax);sun=component(view,s,a.pmax)
     with np.errstate(divide='ignore',invalid='ignore'):
         obs=np.hypot(Q,U)/I;phase=(Q+1j*U)/np.hypot(Q,U)
@@ -131,11 +145,11 @@ def main():
             ax.plot(north_predicted_moon[0],north_predicted_moon[1],'+',color='red',ms=6,mew=1.2)
             ax.text(.03,.95,'N ↑',transform=ax.transAxes,fontsize=10)
             ax.text(.88,.5,'E →',transform=ax.transAxes,fontsize=8)
-    fig.suptitle(a.site+': shared Moon-anchored north-up frame; fixed Sun/Moon geometry\nBlack ×: locked observed Moon; red +: astronomical Moon under provisional zenith-axis projection.\nOne common display rotation; no rotation fitted to polarization. Outside mask is extrapolation.',fontsize=11)
+    fig.suptitle(a.site+'; handedness hypothesis: '+a.handedness+'; shared Moon-anchored north-up frame; fixed Sun/Moon geometry\nBlack ×: locked observed Moon; red +: astronomical Moon under provisional zenith-axis projection.\nOne common coordinate transform; no rotation fitted to polarization. Outside mask is extrapolation.',fontsize=11)
     fig.savefig(a.output/'twilight_moon_fit.png',dpi=150);plt.close(fig)
     np.savez_compressed(a.output/'twilight_moon_fit_arrays.npz',measured_dolp=obs,train=train,withheld=test,
         moon_dolp=arrays['moon'][2],sun_dolp=arrays['sun'][2],mixed_dolp=arrays['mixed'][2],mixed_I=arrays['mixed'][0],mixed_Q=arrays['mixed'][1].real,mixed_U=arrays['mixed'][1].imag)
-    report=dict(display_frame='shared Moon-anchored north up; east right; no reflection',display_camera_to_north_xy=north_matrix.tolist(),display_rotation_clockwise_deg=north_angle,observed_moon_north_xy=north_moon.tolist(),predicted_moon_north_xy=north_predicted_moon.tolist(),moon_pixel_separation=float(np.linalg.norm(observed_moon-predicted_moon)),site=a.site,status='exploratory_fit_not_production_model',models=models,
+    report=dict(handedness_hypothesis=a.handedness,coordinate_transform_determinant=float(np.linalg.det(north_matrix[:,:2])),reflection_hypothesis_applied=a.handedness=='reversed',display_frame='shared Moon-anchored north up; east right under stated parity hypothesis',display_camera_to_north_xy=north_matrix.tolist(),display_rotation_clockwise_deg=north_angle,observed_moon_north_xy=north_moon.tolist(),predicted_moon_north_xy=north_predicted_moon.tolist(),moon_pixel_separation=float(np.linalg.norm(observed_moon-predicted_moon)),site=a.site,status='exploratory_fit_not_production_model',models=models,
         parameter_definitions=dict(moon=['unpolarized_background / lunar_zenith_I'],sun=['unpolarized_background / solar_zenith_I'],mixed=['solar_zenith_I / lunar_zenith_I','unpolarized_background / lunar_zenith_I']),
         fixed_pmax=a.pmax,solar=solar,astronomical_anchor=site['astronomical_anchor'],
         source_lock_sha256=digest(a.reference_lock),stokes_sha256=digest(npz),script_sha256=digest(Path(__file__)),sky_mask_sha256=mask_hash,
