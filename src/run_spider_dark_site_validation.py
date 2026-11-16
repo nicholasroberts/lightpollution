@@ -8,7 +8,7 @@ import numpy as np
 ROOT=Path(__file__).resolve().parents[1]
 
 
-def corrected_anchors(sources,overrides):
+def corrected_anchors(sources,overrides,centers=None):
     merged={}
     for source in sources:
         for site,anchor in source['sites'].items():
@@ -19,12 +19,45 @@ def corrected_anchors(sources,overrides):
         point=np.asarray(override['candidate_pixel_xy'],dtype=float)
         if point.shape!=(2,) or not np.all(np.isfinite(point)):raise ValueError('Finite x,y coordinates required')
         anchor=merged[site]
+        if override.get('bearing_rotation_deg',0):
+            if centers is None or site not in centers:raise ValueError('Saved camera centre required for bearing rotation')
+            point=rotate_point(point,centers[site],override['bearing_rotation_deg'])
         anchor['previous_candidate_pixel_xy']=anchor['candidate_pixel_xy']
         anchor['candidate_pixel_xy']=point.tolist()
         anchor['bearing_override']=dict(override,source=overrides['source'],status=overrides['status'])
         anchor['flags']=[f for f in anchor.get('flags',[]) if not f.startswith('Ring-constrained brightness candidate:')]
         anchor['flags'].append('Approximate visible-source bearing from uploaded intensity overlay; centroid and camera tilt remain uncertain')
     return dict(sites=merged,status='EPHEMERIS_ELEVATION_WITH_EXPLICIT_VISUAL_BEARING_OVERRIDES')
+
+
+def rotate_point(point,center,degrees):
+    angle=np.deg2rad(float(degrees));c=np.cos(angle);s=np.sin(angle)
+    return np.asarray(center)+np.array([[c,-s],[s,c]])@(np.asarray(point)-np.asarray(center))
+
+
+def profile_fwhm(x,y):
+    """Zero-baseline half maximum around main peak; no extrapolation/smoothing."""
+    x=np.asarray(x,dtype=float);y=np.asarray(y,dtype=float)
+    if len(x)<3 or x.shape!=y.shape or np.any(~np.isfinite(x)) or np.any(~np.isfinite(y)) or np.any(np.diff(x)<=0) or np.any(y<0) or np.max(y)<=0:
+        return dict(status='invalid_or_insufficient_profile',fwhm_deg=None)
+    peak=int(np.argmax(y));half=y[peak]/2;left=right=None
+    for j in range(peak-1,-1,-1):
+        if y[j]<=half:
+            if x[j+1]-x[j]<=15:left=float(x[j]+(half-y[j])*(x[j+1]-x[j])/(y[j+1]-y[j]))
+            break
+    for j in range(peak+1,len(x)):
+        if y[j]<=half:
+            if x[j]-x[j-1]<=15:right=float(x[j-1]+(half-y[j-1])*(x[j]-x[j-1])/(y[j]-y[j-1]))
+            break
+    complete=left is not None and right is not None
+    return dict(status='complete' if complete else 'crossing_not_resolved_in_sampled_support',
+        peak_deg=float(x[peak]),peak_value=float(y[peak]),half_maximum=float(half),
+        left_crossing_deg=left,right_crossing_deg=right,
+        left_hwhm_deg=float(x[peak]-left) if left is not None else None,
+        right_hwhm_deg=float(right-x[peak]) if right is not None else None,
+        fwhm_deg=float(right-left) if complete else None,
+        sampled_support_deg=[float(x[0]),float(x[-1])],
+        note='Binned means; linear crossing interpolation, no baseline subtraction, no confidence interval; absent crossings are not extrapolated')
 
 
 def main():
@@ -46,7 +79,9 @@ def main():
     frozen=json.loads(a.fixed_offset_audit.read_text())
     if 'neutral_separation_deg' in frozen:
         if frozen['neutral_separation_deg']!=a.neutral_separation_deg:p.error('Neutral separation differs from frozen audit')
-    payload=corrected_anchors([json.loads(f.read_text()) for f in a.moon_anchors],json.loads(a.bearing_overrides.read_text()))
+    sources=[json.loads(f.read_text()) for f in a.moon_anchors]
+    centers={site:json.loads((a.batch/site/'registration/rotation_analysis.json').read_text())['reference_center_xy_px'] for source in sources for site in source['sites']}
+    payload=corrected_anchors(sources,json.loads(a.bearing_overrides.read_text()),centers)
     required=['Cottage','oxfordbussinesspark','Skillinge','slabhouse']
     if any(site not in payload['sites'] for site in required):p.error('All four sites require saved ephemeris anchors')
     # Verify provenance and pixel bounds BEFORE creating output or running audit.
@@ -93,11 +128,22 @@ def main():
         ax.legend(fontsize=8)
     fig.suptitle('Three comparison sites: prescribed atmospheric factors; original measured radiances retained\n'+('Conditional supplied camera-band ALAN ratios' if ratios else 'Natural-only curves; ALAN unspecified, not assumed absent from measurements'))
     fig.savefig(a.output/'three_site_dop_comparison.png',dpi=170);plt.close(fig)
+    widths={};fig,axes=plt.subplots(1,3,figsize=(15,4),layout='constrained')
+    for ax,site in zip(axes,['Cottage','Skillinge','slabhouse']):
+        rows=[r for r in profile if r['site']==site]
+        angle=np.array([float(r['moon_separation_deg']) for r in rows]);measured=np.array([float(r['measured_dop']) for r in rows]);natural=np.array([float(r['natural_eta1_dop']) for r in rows])
+        widths[site]={'measured':profile_fwhm(angle,measured),'natural':profile_fwhm(angle,natural)}
+        for values,label,color in [(measured,'Measured','black'),(natural,'Natural model','tab:blue')]:
+            if len(values) and max(values)>0:ax.plot(angle,values/max(values),label=label,color=color)
+        ax.axhline(.5,color='gray',ls='--');ax.set(xlabel='Moon separation (deg)',ylabel='Peak-normalized DoLP',ylim=(0,1.05),title=site);ax.legend()
+    fig.suptitle('Band width independent of uniform amplitude scaling; dashed = half maximum')
+    fig.savefig(a.output/'three_site_normalized_profiles.png',dpi=170);plt.close(fig)
+    (a.output/'profile_widths.json').write_text(json.dumps(widths,indent=2,allow_nan=False)+'\n')
     audit=json.loads((a.output/'audit/convention_and_atmosphere_audit.json').read_text())
     summary=dict(status='FOUR_SITE_CAMERA_CONVENTION_AND_DOP_AUDIT',selected_convention='conjugate',fixed_offset_deg=audit['common_offsets_deg']['conjugate'],
         aop={s:audit['aop_metrics'][s]['conjugate'] for s in required},radiances={s:float(inventory[s]['radiance_mean']) for s in required},
         source_bearing_uncertainty='Skillinge/slabhouse approximate +/-25 raw pixels from visual overlay; review corrected_moon_review.png',
-        physical_model_basis_changed=False,atmospheric_factors_fitted=False,alan_inferred_from_radiance=False,
+        profile_widths=widths,physical_model_basis_changed=False,atmospheric_factors_fitted=False,alan_inferred_from_radiance=False,
         input_sha256={str(path):hashlib.sha256(path.read_bytes()).hexdigest() for path in [*a.moon_anchors,a.fixed_offset_audit,a.bearing_overrides]},command=cmd)
     (a.output/'summary.json').write_text(json.dumps(summary,indent=2,allow_nan=False)+'\n')
     print('Complete:',a.output/'summary.json')
