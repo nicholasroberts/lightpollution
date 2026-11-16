@@ -1,5 +1,7 @@
 # Museum registration audit — 16 November 2026
 
+> Radiometry update: the rendered TIFFs contain changing white balance, Adobe Color look processing and gamma encoding. Their reconstructed DoLP is not validated as linear-camera polarimetry. See [museum_radiometry_2026-11-16.md](museum_radiometry_2026-11-16.md). The geometric registration results below do not validate the DoLP values.
+
 The whole camera was rotated with the polarizer fixed, with three exposures at each nominal angle. The supplied Sigma 8 mm f/3.5 EX DG images have the same dimensions (2000 × 1333). First and last original capture times are 14 May 2019 22:09:51 and 22:14:10 local. Input 1 is the fixed reference; originals are unchanged.
 
 ## Implemented refinement
