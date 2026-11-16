@@ -1,6 +1,6 @@
 """Nightly fixed-body-field PRC scenarios; not fitted ALAN or absolute lunar brightness.
 
-Uses Berry-normalized geometry + Wang horizon factor. Spectral input columns:
+Uses the selected normalized natural DoLP law + Wang horizon factor; retains the previous Berry envelope as an explicit option. Spectral input columns:
 wavelength_nm,natural,alan,sensitivity; optional dop_scale,abs_parallel,abs_perpendicular.
 Natural/ALAN spectra normalized to unit unweighted band integral separately.
 ALAN ratios are radiometric band-integral ratios, not VIIRS radiance or lux.
@@ -14,7 +14,7 @@ from scipy.integrate import trapezoid
 import matplotlib
 matplotlib.use('Agg')
 import matplotlib.pyplot as plt
-from wang2016_sky import berry_normalized_pattern,horizon_factor
+from spider_natural_polarization import natural_fractional_polarization,NATURAL_DOP_LAWS
 from reconstruct_spider_eye_contrast import digest
 from spider_spectral_lunar import ks91_brightness,lunar_phase_distance
 ROOT=Path(__file__).resolve().parents[1]
@@ -57,12 +57,11 @@ def body_field(heading_deg,tilt_deg,samples=1024):
     return rays,transported
 
 
-def integrated_pattern(rays,analyzer,moon_elevation,moon_azimuth,separation,weights=None):
+def integrated_pattern(rays,analyzer,moon_elevation,moon_azimuth,separation,weights=None,natural_dop_law='rayleigh_normalized'):
     if np.any(rays[:,2]<-1e-12):raise ValueError('FOV extends below horizon; choose tilt <=60deg')
     theta=np.arccos(np.clip(rays[:,2],-1,1));phi=np.arctan2(rays[:,1],rays[:,0])
     # Model phi is mathematical azimuth from east towards north.
-    w=berry_normalized_pattern(theta,phi,np.deg2rad(90-moon_elevation),np.deg2rad(90-moon_azimuth),separation)
-    w=w*horizon_factor(theta)
+    w=natural_fractional_polarization(theta,phi,np.deg2rad(90-moon_elevation),np.deg2rad(90-moon_azimuth),separation,natural_dop_law)
     et=np.column_stack([np.cos(theta)*np.cos(phi),np.cos(theta)*np.sin(phi),-np.sin(theta)])
     ep=np.column_stack([-np.sin(phi),np.cos(phi),np.zeros_like(phi)])
     ex=np.cos(phi)[:,None]*et-np.sin(phi)[:,None]*ep
@@ -108,10 +107,12 @@ def main():
     p.add_argument('--alan-ratios',type=float,nargs='+',default=[0.,.5,1.,3.])
     p.add_argument('--tilts',type=float,nargs='+',default=[0.]);p.add_argument('--step-minutes',type=int,default=20)
     p.add_argument('--heading-step',type=int,default=10);p.add_argument('--samples',type=int,default=1024)
-    p.add_argument('--neutral-separation-deg',type=float,default=24.)
+    p.add_argument('--neutral-separation-deg',type=float,default=10.)
+    p.add_argument('--natural-dop-law',choices=NATURAL_DOP_LAWS,default='rayleigh_normalized')
     args=p.parse_args()
     if not np.isfinite(args.extinction_v) or args.extinction_v<=0:p.error('Positive extinction required')
     if args.output.exists():p.error('Use fresh output directory')
+    if not np.isfinite(args.neutral_separation_deg) or not 0<args.neutral_separation_deg<90:p.error('Neutral separation must be finite and in (0,90)')
     if not np.isfinite(args.prc_colour_limit) or args.prc_colour_limit<=0:p.error('Colour limit must be positive and finite')
     if not 0<args.step_minutes<=120 or not 0<args.heading_step<=90 or args.samples<64:p.error('Invalid sampling')
     if any(not np.isfinite(x) or not 0<=x<=1 for x in args.atmospheric_factors):p.error('Atmospheric factors must be in [0,1]')
@@ -151,7 +152,7 @@ def main():
                         if rho.min()<np.deg2rad(10):continue
                         weights=ks91_brightness(np.arccos(np.clip(rays[:,2],0,1)),el,rho,float(phases[it]),args.extinction_v,float(distances[it]))/reference_brightness
                     natural[ih,it]=float(np.mean(weights))
-                    base[ih,it]=integrated_pattern(rays,analyzer,el,az,args.neutral_separation_deg,weights)
+                    base[ih,it]=integrated_pattern(rays,analyzer,el,az,args.neutral_separation_deg,weights,args.natural_dop_law)
             for atmosphere in args.atmospheric_factors:
                 for alan in args.alan_ratios:
                     matrix=np.full_like(base,np.nan)
@@ -180,7 +181,7 @@ def main():
             color_axis=fig.add_axes([.89,.2,.015,.6])
             fig.colorbar(art,cax=color_axis,label='Signed eye log contrast')
             band='' if args.spectra is None else f"; {spectral_info['wavelength_range_nm'][0]:g}–{spectral_info['wavelength_range_nm'][1]:g} nm input"
-            fig.suptitle(f'{site}: {args.brightness_model} brightness; atmospheric factor {atmosphere:g}'+band+'\nForward scenario; fixed 60deg full field; gray = excluded geometry/daylight',fontsize=11)
+            fig.suptitle(f'{site}: {args.natural_dop_law}; {args.brightness_model} brightness; atmospheric factor {atmosphere:g}'+band+'\nForward scenario; fixed 60deg full field; gray = excluded geometry/daylight',fontsize=11)
             
             fig.savefig(args.output/f'{site}_atmosphere_{atmosphere:g}_heading.png',dpi=140);plt.close(fig)
         fig,axes=plt.subplots(len(args.tilts),1,figsize=(11,max(4.5,3*len(args.tilts))),squeeze=False)
@@ -191,14 +192,15 @@ def main():
                 if valid.any():median[valid]=np.median(m[:,valid],axis=0);lo[valid]=np.min(m[:,valid],axis=0);hi[valid]=np.max(m[:,valid],axis=0)
                 line,=ax.plot(hours,median,label=f'ALAN {alan:g}');ax.fill_between(hours,lo,hi,color=line.get_color(),alpha=.12)
             ax.set(title=f'Tilt {tilt:g}deg; atmospheric factor {args.atmospheric_factors[0]:g}',xlabel='Local hour (24 = midnight)',ylabel='Absolute PRC');ax.legend()
-        fig.suptitle(f'{site}: median and min–max over sampled headings (scenario, not confidence interval)');fig.tight_layout(rect=[0,0,1,.95]);fig.savefig(args.output/f'{site}_prc_ranges.png',dpi=140);plt.close(fig)
+        fig.suptitle(f'{site}: {args.natural_dop_law}; median and min–max over headings (scenario, not confidence interval)');fig.tight_layout(rect=[0,0,1,.95]);fig.savefig(args.output/f'{site}_prc_ranges.png',dpi=140);plt.close(fig)
         tracks.append(dict(site=site,anchor=anchor,reference=ref,alan_multiplier_relative_to_capture_zenith=alan_multiplier,capture_zenith_moon_brightness_nL=reference_brightness if args.brightness_model=='ks91' else None,valid_moonlit_night_samples=int(np.sum((sun<-6)&(elevations>.1)&(elevations<89.9)))))
     for name,records in [('heading_responses.csv',rows),('prc_ranges.csv',summaries)]:
         if records:
             with (args.output/name).open('w',newline='') as f:
                 writer=csv.DictWriter(f,fieldnames=records[0]);writer.writeheader();writer.writerows(records)
-    payload=dict(status='FORWARD_SCENARIOS_NOT_FITTED_SITE_ALAN',parameters={k:str(v) if isinstance(v,Path) else v for k,v in vars(args).items()},spectra=spectral_info,independent_alan_config=site_config,sites=tracks,script_sha256=digest(__file__),limitations=['KS91 V-band intensity transferred to fixed spectral shape is a separable pilot, not full spectral radiative transfer; constant mode retained explicitly','ALAN fixed over night: independent_alan_config specifies common-reference site/spectral scaling when present; otherwise legacy per-site capture reference','Atmospheric factor scales Q/U only; sensitivity analysis, not measured turbidity','No terrain/cloud masks or twilight polarization; Moon above horizon, Sun below -6deg; KS91 excludes fields with separation <10deg; no moonless background','Body tilts and eye alignment are hypotheses; analyzer axes parallel transported over field','Berry unity-peak intensity interpreted as DoLP envelope; no restoration of Wang spectral eq17','Spectra separable from spatial pattern, fixed across night; wavelength effects only as supplied','No behavioral threshold or probabilities assigned to headings; ranges describe sampled scenarios','Cottage date confirmed as 21 August 2018; stale September reference flag in old anchors is superseded by investigator correction; other site matching flags retained'])
+    payload=dict(status='FORWARD_SCENARIOS_NOT_FITTED_SITE_ALAN',parameters={k:str(v) if isinstance(v,Path) else v for k,v in vars(args).items()},spectra=spectral_info,independent_alan_config=site_config,sites=tracks,script_sha256=digest(__file__),natural_polarization_kernel_sha256=digest(ROOT/'src/spider_natural_polarization.py'),limitations=['KS91 V-band intensity transferred to fixed spectral shape is a separable pilot, not full spectral radiative transfer; constant mode retained explicitly','ALAN fixed over night: independent_alan_config specifies common-reference site/spectral scaling when present; otherwise legacy per-site capture reference','Atmospheric factor scales Q/U only; sensitivity analysis, not measured turbidity','No terrain/cloud masks or twilight polarization; Moon above horizon, Sun below -6deg; KS91 excludes fields with separation <10deg; no moonless background','Body tilts and eye alignment are hypotheses; analyzer axes parallel transported over field','Selected natural_dop_law is a prescribed hypothesis; rayleigh_normalized divides Berry/horizon fractional envelope by 1+cos²gamma; no restoration of full Wang spectral eq17','Spectra separable from spatial pattern, fixed across night; wavelength effects only as supplied','No behavioral threshold or probabilities assigned to headings; ranges describe sampled scenarios','Cottage date confirmed as 21 August 2018; stale September reference flag in old anchors is superseded by investigator correction; other site matching flags retained'])
     (args.output/'provenance.json').write_text(json.dumps(payload,indent=2,allow_nan=False)+'\n')
     print(f'Wrote {len(rows)} heading responses to {args.output}',flush=True)
 
 if __name__=='__main__':main()
+
