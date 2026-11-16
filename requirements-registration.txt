@@ -1,0 +1,2 @@
+# Isolated optional dependency for static-landmark exposure registration.
+opencv-python-headless==4.10.0.84
