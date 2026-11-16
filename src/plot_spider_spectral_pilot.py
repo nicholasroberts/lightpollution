@@ -8,7 +8,7 @@ import matplotlib
 matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 from spider_spectral_lunar import pigment_proxy,ks91_brightness,lunar_phase_distance
-from wang2016_sky import berry_normalized_pattern,horizon_factor
+from spider_natural_polarization import natural_fractional_polarization
 from matplotlib.patches import Circle
 from scipy.ndimage import map_coordinates
 from reconstruct_spider_eye_contrast import digest
@@ -39,7 +39,8 @@ def sky_dop_snapshot(provenance,spectra_path,site,atmosphere,alan,grid=241):
     natural=d['natural']/trapezoid(d['natural'],wave);artificial=d['alan']/trapezoid(d['alan'],wave)
     sensitivity=d['sensitivity'];scale=d['dop_scale'] if 'dop_scale' in d.dtype.names else np.ones(len(wave))
     ni=trapezoid(sensitivity*natural,wave);ai=trapezoid(sensitivity*artificial,wave);nq=trapezoid(sensitivity*natural*scale,wave)
-    p=atmosphere*abs(berry_normalized_pattern(th,ph,zs,phim,params['neutral_separation_deg']))*horizon_factor(th)
+    law=params.get('natural_dop_law','berry_envelope') # provenance without this field predates the normalized law
+    p=atmosphere*abs(natural_fractional_polarization(th,ph,zs,phim,params['neutral_separation_deg'],law))
     noalan=p*nq/ni
     actual_alan=alan*record.get('alan_multiplier_relative_to_capture_zenith',1.)
     mixed=p*intensity*nq/(intensity*ni+actual_alan*ai)
@@ -49,7 +50,7 @@ def sky_dop_snapshot(provenance,spectra_path,site,atmosphere,alan,grid=241):
     mr=radius*np.sin(zs/2)/np.sin(np.pi/4)
     moon=(center+mr*np.sin(np.deg2rad(az)),center-mr*np.cos(np.deg2rad(az)))
     fov=radius*np.sin(np.deg2rad(15))/np.sin(np.pi/4)
-    return arrays,dict(center=center,fov_radius=fov,moon_xy=moon,anchor=anchor,band_nm=[float(wave[0]),float(wave[-1])],actual_alan_capture_zenith_ratio=float(actual_alan))
+    return arrays,dict(center=center,fov_radius=fov,moon_xy=moon,anchor=anchor,band_nm=[float(wave[0]),float(wave[-1])],actual_alan_capture_zenith_ratio=float(actual_alan),natural_dop_law=law)
 
 
 def measured_north_up(batch,site,geometry,grid=241):
@@ -123,6 +124,8 @@ def main():
     for row,site in enumerate(['Cottage','oxfordbussinesspark']):
         hps,geometry=sky_dop_snapshot(hp,a.spectra/'HPS_visible_input.csv',site,a.atmospheric_factor,a.alan_ratio)
         led,other=sky_dop_snapshot(lp,a.spectra/'LED_mid_visible_input.csv',site,a.atmospheric_factor,a.alan_ratio)
+        if geometry['natural_dop_law']!=other['natural_dop_law']:raise ValueError('HPS/LED natural DoLP laws differ')
+        if hp['parameters']['neutral_separation_deg']!=lp['parameters']['neutral_separation_deg']:raise ValueError('HPS/LED neutral separations differ')
         if geometry['anchor']!=other['anchor']:raise ValueError('HPS/LED snapshots use different Moon anchors')
         if hp['parameters'].get('brightness_model')!=lp['parameters'].get('brightness_model') or hp['parameters'].get('extinction_v')!=lp['parameters'].get('extinction_v'):raise ValueError('HPS/LED brightness settings differ')
         summary[site]=dict(geometry,hps_actual_alan_capture_zenith_ratio=geometry['actual_alan_capture_zenith_ratio'],led_actual_alan_capture_zenith_ratio=other['actual_alan_capture_zenith_ratio'])
@@ -144,8 +147,9 @@ def main():
     fig.colorbar(art,ax=skyaxes,label=f"DoLP (0–1); model band {geometry['band_nm'][0]:g}–{geometry['band_nm'][1]:g}nm; measured camera channel separate",shrink=.75)
     (a.output/'sky_snapshot_settings.json').write_text(json.dumps(dict(atmospheric_factor=a.atmospheric_factor,alan_scenario_level=a.alan_ratio,sites=summary,independent_alan_config=hp.get('independent_alan_config'),note='Natural-only retains atmospheric factor; models integrate proxy-weighted Stokes; measured maps use original camera channel. Any explicit user Cottage target is recorded in config; no experimental-map fitting'),indent=2)+'\n')
     adjustment=(hp.get('independent_alan_config') or {}).get('cottage_adjustment')
-    setting='Cottage HPS target '+str(adjustment['target_mean_local_dop'])+' at level '+str(adjustment['reference_level']) if adjustment else 'Independent site-scaling scenario'
-    fig.suptitle('Spectral pilot: horizontal body, rotating 360deg; KS91 changing moonlight\nAtmospheric factor '+str(a.atmospheric_factor)+'; ALAN level '+str(a.alan_ratio)+'; '+setting+'\nWhite circle = 60deg full field; cross = Moon; measured camera channel differs from model spider weighting; measured maps not fitted',fontsize=11)
+    setting='ALAN retains prior Cottage target scenario (not a measured calibration)' if adjustment else 'Independent site-scaling scenario'
+    fig.suptitle('Spectral pilot: horizontal body, rotating 360deg; '+hp['parameters'].get('natural_dop_law','berry_envelope')+'; KS91 changing moonlight\nAtmospheric factor '+str(a.atmospheric_factor)+'; ALAN level '+str(a.alan_ratio)+'; '+setting+'\nWhite circle = 60deg full field; cross = Moon; measured camera channel differs from model spider weighting; measured maps not fitted',fontsize=11)
     fig.savefig(a.output/'visible_spectral_nightly_comparison.png',dpi=160);plt.close(fig)
 
 if __name__=='__main__':main()
+
