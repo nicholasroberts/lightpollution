@@ -8,7 +8,8 @@ matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 from matplotlib.patches import Circle
 from audit_spider_lunar_aop import (digest,block_mean,rays,lunar_phase,
-    fixed_moon_in_camera,solar_geometry,residual_summary)
+    fixed_moon_in_camera,solar_geometry,residual_summary,pixels)
+from lock_spider_site_registration import north_rotation
 
 
 def component(view,source,pmax):
@@ -77,6 +78,12 @@ def main():
         I,Q,U=[block_mean(z[k],a.bin_size) for k in ['I','Q','U']]
     y,x=np.indices(I.shape);x=x*a.bin_size+(a.bin_size-1)/2;y=y*a.bin_size+(a.bin_size-1)/2
     c=np.asarray(site['reference_center_xy_px']);r=site['rim_radius_px']
+    if site.get('moon_pixel_xy') is None:p.error('Locked observed Moon pixel is required')
+    observed_moon=np.asarray(site['moon_pixel_xy'])
+    north_matrix,north_angle=north_rotation(c,observed_moon,site['astronomical_anchor']['moon_compass_azimuth_deg'])
+    if not np.allclose(north_matrix,site['camera_to_north_xy'],atol=1e-6):p.error('Saved north rotation disagrees with locked observed Moon; audit registration lock first')
+    north_xy=np.stack([x,y],axis=-1)@north_matrix[:,:2].T+north_matrix[:,2]
+    north_moon=north_matrix[:,:2]@observed_moon+north_matrix[:,2]
     view=rays(np.stack([x,y],axis=-1),c,r)
     m=fixed_moon_in_camera(site['astronomical_anchor'],site['camera_to_north_xy'])
     s,solar=solar_geometry(site['astronomical_anchor'],a.site,a.reference,site['camera_to_north_xy'])
@@ -107,6 +114,8 @@ def main():
             predicted_phase=np.divide(z,abs(z),out=np.full(z.shape,np.nan+1j*np.nan),where=abs(z)>1e-12)
             result['withheld_aop_change_check_32px_equivalent']=residual_summary(phase,predicted_phase,angle_mask,max(1,32//a.bin_size))
         models[kind]=result;arrays[kind]=(intensity,z,pred)
+    predicted_moon=pixels(m[None,:],c,r)[0]
+    north_predicted_moon=north_matrix[:,:2]@predicted_moon+north_matrix[:,2]
     a.output.mkdir(parents=True)
     fig,axes=plt.subplots(2,4,figsize=(16,8),layout='constrained')
     panels=[('Measured camera DoLP',obs),('Lunar-only fitted dilution',arrays['moon'][2]),('Solar-only fitted dilution',arrays['sun'][2]),('Combined fitted dilution',arrays['mixed'][2])]
@@ -114,14 +123,19 @@ def main():
     for row,items in enumerate([panels,lower]):
         for j,(title,data) in enumerate(items):
             ax=axes[row,j]
-            im=ax.imshow(np.where(disc,data,np.nan),cmap='viridis' if row==0 else 'RdBu_r',vmin=0 if row==0 else (-1 if j==0 else -.25),vmax=1 if row==0 or j==0 else .25)
+            im=ax.pcolormesh(north_xy[...,0],north_xy[...,1],np.where(disc,data,np.nan),shading='nearest',cmap='viridis' if row==0 else 'RdBu_r',vmin=0 if row==0 else (-1 if j==0 else -.25),vmax=1 if row==0 or j==0 else .25)
             ax.set_title(title,fontsize=10);ax.axis('off');fig.colorbar(im,ax=ax,shrink=.65)
-            ax.add_patch(Circle(((c[0]-(a.bin_size-1)/2)/a.bin_size,(c[1]-(a.bin_size-1)/2)/a.bin_size),site['eye_radius_px']/a.bin_size,fill=False,color='white',lw=.7))
-    fig.suptitle(a.site+': fixed Sun/Moon geometry; exploratory ideal scattering mixture\nBrightness/dilution fit to DoLP only; no pattern rotation, reflection or analyzer-zero fit. Outside mask is extrapolation.')
+            ax.add_patch(Circle(c,site['eye_radius_px'],fill=False,color='white',lw=.7))
+            ax.set_aspect('equal');ax.set_xlim(c[0]-r,c[0]+r);ax.set_ylim(c[1]+r,c[1]-r)
+            ax.plot(north_moon[0],north_moon[1],'kx',ms=6,mew=1.2)
+            ax.plot(north_predicted_moon[0],north_predicted_moon[1],'+',color='red',ms=6,mew=1.2)
+            ax.text(.03,.95,'N ↑',transform=ax.transAxes,fontsize=10)
+            ax.text(.88,.5,'E →',transform=ax.transAxes,fontsize=8)
+    fig.suptitle(a.site+': shared Moon-anchored north-up frame; fixed Sun/Moon geometry\nBlack ×: locked observed Moon; red +: astronomical Moon under provisional zenith-axis projection.\nOne common display rotation; no rotation fitted to polarization. Outside mask is extrapolation.',fontsize=11)
     fig.savefig(a.output/'twilight_moon_fit.png',dpi=150);plt.close(fig)
     np.savez_compressed(a.output/'twilight_moon_fit_arrays.npz',measured_dolp=obs,train=train,withheld=test,
         moon_dolp=arrays['moon'][2],sun_dolp=arrays['sun'][2],mixed_dolp=arrays['mixed'][2],mixed_I=arrays['mixed'][0],mixed_Q=arrays['mixed'][1].real,mixed_U=arrays['mixed'][1].imag)
-    report=dict(site=a.site,status='exploratory_fit_not_production_model',models=models,
+    report=dict(display_frame='shared Moon-anchored north up; east right; no reflection',display_camera_to_north_xy=north_matrix.tolist(),display_rotation_clockwise_deg=north_angle,observed_moon_north_xy=north_moon.tolist(),predicted_moon_north_xy=north_predicted_moon.tolist(),moon_pixel_separation=float(np.linalg.norm(observed_moon-predicted_moon)),site=a.site,status='exploratory_fit_not_production_model',models=models,
         parameter_definitions=dict(moon=['unpolarized_background / lunar_zenith_I'],sun=['unpolarized_background / solar_zenith_I'],mixed=['solar_zenith_I / lunar_zenith_I','unpolarized_background / lunar_zenith_I']),
         fixed_pmax=a.pmax,solar=solar,astronomical_anchor=site['astronomical_anchor'],
         source_lock_sha256=digest(a.reference_lock),stokes_sha256=digest(npz),script_sha256=digest(Path(__file__)),sky_mask_sha256=mask_hash,

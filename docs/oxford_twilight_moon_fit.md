@@ -22,3 +22,7 @@ python src/fit_spider_twilight_moon.py \
 Outputs: twilight_moon_fit.png, twilight_moon_fit.json and twilight_moon_fit_arrays.npz. Inspect held-out errors, parameter bounds, conditioning and the unfitted AoP-change check. A fitted mixture can absorb instrument errors; improvement alone does not identify the physical twilight fraction. Repeating with --pmax 0.5 and 1.0 in separate output directories provides a simple sensitivity check.
 
 This is a capture-specific empirical test. A global solar-elevation switch or general twilight-transition model is deliberately deferred. Production PRC, 1-degree heading calculations and ALAN=5 figures remain unchanged until a model is justified.
+
+## Common north-up display
+
+All eight panels now use the same proper rotation calculated from the locked observed Moon pixel and its fixed astronomical compass azimuth. The script verifies that this agrees with the stored north transform. Scalar fields and mask coordinates are plotted on the same rotated grid, without resampling or changing the fit. North is up and east is right under the existing no-reflection convention. A black cross marks the transformed observed Moon; a red plus marks the fixed astronomical Moon projected under the provisional zenith-axis geometry. Their radial discrepancy is reported rather than hidden. Absolute handedness and projection calibration remain provisional. The earlier unmarked plot was in camera coordinates, not north up.
