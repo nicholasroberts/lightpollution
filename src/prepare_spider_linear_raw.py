@@ -92,6 +92,8 @@ def main():
     p.add_argument('--raw-dir',type=Path,required=True,help='One folder containing the original NEF or DNG files')
     p.add_argument('--output',type=Path,help='Fresh output directory; originals are read only')
     p.add_argument('--inspect',action='store_true',help='Print RAW settings without converting or creating files')
+    p.add_argument('--exclude-exposures',type=int,nargs='+',default=[],
+        help='Omit specified exposures (1..12); reconstruction groups retain complete quartets only')
     p.add_argument('--raw-kind',choices=['auto','nef','dng'],default='auto',help='auto prefers NEF if both formats exist')
     p.add_argument('--mapping',type=Path,help='JSON list of {exposure,stem,datetime_original}; default is the verified museum mapping')
     p.add_argument('--long-edge',type=int,default=2000,help='Common area-downsampled long edge; 0 retains the blue Bayer grid')
@@ -103,7 +105,13 @@ def main():
     mapping=json.loads(a.mapping.read_text()) if a.mapping else MUSEUM_MAPPING
     if not isinstance(mapping,list) or sorted(r['exposure'] for r in mapping)!=list(range(1,13)):
         p.error('Mapping must contain exactly exposures 1..12')
-    mapping=sorted(mapping,key=lambda r:r['exposure'])
+    excluded=sorted(set(a.exclude_exposures))
+    if any(n<1 or n>12 for n in excluded):p.error('Excluded exposures must be in 1..12')
+    if 1 in excluded:p.error('Exposure 1 is required as the fixed geometric reference')
+    groups=[[1,4,7,10],[2,5,8,11],[3,6,9,12]]
+    complete_groups=[group for group in groups if not set(group)&set(excluded)]
+    if not complete_groups:p.error('Exclusions leave no complete analyzer quartet')
+    mapping=sorted((r for r in mapping if r['exposure'] not in excluded),key=lambda r:r['exposure'])
     try:
         sources=select_sources(a.raw_dir,mapping,a.raw_kind)
         prepared=[]
@@ -118,6 +126,7 @@ def main():
                   f"{metadata['exposure_seconds']:10g}  {metadata['iso']:8g}  {metadata['f_number']:8g}",flush=True)
         if a.inspect:return
         import rawpy,cv2,tifffile
+        if excluded:print('Excluded exposures: '+', '.join(map(str,excluded))+'; complete reconstruction quartets: '+str(complete_groups),flush=True)
         first=prepared[0][2]
         differences=[]
         for _,path,metadata in prepared[1:]:
@@ -137,7 +146,8 @@ def main():
             color_matrix_applied=False,display_profile_or_look_applied=False,auto_brightness_applied=False,
             demosaicing_applied=False,negative_values_retained=True,per_frame_brightness_normalization=False,
             resize='one_common_area_resampling' if a.long_edge else 'none',requested_long_edge=a.long_edge),
-        analyzer_groups=[[1,4,7,10],[2,5,8,11],[3,6,9,12]],
+        excluded_exposures=excluded,analyzer_groups=complete_groups,
+        registration_only_exposures=[r['exposure'] for r in mapping if not any(r['exposure'] in group for group in complete_groups)],
         software=dict(rawpy=rawpy.__version__,numpy=np.__version__,opencv=cv2.__version__,tifffile=tifffile.__version__),
         script_sha256=sha256(__file__),input_shape=None,output_shape=None,frames=[],
         limitations=['Not a full polarimetric instrument calibration.',
@@ -146,7 +156,7 @@ def main():
             'Do not substitute these files into old checksum-locked registration folders.',
             'Astronomical anchors, theoretical patterns and ALAN settings are not fitted or modified.'])
     try:
-        for record,path,metadata in prepared:
+        for ordinal,(record,path,metadata) in enumerate(prepared,1):
             with rawpy.imread(str(path)) as raw:
                 mosaic=raw.raw_image_visible
                 if mosaic is None:raise ValueError('No visible Bayer mosaic: '+path.name)
@@ -177,15 +187,16 @@ def main():
                     color_desc=raw.color_desc.decode('ascii'),**metadata,**info)
                 manifest['frames'].append(frame)
                 (a.output/'linear_raw_manifest.json').write_text(json.dumps(manifest,indent=2)+'\n')
-                print(f"{record['exposure']:2d}/12 {path.name} -> {output.name}; shape {plane.shape}",flush=True)
+                print(f"{ordinal:2d}/{len(prepared)} {path.name} -> {output.name}; exposure {record['exposure']}; shape {plane.shape}",flush=True)
         manifest['status']='linear_raw_blue_prepared_not_registered_complete'
         (a.output/'linear_raw_manifest.json').write_text(json.dumps(manifest,indent=2)+'\n')
     except Exception as exc:
         manifest['status']='conversion_incomplete';manifest['error']=str(exc)
         (a.output/'linear_raw_manifest.json').write_text(json.dumps(manifest,indent=2)+'\n')
         raise
-    print('Prepared 12 linear camera-blue TIFFs and linear_raw_manifest.json. Re-registration is required.')
+    print(f'Prepared {len(prepared)} linear camera-blue TIFFs and linear_raw_manifest.json. Complete quartets: {complete_groups}. Re-registration is required.')
 
 
 if __name__=='__main__':main()
+
 
