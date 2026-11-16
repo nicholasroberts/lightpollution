@@ -177,7 +177,7 @@ def edge_display(image):
     return np.clip(edge/max(hi,1e-12),0,1)
 
 
-def process_site(site,batch,out,anchor,overrides,saved_site=None,registration_model='rigid'):
+def process_site(site,batch,out,anchor,overrides,saved_site=None,registration_model='rigid',linear_raw_manifest=None):
     oldpath=batch/site/'registration/rotation_analysis.json'
     old=json.loads(oldpath.read_text());center=np.asarray(old['reference_center_xy_px'],dtype=float)
     if saved_site is not None and saved_site.get('source_report_sha256')!=digest(oldpath):
@@ -188,12 +188,50 @@ def process_site(site,batch,out,anchor,overrides,saved_site=None,registration_mo
     groups=GROUPS if numbers==list(range(1,13)) else [[1,2,3,4]] if numbers==[1,2,3,4] else None
     if groups is None:raise ValueError('Unsupported explicit exposure grouping')
     channel=oldinputs['1.tif'].get('channel')
+    raw_set=None;raw_frames={};geometry_transfer=None
+    if linear_raw_manifest is not None:
+        if saved_site is not None:raise ValueError('New RAW images require fresh landmarks, not --from-lock')
+        raw_set=json.loads(Path(linear_raw_manifest).read_text())
+        if raw_set.get('status')!='linear_raw_blue_prepared_not_registered_complete':raise ValueError('Linear RAW conversion is incomplete')
+        settings=raw_set.get('processing',{})
+        if settings.get('method')!='visible_Bayer_blue_samples_minus_camera_reported_black':raise ValueError('Unknown linear RAW preparation method')
+        for key in ['white_balance_applied','gamma_applied','color_matrix_applied','display_profile_or_look_applied','auto_brightness_applied']:
+            if settings.get(key) is not False:raise ValueError('RAW preparation must disable '+key)
+        raw_frames={int(f['exposure']):f for f in raw_set['frames']}
+        if len(raw_frames)!=len(raw_set['frames']) or 1 not in raw_frames:raise ValueError('Invalid RAW exposure list or missing reference')
+        if not set(raw_frames)<=set(numbers):raise ValueError('RAW exposure absent from original batch')
+        numbers=sorted(raw_frames);groups=raw_set.get('analyzer_groups')
+        expected=[g for g in GROUPS if set(g)<=set(numbers)]
+        if groups!=expected or not groups:raise ValueError('RAW analyzer groups must be exactly the available complete quartets')
+        if set(raw_set.get('excluded_exposures',[]))!=set(range(1,13))-set(numbers):raise ValueError('RAW exclusions do not match available frames')
     images={};inputs=[]
     for n in numbers:
         record=oldinputs[f'{n}.tif'];path=Path(record['path'])
         if digest(path)!=record['sha256']:raise ValueError('Raw exposure hash changed: '+str(path))
-        image,meta=tiff_channel(path,channel);images[n]=image;inputs.append(meta)
+        if raw_set is not None:
+            from PIL import Image
+            with Image.open(path) as original:
+                timestamp=str(original.getexif().get_ifd(34665).get(36867,''))
+            frame=raw_frames[n]
+            if frame.get('datetime_original')!=timestamp:raise ValueError('RAW/TIFF capture timestamps differ for exposure '+str(n))
+            path=Path(linear_raw_manifest).parent/f'{n}.tif'
+            if digest(path)!=frame['output_sha256']:raise ValueError('Linear RAW hash mismatch: '+str(path))
+            image,meta=tiff_channel(path,None)
+            if not np.isfinite(image).all():raise ValueError('Nonfinite linear RAW pixels')
+            meta.update(radiometry='black_subtracted_linear_camera_blue',source_raw_sha256=frame['source_sha256'],
+                datetime_original=frame['datetime_original'])
+        else:image,meta=tiff_channel(path,channel)
+        images[n]=image;inputs.append(meta)
     if any(im.shape!=images[1].shape for im in images.values()):raise ValueError('Exposure dimensions differ')
+    if raw_set is not None:
+        old_shape=oldinputs['1.tif'].get('shape')
+        if old_shape is None:old_shape=tiff_channel(Path(oldinputs['1.tif']['path']),channel)[0].shape
+        scale=np.array([images[1].shape[1]/old_shape[1],images[1].shape[0]/old_shape[0]])
+        if abs(scale[0]/scale[1]-1)>.01:raise ValueError('RAW canvas aspect differs substantially; independent geometry required')
+        center=center*scale;radius=radius*float(np.sqrt(np.prod(scale)))
+        geometry_transfer=dict(status='provisional_canvas_scaled_initializer_fresh_landmarks_required',
+            old_shape=list(old_shape[:2]),new_shape=list(images[1].shape),scale_xy=scale.tolist(),
+            independent_angular_calibration=False)
     destination=out/site;destination.mkdir();reg=destination/'registration';reg.mkdir()
     reference=None if saved_site is not None else landmark_features(images[1],center,radius)
     shared_fits={};shared_geometry=None;site_pairs={}
@@ -271,6 +309,11 @@ def process_site(site,batch,out,anchor,overrides,saved_site=None,registration_mo
         polarimetry_note='Nominal analyzer grouping and camera-basis Stokes equations unchanged; exposure registration is not a full fisheye Mueller calibration',
         registration_method=registration_model+' from static outer-field SIFT correspondences and withheld landmark checks; no sky polarization objective')
     if shared_geometry is not None:lock['shared_image_geometry']=shared_geometry
+    if raw_set is not None:
+        lock.update(linear_raw_manifest_sha256=digest(linear_raw_manifest),analyzer_groups=groups,
+            excluded_exposures=raw_set['excluded_exposures'],radiometry_status='black_subtracted_linear_camera_blue',
+            geometry_transfer=geometry_transfer,
+            geometry_status='Provisional canvas-scaled reference geometry; newly fitted RAW landmarks; not independent angular calibration')
     if all_pass:
         i,q,u,qa=combine_replicates(([aligned[n] for n in g] for g in groups),'linear_stokes')
         np.savez_compressed(reg/'linear_stokes.npz',I=i,Q=q,U=u)
@@ -322,9 +365,11 @@ def main():
     p.add_argument('--sites',nargs='+',help='Default all sites present in saved batch')
     p.add_argument('--moon-coordinates',type=Path,help='Optional investigator coordinates: {site:{moon_pixel_xy:[x,y],note:...}}')
     p.add_argument('--registration-model',choices=['rigid','fisheye','fisheye-shared'],default='rigid')
+    p.add_argument('--linear-raw-manifest',type=Path,help='Prepared linear camera-blue RAW manifest for one explicitly selected site')
     p.add_argument('--from-lock',type=Path,help='Reuse saved image landmark coordinates, not previous transforms')
     a=p.parse_args()
     if a.from_lock and a.registration_model not in ('fisheye','fisheye-shared'):p.error('--from-lock requires a fisheye registration model')
+    if a.linear_raw_manifest and (a.from_lock or not a.sites or len(a.sites)!=1):p.error('--linear-raw-manifest requires one --sites entry and fresh landmarks (no --from-lock)')
     if a.output.exists():p.error('Use a fresh versioned output directory')
     try:import cv2
     except ImportError:p.error('Install requirements-registration.txt in the active venv')
@@ -339,7 +384,7 @@ def main():
         print(f'[{index+1}/{len(sites)}] Registering {site} to raw 1.tif',flush=True)
         try:
             if a.from_lock and site not in saved:raise ValueError('Site absent from source landmark lock')
-            locks[site]=process_site(site,a.batch,a.output,anchors.get(site),overrides,saved.get(site),a.registration_model)
+            locks[site]=process_site(site,a.batch,a.output,anchors.get(site),overrides,saved.get(site),a.registration_model,a.linear_raw_manifest)
         except (OSError,ValueError,KeyError) as exc:
             locks[site]=dict(site=site,status='pending_inputs_or_registration',reason=str(exc),moon_pixel_xy=None)
             print('  PENDING: '+str(exc),flush=True)
@@ -358,4 +403,5 @@ def main():
 
 
 if __name__=='__main__':main()
+
 

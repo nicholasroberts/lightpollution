@@ -73,7 +73,9 @@ def fit_site(correspondences,center,radius,calibration_exposures=None):
     """
     center=np.asarray(center,dtype=float);radius=float(radius)
     if calibration_exposures is None:
-        calibration_exposures=[4,7] if 7 in correspondences else [2,3]
+        calibration_exposures=next((pair for pair in ([4,7],[4,10],[7,10],[2,3])
+            if all(n in correspondences for n in pair)),None)
+        if calibration_exposures is None:raise ValueError('Two distinct analyzer groups are required for shared geometry')
     if any(n not in correspondences for n in calibration_exposures):
         raise ValueError('Missing an explicit shared-geometry training exposure')
     records={};offset_bound=.05*radius
@@ -142,3 +144,4 @@ def fit_site(correspondences,center,radius,calibration_exposures=None):
             shared_tangential_p1_p2=coefficients.tolist(),fitted_image_geometry_only=True)
         fitted[n]=(mapping,quality,errors)
     return fitted,shared
+

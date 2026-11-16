@@ -40,5 +40,26 @@ class SharedFisheyeTest(unittest.TestCase):
         # Entire cells have a single split membership, even for near-duplicates.
         self.assertEqual(heldout_cells([[101,101],[102,102]])[0],heldout_cells([[101,101],[102,102]])[1])
 
+    def test_shared_fit_without_frame_seven(self):
+        rng=np.random.default_rng(42);center=np.array([1000.,660.]);radius=650.;pairs={};k=[.002,.001]
+        for n,angle in [(4,45),(8,90),(10,135)]:
+            theta=rng.uniform(-np.pi,np.pi,360);rad=rng.uniform(.55,.97,360)*radius
+            source=center+np.c_[rad*np.cos(theta),rad*np.sin(theta)]
+            mapping=dict(source_center_xy_px=center.tolist(),target_projection_center_xy_px=(center+[3,4]).tolist(),radius_px=radius,
+                shared_tangential_p1_p2=k,ray_rotation_source_to_reference=Rotation.from_euler('xyz',[2,-1,angle],degrees=True).as_matrix().tolist())
+            target=forward(source,mapping)+rng.normal(0,.04,source.shape)
+            pairs[n]=(source,target)
+        fitted,shared=fit_site(pairs,center,radius)
+        self.assertEqual(shared['calibration_exposures'],[4,10])
+        self.assertTrue(shared['numerical_geometry_check'],shared)
+        np.testing.assert_allclose(shared['coefficients_p1_p2'],k,atol=.0002)
+        for mapping,q,error in fitted.values():
+            self.assertTrue(q['numerical_pass'],q)
+            self.assertLess(q['heldout_median_all_matches_px'],.2)
+            self.assertGreater(np.linalg.det(mapping['ray_rotation_source_to_reference']),.999999)
+        self.assertFalse(fitted[8][1]['shared_geometry_training_exposure'])
+        # Entire cells have a single split membership, even for near-duplicates.
+        self.assertEqual(heldout_cells([[101,101],[102,102]])[0],heldout_cells([[101,101],[102,102]])[1])
+
 
 if __name__=='__main__':unittest.main()
