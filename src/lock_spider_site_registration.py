@@ -64,6 +64,9 @@ def robust_rigid(source,target,tolerance=2.5,trials=1500):
 
 def warp(image,source_to_reference,shape=None):
     """One inverse bilinear resampling; unsupported borders are NaN."""
+    if isinstance(source_to_reference,dict):
+        from spider_fisheye_registration import warp as fisheye_warp
+        return fisheye_warp(image,source_to_reference,shape)
     shape=image.shape if shape is None else shape
     rotation=source_to_reference[:,:2];translation=source_to_reference[:,2]
     inverse=rotation.T
@@ -174,9 +177,11 @@ def edge_display(image):
     return np.clip(edge/max(hi,1e-12),0,1)
 
 
-def process_site(site,batch,out,anchor,overrides):
+def process_site(site,batch,out,anchor,overrides,saved_site=None,registration_model='rigid'):
     oldpath=batch/site/'registration/rotation_analysis.json'
     old=json.loads(oldpath.read_text());center=np.asarray(old['reference_center_xy_px'],dtype=float)
+    if saved_site is not None and saved_site.get('source_report_sha256')!=digest(oldpath):
+        raise ValueError('Saved landmark lock uses a different original registration report')
     radius=float(old['radius_60_px'])*np.sqrt(2)
     oldinputs={Path(r['path']).name:r for r in old['inputs']}
     numbers=sorted(int(Path(n).stem) for n in oldinputs)
@@ -190,7 +195,8 @@ def process_site(site,batch,out,anchor,overrides):
         image,meta=tiff_channel(path,channel);images[n]=image;inputs.append(meta)
     if any(im.shape!=images[1].shape for im in images.values()):raise ValueError('Exposure dimensions differ')
     destination=out/site;destination.mkdir();reg=destination/'registration';reg.mkdir()
-    reference=landmark_features(images[1],center,radius);aligned={1:images[1]};transforms=[]
+    reference=None if saved_site is not None else landmark_features(images[1],center,radius)
+    aligned={1:images[1]};transforms=[]
     fig,axes=plt.subplots(int(np.ceil(len(numbers)/4)),4,figsize=(16,4*int(np.ceil(len(numbers)/4))),squeeze=False,layout='constrained')
     reference_edge=edge_display(images[1]);all_pass=True
     for n,ax in zip(numbers,axes.flat):
@@ -199,25 +205,43 @@ def process_site(site,batch,out,anchor,overrides):
                 matrix=np.array([[1.,0.,0.],[0.,1.,0.]])
                 quality=dict(numerical_pass=True,reference_identity=True)
             else:
-                matrix,quality,sp,tp,error=register_landmarks(reference,landmark_features(images[n],center,radius),center,radius)
+                if saved_site is not None:
+                    saved=next(t for t in saved_site['transforms'] if t['filename']==f'{n}.tif')
+                    pairs=saved['landmark_correspondences'];sp=np.asarray(pairs['source_xy_px']);tp=np.asarray(pairs['reference_xy_px'])
+                elif registration_model=='fisheye':
+                    sp,tp=match_landmarks(reference,landmark_features(images[n],center,radius))
+                if registration_model=='fisheye':
+                    if saved_site is not None and saved['quality'].get('numerical_pass') and saved.get('source_to_reference_xy') is not None:
+                        matrix=np.asarray(saved['source_to_reference_xy']);quality=dict(saved['quality'],preserved_passing_rigid_transform=True)
+                        error=np.linalg.norm(transform_points(sp,matrix)-tp,axis=1)
+                    else:
+                        from spider_fisheye_registration import fit_correspondences
+                        matrix,quality,error=fit_correspondences(sp,tp,center,radius)
+                else:
+                    matrix,quality,sp,tp,error=register_landmarks(reference,landmark_features(images[n],center,radius),center,radius)
             if not quality['numerical_pass']:all_pass=False
             if n!=1:aligned[n]=warp(images[n],matrix)
-            angle=float(np.rad2deg(np.arctan2(matrix[1,0],matrix[0,0])))
-            source_center=transform_points([center],np.column_stack([matrix[:,:2].T,-matrix[:,:2].T@matrix[:,2]]))[0]
-            entry=dict(filename=f'{n}.tif',source_to_reference_xy=matrix.tolist(),
+            if isinstance(matrix,dict):
+                rot=np.asarray(matrix['ray_rotation_source_to_reference']);angle=float(np.rad2deg(np.arctan2(rot[1,0],rot[0,0])))
+                source_center=np.array(matrix['source_center_xy_px'])
+            else:
+                angle=float(np.rad2deg(np.arctan2(matrix[1,0],matrix[0,0])))
+                source_center=transform_points([center],np.column_stack([matrix[:,:2].T,-matrix[:,:2].T@matrix[:,2]]))[0]
+            entry=dict(filename=f'{n}.tif',source_to_reference_xy=None if isinstance(matrix,dict) else matrix.tolist(),
                 image_rotation_clockwise_deg=angle,source_reference_center_xy_px=source_center.tolist(),quality=quality)
+            if isinstance(matrix,dict):entry['fisheye_mapping']=matrix
             if n!=1:
                 entry['landmark_correspondences']=dict(source_xy_px=sp.tolist(),reference_xy_px=tp.tolist(),
                     residual_px=error.tolist(),heldout=(np.arange(len(sp))%4==0).tolist())
             transforms.append(entry)
             edge=edge_display(aligned[n]);ax.imshow(np.stack([reference_edge,edge,edge],axis=-1))
             ax.set_title(f'{n}.tif: '+('PASS numerical' if quality['numerical_pass'] else 'PENDING')+f'; rotation {angle:.2f}°',fontsize=9)
-        except ValueError as exc:
+        except (ValueError,KeyError,StopIteration) as exc:
             all_pass=False;transforms.append(dict(filename=f'{n}.tif',quality=dict(numerical_pass=False,error=str(exc))))
             ax.text(.5,.5,str(exc),ha='center',wrap=True,transform=ax.transAxes);ax.set_title(f'{n}.tif: PENDING')
         ax.add_patch(Circle(center,radius,fill=False,color='yellow',lw=.5));ax.axis('off')
     for ax in list(axes.flat)[len(numbers):]:ax.axis('off')
-    fig.suptitle(site+': red reference / cyan registered exposure; white means overlapping edges\nRigid, unit scale, no reflection; verify buildings, skyline and stars before accepting',fontsize=13)
+    fig.suptitle(site+': red reference / cyan registered exposure; white means overlapping edges\n'+registration_model+' geometry; no reflection; verify buildings, skyline and stars before accepting',fontsize=13)
     fig.savefig(destination/'registration_edges.png',dpi=150);plt.close(fig)
     lock=dict(site=site,site_id=old['site_id'],status='numerically_locked_awaiting_visual_review' if all_pass else 'pending_registration_not_for_comparison',
         reference_exposure='1.tif',reference_center_xy_px=center.tolist(),rim_radius_px=radius,
@@ -227,13 +251,13 @@ def process_site(site,batch,out,anchor,overrides):
         astronomical_anchor=anchor,moon_pixel_xy=None,north_orientation_status='unresolved',north_up_dop_path=None,
         coordinate_convention='zero-based original pixels, x right, y down; matrices map source xy to reference xy',
         polarimetry_note='Nominal analyzer grouping and camera-basis Stokes equations unchanged; exposure registration is not a full fisheye Mueller calibration',
-        registration_method='Static outer-field SIFT correspondences, rigid RANSAC, withheld landmark checks; no sky polarization objective')
+        registration_method=registration_model+' from static outer-field SIFT correspondences and withheld landmark checks; no sky polarization objective')
     if all_pass:
         i,q,u,qa=combine_replicates(([aligned[n] for n in g] for g in groups),'linear_stokes')
         np.savez_compressed(reg/'linear_stokes.npz',I=i,Q=q,U=u)
         report=dict(old,status=lock['status'],reference_center_xy_px=center.tolist(),inputs=inputs,
                     locked_transforms=transforms,registration_lock_schema=1,
-                    limitations=old.get('limitations',[])+['Rebuilt from one-pass rigid landmark resampling; visual review pending'])
+                    limitations=old.get('limitations',[])+['Rebuilt from one-pass '+registration_model+' landmark resampling; visual review pending'])
         (reg/'rotation_analysis.json').write_text(json.dumps(report,indent=2)+'\n')
         with np.errstate(divide='ignore',invalid='ignore'):dop=np.hypot(q,u)/i
         y,x=np.indices(i.shape);valid=(np.hypot(x-center[0],y-center[1])<.985*radius)&(i>0)&(dop<=1)&np.isfinite(dop)
@@ -278,7 +302,10 @@ def main():
     p.add_argument('--output',type=Path,required=True)
     p.add_argument('--sites',nargs='+',help='Default all sites present in saved batch')
     p.add_argument('--moon-coordinates',type=Path,help='Optional investigator coordinates: {site:{moon_pixel_xy:[x,y],note:...}}')
+    p.add_argument('--registration-model',choices=['rigid','fisheye'],default='rigid')
+    p.add_argument('--from-lock',type=Path,help='Reuse saved image landmark coordinates, not previous transforms')
     a=p.parse_args()
+    if a.from_lock and a.registration_model!='fisheye':p.error('--from-lock requires --registration-model fisheye')
     if a.output.exists():p.error('Use a fresh versioned output directory')
     try:import cv2
     except ImportError:p.error('Install requirements-registration.txt in the active venv')
@@ -287,10 +314,13 @@ def main():
     sites=a.sites or sorted(f.name for f in a.batch.iterdir() if (f/'registration/rotation_analysis.json').exists())
     if not sites:p.error('No saved batch sites found')
     overrides=json.loads(a.moon_coordinates.read_text()) if a.moon_coordinates else {}
+    saved=json.loads(a.from_lock.read_text())['sites'] if a.from_lock else {}
     a.output.mkdir(parents=True);locks={}
     for index,site in enumerate(sites):
         print(f'[{index+1}/{len(sites)}] Registering {site} to raw 1.tif',flush=True)
-        try:locks[site]=process_site(site,a.batch,a.output,anchors.get(site),overrides)
+        try:
+            if a.from_lock and site not in saved:raise ValueError('Site absent from source landmark lock')
+            locks[site]=process_site(site,a.batch,a.output,anchors.get(site),overrides,saved.get(site),a.registration_model)
         except (OSError,ValueError,KeyError) as exc:
             locks[site]=dict(site=site,status='pending_inputs_or_registration',reason=str(exc),moon_pixel_xy=None)
             print('  PENDING: '+str(exc),flush=True)
@@ -298,6 +328,9 @@ def main():
             sites=locks,raw_images_modified=False,model_parameters_changed=False,
             script_sha256=digest(__file__),opencv_version=cv2.__version__)
         (a.output/'locked_site_references.json').write_text(json.dumps(manifest,indent=2,allow_nan=False)+'\n')
+        summary={name:dict(status=r['status'],north_orientation_status=r.get('north_orientation_status'),
+            reason=r.get('reason'),exposures=[dict(filename=t['filename'],quality=t['quality']) for t in r.get('transforms',[])]) for name,r in locks.items()}
+        (a.output/'registration_summary.json').write_text(json.dumps(summary,indent=2,allow_nan=False)+'\n')
     checks={str(f.relative_to(a.output)):digest(f) for f in a.output.rglob('*') if f.is_file()}
     (a.output/'reference_sha256.json').write_text(json.dumps(checks,indent=2)+'\n')
     print('Frozen references written. Inspect registration_edges.png before using experimental comparisons.',flush=True)
