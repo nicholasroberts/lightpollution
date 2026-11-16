@@ -12,6 +12,7 @@ from spider_natural_polarization import natural_fractional_polarization
 from matplotlib.patches import Circle
 from scipy.ndimage import map_coordinates
 from reconstruct_spider_eye_contrast import digest
+from spider_plot_time import date_coordinates,format_time_axis
 
 
 def sky_dop_snapshot(provenance,spectra_path,site,atmosphere,alan,grid=241):
@@ -111,13 +112,13 @@ def main():
         for label,folder in [('HPS',a.hps),('LED 2958–3969K group',a.led)]:
             rows=[r for r in csv.DictReader((folder/'prc_ranges.csv').open()) if r['site']==site and float(r['atmospheric_factor'])==a.atmospheric_factor and float(r['alan_band_ratio'])==a.alan_ratio and float(r['body_tilt_deg'])==0]
             if not rows:raise ValueError('Requested atmosphere/ALAN scenario absent from saved results')
-            # Convert UTC to each site's local hour, retaining hours >24.
+            # Retain real timestamps; display dates and clock times in the local zone.
             from zoneinfo import ZoneInfo
             zone=ZoneInfo('Europe/Stockholm' if site=='Cottage' else 'Europe/London')
-            times=[datetime.fromisoformat(r['utc']).astimezone(zone) for r in rows];day=times[0].date()
-            hours=[24*(t.date()-day).days+t.hour+t.minute/60 for t in times]
+            times=[datetime.fromisoformat(r['utc']).astimezone(zone) for r in rows]
+            hours=date_coordinates(times)
             ax.plot(hours,[float(r['median_abs_prc']) for r in rows],label=label)
-        ax.set(title=site,xlabel='Local hour (24 = midnight)',ylabel='Median absolute PRC over body headings',ylim=(0,None));ax.legend(fontsize=8)
+        ax.set(title=site,ylabel='Median absolute PRC over body headings',ylim=(0,None));format_time_axis(ax,zone);ax.legend(fontsize=8)
     lower=outer[1].subgridspec(2,4 if a.batch else 3)
     skyaxes=[];summary={}
     hp=json.loads((a.hps/'provenance.json').read_text());lp=json.loads((a.led/'provenance.json').read_text())
