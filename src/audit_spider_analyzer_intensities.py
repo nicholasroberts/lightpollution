@@ -70,9 +70,10 @@ def main():
     site=json.loads(a.reference_lock.read_text())['sites'][a.site]
     if site.get('radiometry_status')!='black_subtracted_linear_camera_blue':p.error('Requires linear RAW lock')
     if site.get('status')!='numerically_locked_awaiting_visual_review':p.error('Registration numerical checks must pass')
-    groups=site['analyzer_groups'];needed=sorted({n for g in groups for n in g})
+    groups=site['analyzer_groups']
     records={int(Path(r['path']).stem):r for r in site['raw_inputs']}
     transforms={int(Path(r['filename']).stem):r for r in site['transforms']}
+    needed=sorted(records)
     data={};input_checks=[]
     for n in needed:
         record=records[n];path=Path(record['path'])
@@ -90,6 +91,36 @@ def main():
     mask=(np.hypot(x-c[0],y-c[1])<eye)
     for v in data.values():mask&=np.isfinite(v)&(v>0)
     if mask.sum()<20:p.error('Insufficient common central samples')
+    # One common mask and one common scale; no per-frame gain normalization.
+    baseline=float(np.mean(data[needed[0]][mask]))
+    sequence=[];within={}
+    for n in needed:
+        values=data[n][mask];group=(n-1)//3
+        sequence.append(dict(exposure=n,nominal_angle_deg=group*45,
+            datetime_original=records[n].get('datetime_original'),
+            mean_linear_blue=float(np.mean(values)),median_linear_blue=float(np.median(values)),
+            mean_relative_to_first=float(np.mean(values)/baseline)))
+    for group in sorted({(n-1)//3 for n in needed}):
+        ids=[n for n in needed if (n-1)//3==group];reference=data[ids[0]]
+        within[str(group*45)]=dict(exposures=ids,reference_exposure=ids[0],
+            repeat_difference_fraction=[dict(exposure=n,**stats((data[n]-reference)/reference,mask)) for n in ids])
+    fig,axes=plt.subplots(2,1,figsize=(12,8),layout='constrained')
+    for group,color in enumerate(['tab:blue','tab:orange','tab:green','tab:red']):
+        rows=[r for r in sequence if r['nominal_angle_deg']==group*45]
+        if not rows:continue
+        ids=[r['exposure'] for r in rows]
+        axes[0].plot(ids,[r['mean_relative_to_first'] for r in rows],'o-',color=color,label=str(group*45)+' deg')
+        values=within[str(group*45)]['repeat_difference_fraction']
+        axes[1].plot(ids,[100*r['median'] for r in values],'o-',color=color,label=str(group*45)+' deg')
+    axes[0].set_ylabel('Mean intensity / first exposure mean')
+    axes[1].set_ylabel('Median pixel change within group (%)')
+    for ax in axes:
+        ax.set_xticks(range(1,13));ax.set_xlabel('Exposure number in acquisition order');ax.grid(alpha=.2);ax.legend(ncol=4)
+    axes[0].set_title('Common central field; common display scale; brightness differences include real polarization')
+    axes[1].set_title('Each group relative to its first available exposure; no correction applied')
+    fig.suptitle(a.site+': acquisition intensity audit; excluded frames remain absent')
+    a.output.mkdir(parents=True)
+    fig.savefig(a.output/'exposure_intensity_sequence.png',dpi=150);plt.close(fig)
     results={};maps={};closure=[]
     for k,g in enumerate(groups):
         stack=np.asarray([data[n] for n in g]);scale=stack.mean(0)
@@ -111,7 +142,6 @@ def main():
                 dq=s[1]/s[0]-t[1]/t[0];du=s[2]/s[0]-t[2]/t[0]
                 da=.5*np.angle((s[1]+1j*s[2])*np.conj(t[1]+1j*t[2]))*180/np.pi
             comparison[label]=dict(intensity_fraction=stats(intensity,mask),normalized_Q_difference=stats(dq,mask),normalized_U_difference=stats(du,mask),aop_difference_deg=stats(da,mask&(np.hypot(s[1],s[2])/s[0]>.05)&(np.hypot(t[1],t[2])/t[0]>.05)))
-    a.output.mkdir(parents=True)
     fig,axes=plt.subplots(len(groups),6,figsize=(20,4*len(groups)),squeeze=False,layout='constrained')
     for row,g in enumerate(groups):
         stack=np.asarray([data[n] for n in g])
@@ -131,7 +161,7 @@ def main():
     fig.suptitle(a.site+': analyzer consistency, central field; no sky-pattern, gain or offset fit\nNominal and landmark-roll approximations; fixed analyzer zero unknown. Display scales clipped; JSON statistics unclipped.')
     fig.savefig(a.output/'analyzer_consistency.png',dpi=150);plt.close(fig)
     report=dict(site=a.site,status='diagnostic_only_no_correction_applied',reference_lock_sha256=digest(a.reference_lock),script_sha256=digest(Path(__file__)),inputs=input_checks,
-        central_sample_count=int(mask.sum()),bin_size=a.bin_size,quartets=results,between_quartets=comparison,
+        central_sample_count=int(mask.sum()),bin_size=a.bin_size,exposure_sequence=sequence,within_analyzer_groups=within,quartets=results,between_quartets=comparison,
         limitations=['Per-pixel Stokes is estimated from exposures; no astronomical pattern is fitted.',
         'Four samples and three Stokes parameters leave only one residual degree of freedom. Omitted-frame errors are correlated, not independent validation.',
         'Landmark roll is an approximate analyzer angle. Tilt and off-axis rear-analyzer transport require a full optical model.',

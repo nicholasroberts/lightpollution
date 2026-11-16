@@ -18,3 +18,5 @@ python src/audit_spider_analyzer_intensities.py \
 ```
 
 Return `analyzer_consistency.png` and `analyzer_consistency.json`. No production reconstruction or theoretical values are changed. Absolute analyzer orientation and optical Mueller calibration remain unresolved even if closure improves.
+
+The audit also loads all available locked exposures, including geometry-only frames 1, 4 and 10. `exposure_intensity_sequence.png` shows acquisition order on a common first-frame display scale and pixelwise changes within each nominal-angle group relative to its first available exposure. The missing exposure 7 is never synthesized. The JSON includes absolute linear-blue means/medians and within-group change statistics. Between-angle brightness differences include genuine polarization, so the sequence alone cannot identify temporal drift or justify gain normalization. The same common central mask is used throughout.
