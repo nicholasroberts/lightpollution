@@ -17,6 +17,7 @@ import matplotlib.pyplot as plt
 from spider_natural_polarization import natural_fractional_polarization,NATURAL_DOP_LAWS
 from reconstruct_spider_eye_contrast import digest
 from spider_spectral_lunar import ks91_brightness,lunar_phase_distance
+from spider_plot_time import date_coordinates,format_time_axis
 ROOT=Path(__file__).resolve().parents[1]
 
 
@@ -121,6 +122,7 @@ def main():
     coefficients,spectral_info=spectral_coefficients(args.spectra)
     anchors=json.loads(args.moon_anchors.read_text())['sites'];refs={r['site_id']:r for r in csv.DictReader(args.references.open())}
     site_config=json.loads(args.site_alan_config.read_text()) if args.site_alan_config else None
+    source_label=site_config.get('source_spectrum','Unspecified spectrum') if site_config else (args.spectra.stem if args.spectra else 'Achromatic scenario')
     common_reference=None
     if site_config:
         if args.brightness_model!='ks91':p.error('Common site reference requires KS91')
@@ -136,7 +138,7 @@ def main():
         reference_brightness=float(ks91_brightness(0.,anchor['moon_elevation_deg'],np.deg2rad(90-anchor['moon_elevation_deg']),float(cp[0]),args.extinction_v,float(cd[0]))) if args.brightness_model=='ks91' else 1.
         alan_multiplier=1. if site_config is None else common_reference/reference_brightness*float(site_config['alan_scale_by_site'][site])*float(site_config['spectral_band_factor'])
         if not np.isfinite(alan_multiplier) or alan_multiplier<0:raise ValueError('Invalid site ALAN scaling')
-        zone=ZoneInfo(anchor['timezone']);hours=np.array([(t-stamps[0]).total_seconds()/3600+12 for t in stamps])
+        zone=ZoneInfo(anchor['timezone']);hours=date_coordinates(stamps)
         print(f'{site}: computing {len(stamps)} times, {len(headings)} headings',flush=True)
         matrices={}
         for tilt in args.tilts:
@@ -173,15 +175,16 @@ def main():
                 for ci,alan in enumerate(args.alan_ratios):
                     ax=axes[ri,ci];cm=plt.get_cmap('RdBu_r').copy();cm.set_bad('lightgray')
                     art=ax.pcolormesh(hours,headings,matrices[tilt,atmosphere,alan],shading='nearest',cmap=cm,vmin=-limit,vmax=limit)
-                    ax.set(title=f'Tilt {tilt:g}deg; ALAN scenario {alan:g}; local ratio {alan*alan_multiplier:.3g}',xlabel='Local hour (24 = midnight)',ylabel='Body heading from north (deg)')
+                    ax.set(title=f'ALAN level {alan:g}; tilt {tilt:g}°\nCapture reference ratio {alan*alan_multiplier:.3g}',ylabel='Body heading from north (deg)')
+                    format_time_axis(ax,zone)
             night_hours=hours[sun<-6]
             if len(night_hours):
-                for ax in axes.ravel():ax.set_xlim(night_hours.min()-.25,night_hours.max()+.25)
+                for ax in axes.ravel():ax.set_xlim(night_hours.min()-15/(24*60),night_hours.max()+15/(24*60))
             fig.subplots_adjust(top=.78 if len(args.tilts)==1 else .88,bottom=.19 if len(args.tilts)==1 else .1,hspace=.5,wspace=.45,right=.86)
             color_axis=fig.add_axes([.89,.2,.015,.6])
             fig.colorbar(art,cax=color_axis,label='Signed eye log contrast')
             band='' if args.spectra is None else f"; {spectral_info['wavelength_range_nm'][0]:g}–{spectral_info['wavelength_range_nm'][1]:g} nm input"
-            fig.suptitle(f'{site}: {args.natural_dop_law}; {args.brightness_model} brightness; atmospheric factor {atmosphere:g}'+band+'\nForward scenario; fixed 60deg full field; gray = excluded geometry/daylight',fontsize=11)
+            fig.suptitle(f'{site}; {source_label}: {args.natural_dop_law}; {args.brightness_model} brightness; atmospheric factor {atmosphere:g}'+band+'\nForward scenario; fixed 60deg full field; gray = excluded geometry/daylight',fontsize=11)
             
             fig.savefig(args.output/f'{site}_atmosphere_{atmosphere:g}_heading.png',dpi=140);plt.close(fig)
         fig,axes=plt.subplots(len(args.tilts),1,figsize=(11,max(4.5,3*len(args.tilts))),squeeze=False)
@@ -191,8 +194,8 @@ def main():
                 median=np.full(len(stamps),np.nan);lo=median.copy();hi=median.copy()
                 if valid.any():median[valid]=np.median(m[:,valid],axis=0);lo[valid]=np.min(m[:,valid],axis=0);hi[valid]=np.max(m[:,valid],axis=0)
                 line,=ax.plot(hours,median,label=f'ALAN {alan:g}');ax.fill_between(hours,lo,hi,color=line.get_color(),alpha=.12)
-            ax.set(title=f'Tilt {tilt:g}deg; atmospheric factor {args.atmospheric_factors[0]:g}',xlabel='Local hour (24 = midnight)',ylabel='Absolute PRC');ax.legend()
-        fig.suptitle(f'{site}: {args.natural_dop_law}; median and min–max over headings (scenario, not confidence interval)');fig.tight_layout(rect=[0,0,1,.95]);fig.savefig(args.output/f'{site}_prc_ranges.png',dpi=140);plt.close(fig)
+            ax.set(title=f'Tilt {tilt:g}deg; atmospheric factor {args.atmospheric_factors[0]:g}',ylabel='Absolute PRC');format_time_axis(ax,zone);ax.legend()
+        fig.suptitle(f'{site}; {source_label}: {args.natural_dop_law}; median and min–max over headings (scenario, not confidence interval)');fig.tight_layout(rect=[0,0,1,.95]);fig.savefig(args.output/f'{site}_prc_ranges.png',dpi=140);plt.close(fig)
         tracks.append(dict(site=site,anchor=anchor,reference=ref,alan_multiplier_relative_to_capture_zenith=alan_multiplier,capture_zenith_moon_brightness_nL=reference_brightness if args.brightness_model=='ks91' else None,valid_moonlit_night_samples=int(np.sum((sun<-6)&(elevations>.1)&(elevations<89.9)))))
     for name,records in [('heading_responses.csv',rows),('prc_ranges.csv',summaries)]:
         if records:
