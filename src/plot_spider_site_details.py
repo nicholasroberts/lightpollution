@@ -82,6 +82,11 @@ def main():
     p.add_argument('--reference-lock',type=Path,help='Frozen locked_site_references.json; use these registered experimental products and fixed north rotations')
     a=p.parse_args()
     if a.output.exists():p.error('Use a fresh output directory')
+    if a.reference_lock:
+        if not a.reference_lock.is_file():
+            p.error('Reference lock not found: '+str(a.reference_lock)+'; run lock_spider_site_registration.py first or supply its actual output path. No figures generated.')
+        if not (a.reference_lock.parent/'reference_sha256.json').is_file():
+            p.error('Reference checksum file missing beside '+str(a.reference_lock)+'; registration output is incomplete. No figures generated.')
     sources=['hps','led'];provs={s:json.loads((a.run/s/'provenance.json').read_text()) for s in sources}
     spectra={};rows={}
     for s,prov in provs.items():
