@@ -1,7 +1,8 @@
 import sys,unittest
 from pathlib import Path
 sys.path.insert(0,str(Path(__file__).resolve().parents[1]/'src'))
-from run_spider_dark_site_validation import corrected_anchors
+from run_spider_dark_site_validation import corrected_anchors,rotate_point,profile_fwhm
+import numpy as np
 
 class BearingTests(unittest.TestCase):
     def test_only_bearing_changes(self):
@@ -14,6 +15,15 @@ class BearingTests(unittest.TestCase):
         self.assertEqual(out['utc'],source['sites']['Skillinge']['utc'])
         self.assertEqual(source['sites']['Skillinge']['candidate_pixel_xy'],[637,193])
         self.assertIn('other flag',out['flags'])
+    def test_azimuth_reversal_uses_camera_centre(self):
+        np.testing.assert_allclose(rotate_point([650,1135],[1000,650],180),[1350,165],atol=1e-10)
+    def test_fwhm_scaling_invariant(self):
+        x=np.arange(0,50,10);y=np.array([0,.5,1,.5,0])
+        for scale in [1,.4]:self.assertAlmostEqual(profile_fwhm(x,y*scale)['fwhm_deg'],20)
+    def test_fwhm_censoring_not_extrapolated(self):
+        result=profile_fwhm([10,20,30,40],[.1,.5,1,.8])
+        self.assertIsNone(result['fwhm_deg'])
+        self.assertIsNone(result['right_crossing_deg'])
     def test_missing_ephemeris_rejected(self):
         with self.assertRaises(ValueError):corrected_anchors([{'sites':{}}],dict(source='x',status='x',sites={'s':dict(candidate_pixel_xy=[1,2])}))
     def test_conflicting_anchor_rejected(self):
