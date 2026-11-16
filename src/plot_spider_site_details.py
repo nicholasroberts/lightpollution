@@ -80,6 +80,7 @@ def main():
     p.add_argument('--atmospheric-factor',type=float,default=.8)
     p.add_argument('--use-saved-bearings',action='store_true',help='Opt in to saved candidate image bearings; these are not independently verified by this script')
     p.add_argument('--reference-lock',type=Path,help='Frozen locked_site_references.json; use these registered experimental products and fixed north rotations')
+    p.add_argument('--sites',nargs='+',help='Optional site subset, for reviewing a newly registered site')
     a=p.parse_args()
     if a.output.exists():p.error('Use a fresh output directory')
     if a.reference_lock:
@@ -102,6 +103,10 @@ def main():
         if provs['hps']['parameters'].get(key)!=provs['led']['parameters'].get(key):p.error('Source physical settings differ: '+key)
     sites=[r['site'] for r in provs['hps']['sites']]
     if set(sites)!={r['site'] for r in provs['led']['sites']}:p.error('Source site lists differ')
+    if a.sites:
+        unknown=set(a.sites)-set(sites)
+        if unknown:p.error('Requested sites absent from model run: '+', '.join(sorted(unknown)))
+        sites=[site for site in sites if site in a.sites]
     a.output.mkdir(parents=True);summaries=[]
     from matplotlib.backends.backend_pdf import PdfPages
     with PdfPages(a.output/'all_site_details.pdf') as pdf:
@@ -183,3 +188,4 @@ def main():
 
 
 if __name__=='__main__':main()
+

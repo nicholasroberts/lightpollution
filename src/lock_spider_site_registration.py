@@ -196,6 +196,18 @@ def process_site(site,batch,out,anchor,overrides,saved_site=None,registration_mo
     if any(im.shape!=images[1].shape for im in images.values()):raise ValueError('Exposure dimensions differ')
     destination=out/site;destination.mkdir();reg=destination/'registration';reg.mkdir()
     reference=None if saved_site is not None else landmark_features(images[1],center,radius)
+    shared_fits={};shared_geometry=None;site_pairs={}
+    if registration_model=='fisheye-shared':
+        from spider_shared_fisheye_registration import fit_site
+        for n in numbers:
+            if n==1:continue
+            if saved_site is not None:
+                saved=next(t for t in saved_site['transforms'] if t['filename']==f'{n}.tif')
+                pairs=saved['landmark_correspondences']
+                site_pairs[n]=(np.asarray(pairs['source_xy_px']),np.asarray(pairs['reference_xy_px']))
+            else:
+                site_pairs[n]=match_landmarks(reference,landmark_features(images[n],center,radius))
+        shared_fits,shared_geometry=fit_site(site_pairs,center,radius)
     aligned={1:images[1]};transforms=[]
     fig,axes=plt.subplots(int(np.ceil(len(numbers)/4)),4,figsize=(16,4*int(np.ceil(len(numbers)/4))),squeeze=False,layout='constrained')
     reference_edge=edge_display(images[1]);all_pass=True
@@ -210,7 +222,9 @@ def process_site(site,batch,out,anchor,overrides,saved_site=None,registration_mo
                     pairs=saved['landmark_correspondences'];sp=np.asarray(pairs['source_xy_px']);tp=np.asarray(pairs['reference_xy_px'])
                 elif registration_model=='fisheye':
                     sp,tp=match_landmarks(reference,landmark_features(images[n],center,radius))
-                if registration_model=='fisheye':
+                if registration_model=='fisheye-shared':
+                    sp,tp=site_pairs[n];matrix,quality,error=shared_fits[n]
+                elif registration_model=='fisheye':
                     if saved_site is not None and saved['quality'].get('numerical_pass') and saved.get('source_to_reference_xy') is not None:
                         matrix=np.asarray(saved['source_to_reference_xy']);quality=dict(saved['quality'],preserved_passing_rigid_transform=True)
                         error=np.linalg.norm(transform_points(sp,matrix)-tp,axis=1)
@@ -231,8 +245,12 @@ def process_site(site,batch,out,anchor,overrides,saved_site=None,registration_mo
                 image_rotation_clockwise_deg=angle,source_reference_center_xy_px=source_center.tolist(),quality=quality)
             if isinstance(matrix,dict):entry['fisheye_mapping']=matrix
             if n!=1:
+                if registration_model=='fisheye-shared':
+                    from spider_shared_fisheye_registration import heldout_cells
+                    held=heldout_cells(tp)
+                else:held=np.arange(len(sp))%4==0
                 entry['landmark_correspondences']=dict(source_xy_px=sp.tolist(),reference_xy_px=tp.tolist(),
-                    residual_px=error.tolist(),heldout=(np.arange(len(sp))%4==0).tolist())
+                    residual_px=error.tolist(),heldout=held.tolist())
             transforms.append(entry)
             edge=edge_display(aligned[n]);ax.imshow(np.stack([reference_edge,edge,edge],axis=-1))
             ax.set_title(f'{n}.tif: '+('PASS numerical' if quality['numerical_pass'] else 'PENDING')+f'; rotation {angle:.2f}°',fontsize=9)
@@ -252,6 +270,7 @@ def process_site(site,batch,out,anchor,overrides,saved_site=None,registration_mo
         coordinate_convention='zero-based original pixels, x right, y down; matrices map source xy to reference xy',
         polarimetry_note='Nominal analyzer grouping and camera-basis Stokes equations unchanged; exposure registration is not a full fisheye Mueller calibration',
         registration_method=registration_model+' from static outer-field SIFT correspondences and withheld landmark checks; no sky polarization objective')
+    if shared_geometry is not None:lock['shared_image_geometry']=shared_geometry
     if all_pass:
         i,q,u,qa=combine_replicates(([aligned[n] for n in g] for g in groups),'linear_stokes')
         np.savez_compressed(reg/'linear_stokes.npz',I=i,Q=q,U=u)
@@ -302,10 +321,10 @@ def main():
     p.add_argument('--output',type=Path,required=True)
     p.add_argument('--sites',nargs='+',help='Default all sites present in saved batch')
     p.add_argument('--moon-coordinates',type=Path,help='Optional investigator coordinates: {site:{moon_pixel_xy:[x,y],note:...}}')
-    p.add_argument('--registration-model',choices=['rigid','fisheye'],default='rigid')
+    p.add_argument('--registration-model',choices=['rigid','fisheye','fisheye-shared'],default='rigid')
     p.add_argument('--from-lock',type=Path,help='Reuse saved image landmark coordinates, not previous transforms')
     a=p.parse_args()
-    if a.from_lock and a.registration_model!='fisheye':p.error('--from-lock requires --registration-model fisheye')
+    if a.from_lock and a.registration_model not in ('fisheye','fisheye-shared'):p.error('--from-lock requires a fisheye registration model')
     if a.output.exists():p.error('Use a fresh versioned output directory')
     try:import cv2
     except ImportError:p.error('Install requirements-registration.txt in the active venv')
@@ -326,7 +345,9 @@ def main():
             print('  PENDING: '+str(exc),flush=True)
         manifest=dict(schema_version=1,status='FROZEN_NUMERICAL_CANDIDATES_VISUAL_REVIEW_PENDING',
             sites=locks,raw_images_modified=False,model_parameters_changed=False,
-            script_sha256=digest(__file__),opencv_version=cv2.__version__)
+            script_sha256=digest(__file__),opencv_version=cv2.__version__,
+            registration_module_sha256={name:digest(Path(__file__).with_name(name)) for name in
+                ['spider_fisheye_registration.py','spider_shared_fisheye_registration.py'] if Path(__file__).with_name(name).exists()})
         (a.output/'locked_site_references.json').write_text(json.dumps(manifest,indent=2,allow_nan=False)+'\n')
         summary={name:dict(status=r['status'],north_orientation_status=r.get('north_orientation_status'),
             reason=r.get('reason'),exposures=[dict(filename=t['filename'],quality=t['quality']) for t in r.get('transforms',[])]) for name,r in locks.items()}
@@ -337,3 +358,4 @@ def main():
 
 
 if __name__=='__main__':main()
+

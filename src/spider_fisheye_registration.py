@@ -26,6 +26,9 @@ def kabsch(source,target):
 
 
 def forward(points,mapping):
+    if 'shared_tangential_p1_p2' in mapping:
+        from spider_shared_fisheye_registration import forward as shared_forward
+        return shared_forward(points,mapping)
     return pixels(rays(points,np.array(mapping['source_center_xy_px']),mapping['radius_px'])@
         np.array(mapping['ray_rotation_source_to_reference']).T,
         np.array(mapping['target_projection_center_xy_px']),mapping['radius_px'])
@@ -80,6 +83,9 @@ def fit_correspondences(source,target,center,radius):
 
 def warp(image,mapping,shape=None):
     """Inverse mapping; interpolate raw exposure once, unsupported pixels NaN."""
+    if 'shared_tangential_p1_p2' in mapping:
+        from spider_shared_fisheye_registration import warp as shared_warp
+        return shared_warp(image,mapping,shape)
     shape=image.shape if shape is None else shape
     y,x=np.indices(shape,dtype=float)
     target=np.stack([x,y],axis=-1)
@@ -90,3 +96,4 @@ def warp(image,mapping,shape=None):
         mode='constant',cval=np.nan,prefilter=False)
     supported=np.linalg.norm(target-np.array(mapping['target_projection_center_xy_px']),axis=-1)<1.03*mapping['radius_px']
     return np.where(supported,result,np.nan)
+
