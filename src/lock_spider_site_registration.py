@@ -203,9 +203,11 @@ def process_site(site,batch,out,anchor,overrides,saved_site=None,registration_mo
         if len(raw_frames)!=len(raw_set['frames']) or 1 not in raw_frames:raise ValueError('Invalid RAW exposure list or missing reference')
         if not set(raw_frames)<=set(numbers):raise ValueError('RAW exposure absent from original batch')
         numbers=sorted(raw_frames);groups=raw_set.get('analyzer_groups')
-        expected=[g for g in GROUPS if set(g)<=set(numbers)]
+        base_groups=GROUPS if raw_set.get('expected_exposure_count',12)==12 else [[1,2,3,4]] if raw_set.get('expected_exposure_count')==4 else []
+        if not base_groups:raise ValueError('Unsupported RAW exposure count')
+        expected=[g for g in base_groups if set(g)<=set(numbers)]
         if groups!=expected or not groups:raise ValueError('RAW analyzer groups must be exactly the available complete quartets')
-        if set(raw_set.get('excluded_exposures',[]))!=set(range(1,13))-set(numbers):raise ValueError('RAW exclusions do not match available frames')
+        if set(raw_set.get('excluded_exposures',[]))!=set(range(1,raw_set.get('expected_exposure_count',12)+1))-set(numbers):raise ValueError('RAW exclusions do not match available frames')
     images={};inputs=[]
     for n in numbers:
         record=oldinputs[f'{n}.tif'];path=Path(record['path'])
@@ -367,7 +369,7 @@ def main():
     p.add_argument('--sites',nargs='+',help='Default all sites present in saved batch')
     p.add_argument('--moon-coordinates',type=Path,help='Optional investigator coordinates: {site:{moon_pixel_xy:[x,y],note:...}}')
     p.add_argument('--registration-model',choices=['rigid','fisheye','fisheye-shared'],default='rigid')
-    p.add_argument('--linear-raw-manifest',type=Path,help='Prepared linear camera-blue RAW manifest for one explicitly selected site')
+    p.add_argument('--linear-raw-manifest',type=Path,help='Prepared linear camera-channel RAW manifest for one explicitly selected site')
     p.add_argument('--from-lock',type=Path,help='Reuse saved image landmark coordinates, not previous transforms')
     a=p.parse_args()
     if a.from_lock and a.registration_model not in ('fisheye','fisheye-shared'):p.error('--from-lock requires a fisheye registration model')
