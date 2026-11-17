@@ -125,12 +125,13 @@ def main():
     if not a.raw_dir.is_dir():p.error('RAW folder not found')
     if a.long_edge<0:p.error('--long-edge must be nonnegative')
     mapping=json.loads(a.mapping.read_text()) if a.mapping else MUSEUM_MAPPING
-    if not isinstance(mapping,list) or sorted(r['exposure'] for r in mapping)!=list(range(1,13)):
-        p.error('Mapping must contain exactly exposures 1..12')
+    if not isinstance(mapping,list) or len(mapping) not in (4,12):p.error('Mapping must contain 4 or 12 exposures')
+    count=len(mapping)
+    if sorted(r['exposure'] for r in mapping)!=list(range(1,count+1)):p.error('Mapping exposure indices must be consecutive from 1')
     excluded=sorted(set(a.exclude_exposures))
-    if any(n<1 or n>12 for n in excluded):p.error('Excluded exposures must be in 1..12')
+    if any(n<1 or n>count for n in excluded):p.error('Excluded exposures must be in the mapping')
     if 1 in excluded:p.error('Exposure 1 is required as the fixed geometric reference')
-    groups=[[1,4,7,10],[2,5,8,11],[3,6,9,12]]
+    groups=[[1,4,7,10],[2,5,8,11],[3,6,9,12]] if count==12 else [[1,2,3,4]]
     complete_groups=[group for group in groups if not set(group)&set(excluded)]
     if not complete_groups:p.error('Exclusions leave no complete analyzer quartet')
     mapping=sorted((r for r in mapping if r['exposure'] not in excluded),key=lambda r:r['exposure'])
@@ -168,7 +169,7 @@ def main():
             color_matrix_applied=False,display_profile_or_look_applied=False,auto_brightness_applied=False,
             demosaicing_applied=False,negative_values_retained=True,per_frame_brightness_normalization=False,
             resize='one_common_area_resampling' if a.long_edge else 'none',requested_long_edge=a.long_edge),
-        excluded_exposures=excluded,analyzer_groups=complete_groups,
+        expected_exposure_count=count,excluded_exposures=excluded,analyzer_groups=complete_groups,
         registration_only_exposures=[r['exposure'] for r in mapping if not any(r['exposure'] in group for group in complete_groups)],
         software=dict(rawpy=rawpy.__version__,numpy=np.__version__,opencv=cv2.__version__,tifffile=tifffile.__version__),
         script_sha256=sha256(__file__),input_shape=None,output_shape=None,frames=[],
@@ -222,6 +223,7 @@ def main():
 
 
 if __name__=='__main__':main()
+
 
 
 
