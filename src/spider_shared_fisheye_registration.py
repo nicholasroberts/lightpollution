@@ -64,6 +64,16 @@ def warp(image,mapping,shape=None):
     return result
 
 
+def feasible_start(values, lower, upper):
+    """Keep initial estimates strictly inside unchanged optimizer bounds."""
+    values=np.asarray(values,dtype=float)
+    lower=np.asarray(lower,dtype=float);upper=np.asarray(upper,dtype=float)
+    if not np.isfinite(values).all():raise ValueError('Nonfinite geometry initializer')
+    margin=1e-8*np.maximum(1,np.where(np.isfinite(upper-lower),upper-lower,1))
+    return np.minimum(np.maximum(values,np.where(np.isfinite(lower),lower+margin,lower)),
+                      np.where(np.isfinite(upper),upper-margin,upper))
+
+
 def fit_site(correspondences,center,radius,calibration_exposures=None):
     """Return per-frame (mapping, quality, residuals) and shared diagnostics.
 
@@ -98,7 +108,9 @@ def fit_site(correspondences,center,radius,calibration_exposures=None):
     count=len(calibration_exposures)
     lower=np.r_[[-.01]*2,np.tile(np.r_[[-np.inf]*3,[-offset_bound]*2],count)]
     upper=np.r_[[.01]*2,np.tile(np.r_[[np.inf]*3,[offset_bound]*2],count)]
-    joint=optimize.least_squares(residual,start,bounds=(lower,upper),loss='soft_l1',f_scale=1,max_nfev=300)
+    joint_start=feasible_start(start,lower,upper)
+    initializer_adjustment=float(np.max(abs(joint_start-start)))
+    joint=optimize.least_squares(residual,joint_start,bounds=(lower,upper),loss='soft_l1',f_scale=1,max_nfev=300)
     coefficients=joint.x[:2]
     # Check inverse and local handedness over the full supported circular field.
     grid=np.linspace(-1.03,1.03,41);gx,gy=np.meshgrid(grid,grid);inside=gx*gx+gy*gy<=1.03**2
@@ -109,6 +121,7 @@ def fit_site(correspondences,center,radius,calibration_exposures=None):
     shared_ok=bool(joint.success and np.all(abs(coefficients)<.0099) and determinants.min()>.5 and inverse_error<1e-5)
     shared=dict(kind='shared_tangential_image_geometry',coefficients_p1_p2=coefficients.tolist(),
         calibration_exposures=list(calibration_exposures),coefficient_bound=.01,
+        joint_initializer_adjustment_max=initializer_adjustment,
         reference_cell_size_px=96,heldout_rule='(floor(x/96)+2*floor(y/96)) % 4 == 0',
         optimizer_success=bool(joint.success),minimum_correction_jacobian_determinant=float(determinants.min()),
         inverse_roundtrip_max_px=inverse_error,numerical_geometry_check=shared_ok,
@@ -117,8 +130,10 @@ def fit_site(correspondences,center,radius,calibration_exposures=None):
     for n,(source,target,held,start_pose) in records.items():
         def pose_residual(p):
             return np.r_[(predict(source[~held],p,center,radius,coefficients)-target[~held]).ravel(),.2*p[3:]]
-        fit=optimize.least_squares(pose_residual,start_pose,
-            bounds=(np.r_[[-np.inf]*3,[-offset_bound]*2],np.r_[[np.inf]*3,[offset_bound]*2]),
+        pose_lower=np.r_[[-np.inf]*3,[-offset_bound]*2];pose_upper=np.r_[[np.inf]*3,[offset_bound]*2]
+        pose_start=feasible_start(start_pose,pose_lower,pose_upper)
+        fit=optimize.least_squares(pose_residual,pose_start,
+            bounds=(pose_lower,pose_upper),
             loss='soft_l1',f_scale=1,max_nfev=200)
         errors=np.linalg.norm(predict(source,fit.x,center,radius,coefficients)-target,axis=1)
         training_inliers=errors[~held]<2.5;validation=errors[held];confirmed=validation<3
@@ -133,6 +148,7 @@ def fit_site(correspondences,center,radius,calibration_exposures=None):
             heldout_inlier_p95_px=float(np.percentile(validation[confirmed],95)) if confirmed.any() else None,
             occupied_reference_sectors=len(np.unique(sectors)),landmark_span_px=span,
             optimizer_success=bool(fit.success),center_offset_limit_reached=bound,
+            initializer_adjustment_max=float(np.max(abs(pose_start-start_pose))),
             projection_center_offsets_xy_px=fit.x[3:].tolist(),validation_split='spatial_96px_reference_cells',
             shared_geometry_training_exposure=n in calibration_exposures)
         quality['numerical_pass']=bool(shared_ok and fit.success and not bound and training_inliers.sum()>=8
