@@ -1,0 +1,13 @@
+# Signed nominal analyzer convention audit
+
+The camera-coordinate chart uses x right and y down. For a rear analyzer fixed to the rotating camera/lens, a proper source-to-reference landmark rotation also maps its near-axis analyzer axis into the reference-image analyzer plane. Its signed angle is atan2(R[1,0], R[0,0]); the inverse resampling rotation has the opposite sign and must not be substituted.
+
+For nominal angles alpha, intensity is 0.5*(I + Q*cos(2*alpha) + U*sin(2*alpha)). Reversing the entire angle sequence preserves cosine and reverses sine. Consequently a negative nominal sequence [0,-45,-90,-135] gives Q=I0-I90 and U=I135-I45. Previously using U=I45-I135 for those acquisitions reversed camera-frame U. A constant unknown zero angle remains, and can be eliminated only from spatial AoP-change diagnostics, not from absolute celestial AoP.
+
+The actual WClawn quartet rotations are approximately [0,-44.56,-88.46,-138.36] degrees. Oxford Business Park is approximately [0,-45.78,-89.40,-133.30]. All three quartets at each site support the negative nominal sequence. These are independent landmark measurements, not a sign chosen to improve a solar/lunar pattern fit. Other sites require their own trace; a universal U reversal is not assumed.
+
+`correct_spider_analyzer_sign.py` checks source checksums and numerical registration, requires every complete quartet to agree unambiguously with one signed nominal sequence within ten degrees, and refuses a second correction. It writes a fresh derived registration tree, changes only the necessary U sign, verifies unchanged I/Q/DoLP and transforms, and records the evidence in analyzer_sign_summary.json and each site lock. Original files remain untouched. This is a nominal sign correction, not an exact-angle Stokes refit. The actual departures from 45-degree steps, lens transport, projection and instrument polarization remain uncertainties. The ten-degree criterion classifies the acquisition sequence; it is not an angular-accuracy acceptance threshold.
+
+Camera-to-sky parity (the earlier explicit reversed-handedness hypothesis), the signed analyzer sequence, and an upward-looking publication display are different operations. The correction changes no astronomical position, image parity or Moon-based orientation. The same prior parity hypothesis must be retained when rerunning the comparison, rather than selected by fit improvement.
+
+Tests cover both camera roll directions, known polarized input recovery, the two observed site sequences, ambiguous sequence rejection, repeated-correction rejection, and preservation of source files and derived I/Q/DoLP. Final evaluation runs against the corrected camera Stokes on EcoVis; no raw image data are required for the sign decision itself.
