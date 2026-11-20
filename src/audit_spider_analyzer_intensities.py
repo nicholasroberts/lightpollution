@@ -73,6 +73,8 @@ def main():
     camera_channel=site.get('camera_channel','blue')
     if site.get('status')!='numerically_locked_awaiting_visual_review':p.error('Registration numerical checks must pass')
     groups=site['analyzer_groups']
+    sequence_sign=site.get('analyzer_stokes_convention',{}).get('nominal_sequence_sign',1)
+    if sequence_sign not in (-1,1):p.error('Invalid signed nominal analyzer convention')
     records={int(Path(r['path']).stem):r for r in site['raw_inputs']}
     transforms={int(Path(r['filename']).stem):r for r in site['transforms']}
     needed=sorted(records)
@@ -127,7 +129,7 @@ def main():
     for k,g in enumerate(groups):
         stack=np.asarray([data[n] for n in g]);scale=stack.mean(0)
         closure.append((stack[0]+stack[2]-stack[1]-stack[3])/(2*scale))
-        nominal=[0,45,90,135]
+        nominal=[sequence_sign*v for v in [0,45,90,135]]
         rolls=[transforms[n]['image_rotation_clockwise_deg']-transforms[g[0]]['image_rotation_clockwise_deg'] for n in g]
         results[str(g)]={};maps[str(g)]={}
         for label,angles in [('nominal',nominal),('landmark_roll',rolls)]:
@@ -164,7 +166,7 @@ def main():
             im=ax.imshow(np.where(mask,v,np.nan),**kwargs);ax.set_title(str(g)+'\n'+title,fontsize=9);ax.axis('off');fig.colorbar(im,ax=ax,shrink=.6)
     fig.suptitle(a.site+': analyzer consistency, central field; no sky-pattern, gain or offset fit\nNominal and landmark-roll approximations; fixed analyzer zero unknown. Display scales clipped; JSON statistics unclipped.')
     fig.savefig(a.output/'analyzer_consistency.png',dpi=150);plt.close(fig)
-    report=dict(site=a.site,camera_channel=camera_channel,status='diagnostic_only_no_correction_applied',reference_lock_sha256=digest(a.reference_lock),script_sha256=digest(Path(__file__)),inputs=input_checks,
+    report=dict(site=a.site,camera_channel=camera_channel,nominal_analyzer_sequence_sign=sequence_sign,status='diagnostic_only_no_correction_applied',reference_lock_sha256=digest(a.reference_lock),script_sha256=digest(Path(__file__)),inputs=input_checks,
         central_sample_count=int(mask.sum()),bin_size=a.bin_size,exposure_sequence=sequence,within_analyzer_groups=within,quartets=results,between_quartets=comparison,
         limitations=['Per-pixel Stokes is estimated from exposures; no astronomical pattern is fitted.',
         'Four samples and three Stokes parameters leave only one residual degree of freedom. Omitted-frame errors are correlated, not independent validation.',
