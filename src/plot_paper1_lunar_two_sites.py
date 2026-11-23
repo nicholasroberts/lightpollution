@@ -1,4 +1,4 @@
-"""Four-panel saved lunar-only theory comparison; no model recalculation."""
+"""Figure 1B: four lunar-only maps forming one subfigure; no recalculation."""
 import argparse
 import csv
 import json
@@ -74,10 +74,10 @@ def main():
             ax.set_title(title,fontsize=11)
             ax.set_xlim(c[0]-1.07*r,c[0]+1.07*r);ax.set_ylim(c[1]+1.07*r,c[1]-1.07*r)
             ax.axis('off')
-            ax.text(-.04,1.02,chr(65+2*ri+col),transform=ax.transAxes,fontweight='bold')
     fig.colorbar(axes[0,0].images[0],ax=axes[:,0].tolist(),shrink=.65,label='DoLP')
     fig.colorbar(axes[0,1].images[0],ax=axes[:,1].tolist(),shrink=.65,label='AoP (degrees modulo 180)')
     fig.suptitle('Lunar-only Berry/Wang baseline\nNo ALAN or fitted dilution; white circle: 60° full field',fontsize=13)
+    fig.text(.015,.985,'B',ha='left',va='top',fontsize=18,fontweight='bold')
     a.output.mkdir(parents=True)
     for ext in ['png','pdf','svg']:fig.savefig(a.output/('fig01b_two_sites.'+ext),dpi=300)
     plt.close(fig)
