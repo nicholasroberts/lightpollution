@@ -1,6 +1,6 @@
 """Subfigure 1C: measured museum and saved lunar/solar/combined patterns.
 
-Render saved fits only; no rotation, analyzer-zero, dilution or mixture refit.
+Reuse the mixture fit; estimate one global analyzer-basis offset on training pixels.
 """
 import argparse
 import json
@@ -14,6 +14,43 @@ from reconstruct_spider_eye_contrast import digest
 from model_paper1_lunar_baseline import lunar_component
 from spider_fisheye_registration import rays
 from fit_paper1_solar_lunar_angle import source_vector
+
+
+def analyzer_basis_alignment(arr):
+    """One spin-2 offset from combined model to measured analyzer basis."""
+    measured=arr['measured_Q']+1j*arr['measured_U']
+    model=arr['combined_Q']+1j*arr['combined_U']
+    mask=arr['fit_mask'].astype(bool)
+    for name in ['measured','lunar','solar','combined']:
+        z=arr[name+'_Q']+1j*arr[name+'_U']
+        mask&=np.isfinite(z)&(abs(z)>1e-10)
+    held=arr['withheld_pixel_partition'].astype(bool)
+    train=mask&~held;test=mask&held
+    if min(train.sum(),test.sum())<20:
+        raise ValueError('Insufficient common training/withheld analyzer samples')
+    delta=(measured[train]/abs(measured[train]))*np.conj(model[train]/abs(model[train]))
+    mean=delta.mean();coherence=float(abs(mean))
+    if coherence<1e-6:
+        raise ValueError('Global analyzer offset is undefined: incoherent training angles')
+    offset=.5*np.angle(mean)
+    spin=np.exp(2j*offset)
+    diagnostics={}
+    for name in ['lunar','solar','combined']:
+        z=arr[name+'_Q']+1j*arr[name+'_U']
+        diagnostics[name]={}
+        for label,selection in [('training',train),('withheld',test)]:
+            residual=np.rad2deg(.5*np.angle(measured[selection]*np.conj(z[selection]*spin)))
+            raw=np.rad2deg(.5*np.angle(measured[selection]*np.conj(z[selection])))
+            diagnostics[name][label]=dict(pixel_count=int(selection.sum()),
+                median_absolute_deg=float(np.median(abs(residual))),
+                rms_deg=float(np.sqrt(np.mean(residual**2))),
+                p95_absolute_deg=float(np.percentile(abs(residual),95)),
+                unaligned_rms_deg=float(np.sqrt(np.mean(raw**2))))
+    return spin,dict(model_to_measured_offset_deg=float(np.rad2deg(offset)),
+        training_circular_coherence=coherence,absolute_AoP_residuals=diagnostics,
+        method='Half-angle of mean unit spin-2 measured/combined phase difference on training pixels only; equal weights. Same offset applied to every theoretical component.',
+        calibration_status='Pattern-estimated global analyzer-basis registration, not independently measured polarizer calibration',
+        sky_rotation_fitted=False,mixture_refitted=False)
 
 
 def main():
@@ -48,6 +85,7 @@ def main():
     for k in ['I','Q','U']:
         expected=(1-f)*arr['lunar_'+k]+f*arr['solar_'+k]
         if not np.allclose(expected,arr['combined_'+k],equal_nan=True):p.error('Saved mixture differs')
+    spin,alignment=analyzer_basis_alignment(arr)
     names=['measured','lunar','solar','combined']
     labels=['Measured green; north-up','Lunar only','Solar only',f'Best combined\nSolar {100*f:.1f}% / lunar {100*(1-f):.1f}%']
     disc=np.hypot(x-c[0],y-c[1])<.985*radius
@@ -56,6 +94,9 @@ def main():
     stats={}
     for col,(name,label) in enumerate(zip(names,labels)):
         i,q,u=[arr[name+'_'+k] for k in ['I','Q','U']]
+        if name!='measured':
+            rotated=(q+1j*u)*spin
+            q,u=rotated.real,rotated.imag
         with np.errstate(divide='ignore',invalid='ignore'):d=np.hypot(q,u)/i
         valid=disc&np.isfinite(d)&(i>0)&(d>=0)&(d<=1)
         angle=np.rad2deg(.5*np.arctan2(u,q))
@@ -78,7 +119,7 @@ def main():
             support='Central60degree binned grid, physical pixels for this field. Measured statistics are north-resampled diagnostics, not replacement camera-frame publication values.')
     fig.colorbar(axes[0,0].collections[0],ax=axes[0,:].tolist(),shrink=.65,label='DoLP')
     fig.colorbar(axes[1,0].collections[0],ax=axes[1,:].tolist(),shrink=.65,label='AoP (degrees modulo 180)')
-    fig.suptitle(site+' — fixed-geometry solar/lunar comparison\nNo ALAN or fitted dilution; measured absolute analyzer zero remains unknown',fontsize=13)
+    fig.suptitle(site+' — fixed-geometry solar/lunar comparison\nNo ALAN; one global analyzer-basis offset fitted on training pixels',fontsize=13)
     fig.text(.012,.985,'C',ha='left',va='top',fontsize=18,fontweight='bold')
     a.output.mkdir(parents=True)
     for ext in ['png','pdf','svg']:fig.savefig(a.output/('fig01c_'+site+'.'+ext),dpi=300)
@@ -86,13 +127,15 @@ def main():
     report=dict(site=site,solar_fraction=f,lunar_fraction=1-f,solar=solar,astronomical_anchor=anchor,
         source_fit_report_sha256=digest(rp),source_fit_arrays_sha256=digest(ap),script_sha256=digest(__file__),
         central_statistics=stats,colormaps=dict(DoLP='batlow',AoP='romaO'),
-        fit_changed=False,background_added=0,absolute_analyzer_zero_fitted=False,
+        fit_changed=False,background_added=0,absolute_analyzer_zero_fitted=True,analyzer_basis_alignment=alignment,
         limitations=['Observed north-up data, not ALAN-corrected measurements.',
         'Full-disc model is context outside the fit mask; no claim that foreground is predicted.',
-        'AoP absolute colors are not calibrated agreement; fit uses zero-independent spatial changes.',
+        'One global analyzer offset estimated from training pattern, not independent instrument calibration; assess absolute residuals on withheld pixels.',
         'Mixture inferred on central spatial pairs, not independent-night validation.',
         'Below-horizon solar component is an exploratory geometric extension.'])
+    (a.output/'analyzer_basis_alignment.json').write_text(json.dumps(dict(site=site,source_fit_report_sha256=digest(rp),**alignment),indent=2)+'\n')
     (a.output/'figure_values.json').write_text(json.dumps(report,indent=2,allow_nan=False)+'\n')
+    print(json.dumps(alignment,indent=2))
     print('Saved',a.output)
 
 
