@@ -68,3 +68,25 @@ PNG, editable PDF/SVG and source-hash provenance for 1A. Whole-figure assembly,
 natural B=0 predictions and all-site quantitative comparison remain next work.
 Solar-only controls stay in companion analyses. No global twilight cutoff is
 inferred. Theory: [shared framework](../../theory/theory.md).
+
+## Figure 1 — Museum absolute Moon bearing
+
+For the museum reference capture on **14 May 2019 at 22:09:51 BST**
+(21:09:51 UTC), the previously calculated fixed astronomical Moon azimuth is
+**187.15 degrees**, measured clockwise from **true north**:
+north=0, east=90, south=180, west=270 degrees. Thus the Moon is
+**7.15 degrees west of due south**. Its corresponding astronomical elevation
+is **41.20 degrees**.
+
+In the publication sky view (north up, east left, south down, west right),
+the Moon must appear near the bottom, slightly **right of south**. This is
+the expected bearing check for Figure 1, independent of the DoLP band or AoP.
+The north rotation uses the observed Moon pixel and fixed astronomical
+azimuth; it does not move the source radially to force agreement with its
+astronomical elevation. The fisheye centre/projection controls that separate
+radial/elevation comparison.
+
+These values document the existing capture ephemeris; they were not newly
+recomputed for this lab-book entry. The explicit reversed-handedness hypothesis
+used for the museum display remains recorded separately from the analyzer
+sequence sign and unknown analyzer zero.
