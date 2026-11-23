@@ -7,6 +7,10 @@ import numpy as np
 import matplotlib
 matplotlib.use('Agg')
 import matplotlib.pyplot as plt
+try:
+    from cmcrameri import cm as scientific_cmaps
+except ImportError as exc:
+    raise SystemExit('Install figure palettes: python -m pip install cmcrameri') from exc
 from reconstruct_spider_eye_contrast import digest
 
 
@@ -63,7 +67,7 @@ def main():
         el,az=np.deg2rad([row['moon_elevation_deg'],row['moon_compass_azimuth_deg']])
         mr=r*np.sqrt(1-np.sin(el))
         moon=c+np.array([-np.sin(az),-np.cos(az)])*mr
-        for col,(v,cmap,lo,hi,label) in enumerate([(d,'viridis',0,1,'DoLP'),(angle,'twilight',-90,90,'AoP')]):
+        for col,(v,cmap,lo,hi,label) in enumerate([(d,scientific_cmaps.batlow,0,1,'DoLP'),(angle,scientific_cmaps.romaO,-90,90,'AoP')]):
             ax=axes[ri,col];im=ax.imshow(v,cmap=cmap,vmin=lo,vmax=hi,rasterized=True)
             ax.add_patch(plt.Circle(c,eye,fill=False,color='white',lw=.9))
             ax.plot(*moon,'r+',ms=6)
@@ -84,7 +88,7 @@ def main():
     rows=[v[-1] for v in panels]
     with (a.output/'figure_values.csv').open('w',newline='') as f:
         w=csv.DictWriter(f,fieldnames=list(rows[0]));w.writeheader();w.writerows(rows)
-    (a.output/'figure_values.json').write_text(json.dumps(dict(sites=rows,script_sha256=digest(__file__),
+    (a.output/'figure_values.json').write_text(json.dumps(dict(sites=rows,script_sha256=digest(__file__),colormaps=dict(DoLP='batlow',AoP='romaO'),
         definition='Theoretical only; complete 60-degree full field, not measured-mask intersection. Numerical means may differ slightly from prior museum common-support diagnostics. No animal spectral claim.'),indent=2)+'\n')
     lines=['# Figure 1B theoretical field statistics','',
         'Mean of pixel DoLP ± 1 spatial sample SD; zenith-centred 60° full field.',
