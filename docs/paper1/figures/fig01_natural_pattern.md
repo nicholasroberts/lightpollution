@@ -90,3 +90,40 @@ These values document the existing capture ephemeris; they were not newly
 recomputed for this lab-book entry. The explicit reversed-handedness hypothesis
 used for the museum display remains recorded separately from the analyzer
 sequence sign and unknown analyzer zero.
+
+## Figure 1 — Museum measured DoLP in the spider field
+
+Investigator-reported EcoVis calculation, 23 November 2026:
+
+| Quantity | Value |
+| --- | --- |
+| Mean measured camera-green DoLP | 0.139762 |
+| Spatial sample standard deviation (ddof=1) | 0.040131 |
+| Included physical pixels | 180850 |
+| Excluded pixels within the field | 9 |
+| Total pixels within the field | 180859 |
+
+Paper display, rounded: **DoLP = 0.140 ± 0.040 (mean ± 1 spatial SD)**,
+or **13.98 ± 4.01 percentage points** when expressed as percent polarization.
+
+Definition: equal-pixel mean and spatial SD of per-pixel DoLP within the
+zenith-centred **60 degree full field (30 degree angular radius)**, using
+the locked reference centre and eye_radius_px. Calculated in the camera frame
+before north rotation to avoid additional interpolation. Uses the retained
+pair-based intensity I_pair and signed Q,U; DoLP=hypot(Q,U)/I_pair.
+Include only pixels inside the field with positive I, finite DoLP and
+0 <= DoLP <= 1. No additional clear-sky/foreground mask was applied by this
+calculation.
+
+This SD describes spatial variation within this capture, not the standard
+error, a confidence interval or independent replicate variation. This is the
+mean of pixel DoLP, not DoLP from spatially integrated I,Q,U and not PRC.
+
+Sources on EcoVis:
+
+- data/processed/paper1_museum_stokes_audit_01/museum/measured_stokes_and_polarization.npz
+- data/processed/spider_registration_green_all_sites_01/runs/museum/locked_site_references.json
+
+Associated museum reference capture: 14 May 2019, 22:09:51 BST. These numerical
+values were supplied from the executed EcoVis calculation; not independently
+recomputed in this workspace.
