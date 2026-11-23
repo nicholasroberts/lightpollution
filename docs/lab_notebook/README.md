@@ -23,6 +23,8 @@ changes of direction.
 
 - [2026-11-12 — Drassodes original image-script recovery, algebra audit and missing eye-integration stage](2026-11-12.md)
 
+- [2026-11-23 — Two-paper plan: spectral polarization modeling and historical VIIRS interpretation](2026-11-23-two-paper-plan.md)
+
 The current restart point is also mirrored in [`docs/CURRENT_STATE.md`](../CURRENT_STATE.md) so a new session does not have to reconstruct the last terminal state from chat history.
 
 ## Convention
