@@ -7,18 +7,21 @@ import tifffile
 import matplotlib
 matplotlib.use('Agg')
 import matplotlib.pyplot as plt
-from audit_spider_lunar_aop import lunar_phase
+from wang2016_sky import natural_stokes
 from spider_fisheye_registration import rays
 from rotate_spider_measured_north import digest
 
 
-def lunar_component(view, source, pmax):
-    mu = np.clip(np.sum(view*source, axis=-1), -1, 1)
-    intensity = (1+mu**2)/(1+source[2]**2)
-    amplitude = pmax*(1-mu**2)/(1+source[2]**2)
-    phase = lunar_phase(view, source)
-    pol = np.where(amplitude < 1e-12, 0j, amplitude*phase)
-    return intensity, pol
+def lunar_component(view, source, separation_deg):
+    """Reuse the earlier Berry-normalized Wang angular/horizon kernel."""
+    theta = np.arccos(np.clip(view[...,2], -1, 1))
+    phi = np.arctan2(view[...,1], view[...,0])
+    source_zenith = np.arccos(np.clip(source[2], -1, 1))
+    source_azimuth = np.arctan2(source[1], source[0])
+    i,q,u = natural_stokes(theta,phi,source_zenith,source_azimuth,
+        separation_deg,np.ones_like(theta),mode='eq6_horizon',
+        depolarization_multiplier=1.)
+    return i,q+1j*u
 
 
 def main():
@@ -26,11 +29,11 @@ def main():
     p.add_argument('--reference-lock', type=Path, required=True)
     p.add_argument('--north', type=Path, required=True)
     p.add_argument('--site', default='museum')
-    p.add_argument('--pmax', type=float, required=True, help='0.8 pilot baseline; 1 ideal Rayleigh sensitivity')
+    p.add_argument('--neutral-separation-deg', type=float, required=True, help='Use the explicitly recorded prior Berry/Wang neutral-point separation')
     p.add_argument('--output', type=Path, required=True)
     a = p.parse_args()
-    if a.output.exists() or not 0<a.pmax<=1:
-        p.error('Fresh output and 0 < pmax <= 1 required')
+    if a.output.exists() or not 0<a.neutral_separation_deg<90:
+        p.error('Fresh output and 0 < neutral separation < 90 degrees required')
     provenance = json.loads((a.north/'north_rotation.json').read_text())
     if provenance['site'] != a.site or provenance['source_lock_sha256'] != digest(a.reference_lock):
         p.error('North product and reference lock differ')
@@ -48,7 +51,7 @@ def main():
     el,az = np.deg2rad([lock['astronomical_anchor']['moon_elevation_deg'],
                        lock['astronomical_anchor']['moon_compass_azimuth_deg']])
     moon = np.array([-np.cos(el)*np.sin(az),np.cos(el)*np.cos(az),np.sin(el)])
-    intensity,pol = lunar_component(view,moon,a.pmax)
+    intensity,pol = lunar_component(view,moon,a.neutral_separation_deg)
     predicted = abs(pol)/intensity
     angle = np.rad2deg(.5*np.angle(pol))
     disc = np.hypot(x-center[0],y-center[1])<.985*lock['rim_radius_px']
@@ -69,7 +72,7 @@ def main():
         tifffile.imwrite(a.output/(name+'.tif'),v.astype(np.float32),metadata=None)
     fig,axes=plt.subplots(2,2,figsize=(10,9),layout='constrained')
     for row,(d,psi,label) in enumerate([(measured,measured_angle,'Measured green'),
-                                       (predicted,angle,'Lunar only; pmax='+str(a.pmax))]):
+                                       (predicted,angle,'Berry/Wang lunar only')]):
         for col,(v,cmap,lo,hi,title) in enumerate([(d,'viridis',0,1,'DoLP'),(psi,'twilight',-90,90,'AoP')]):
             ax=axes[row,col]
             im=ax.imshow(v,cmap=cmap,vmin=lo,vmax=hi)
@@ -92,10 +95,10 @@ def main():
     report=dict(site=a.site,source_lock_sha256=digest(a.reference_lock),
         source_north_arrays_sha256=digest(a.north/'north_stokes.npz'),
         source_north_report_sha256=digest(a.north/'north_rotation.json'),
-        script_sha256=digest(__file__),phase_module_sha256=digest(Path(__file__).with_name('audit_spider_lunar_aop.py')),
+        script_sha256=digest(__file__),kernel_sha256=digest(Path(__file__).with_name('wang2016_sky.py')),
         projection_module_sha256=digest(Path(__file__).with_name('spider_fisheye_registration.py')),
-        pmax=a.pmax,solar_ratio=0,unpolarized_background=0,horizon_depolarization='none',
-        atmosphere='No extinction or multiple-scattering radiative transfer; fixed pmax is a declared phenomenological amplitude.',
+        neutral_separation_deg=a.neutral_separation_deg,solar_ratio=0,unpolarized_background=0,horizon_depolarization='Wang eq8: cos(theta)^(1/10)',
+        atmosphere='Berry-normalized geometric envelope times Wang eq8; atmospheric multiplier unity. No full radiative transfer or Wang eq17 spectral term.',
         spectral_assumption='Achromatic polarization and separable common lunar spectral template; common response integral cancels in DoLP/AoP. Camera-green comparator, not claimed animal-weighted prediction.',
         projection='Zenith-axis equisolid; rim radius at 90 degree zenith angle',
         astronomical_anchor=lock['astronomical_anchor'],common_central_pixel_count=int(common.sum()),
@@ -103,9 +106,9 @@ def main():
         limitations=['Full-disc model is geometric context; no automatic foreground segmentation.',
         'Central support is physical measured pixels, not an independently reviewed clear-sky mask.',
         'Absolute measured analyzer zero unknown; compare spatial AoP structure separately.',
-        'Ideal meridional polarization transport, not measured lens Mueller calibration.',
+        'Earlier Berry source-meridian phase convention retained; full camera-basis correspondence is not independently calibrated.',
         'Resampled statistics are diagnostics; published camera-frame mean remains separately recorded.',
-        'pmax=0.8 is not an independently calibrated atmospheric estimate. No fit performed.'])
+        'No imposed pmax or clipping. Berry geometric intensity used as DoLP envelope is the earlier declared assumption. Uniform natural I=1. No fit performed.'])
     (a.output/'lunar_only.json').write_text(json.dumps(report,indent=2,allow_nan=False)+'\n')
     print(json.dumps(stats,indent=2))
     print('Saved',a.output)
