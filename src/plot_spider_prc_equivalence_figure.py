@@ -43,7 +43,7 @@ def save(fig,output,name):
     plt.close(fig)
 
 
-def plot_curve(ax,report,limit):
+def plot_curve(ax,report,limit,prc_limit=.7):
     energy=np.linspace(0,limit,700);target=report['target_maximum_absolute_prc']
     for lamp in ['HPS','LED']:
         amount=report['results']['RH1_510']['fits'][lamp]['energy']
@@ -53,7 +53,7 @@ def plot_curve(ax,report,limit):
         ax.annotate(f'{amount:.2f}',(amount,target),xytext=(0,-18),textcoords='offset points',ha='center',color=COLORS[lamp],fontsize=9)
     ax.axhline(target,color='#333333',ls='--',lw=1)
     ax.text(.98,target+.016,f'Measured target {target:.3f}',ha='right',va='bottom',transform=ax.get_yaxis_transform(),fontsize=9)
-    ax.set(xlim=(0,limit),ylim=(0,.7),ylabel='Maximum |PRC|')
+    ax.set(xlim=(0,limit),ylim=(0,prc_limit),ylabel='Maximum |PRC|')
     ax.set_xlabel('Added sky energy / lunar zenith energy\n352–700 nm',labelpad=8)
     ax.set_title(LABELS.get(report['site'],report['site']),loc='left',fontsize=11,pad=12)
     style(ax)
@@ -61,8 +61,9 @@ def plot_curve(ax,report,limit):
 
 def summary(reports,a):
     fig,axes=plt.subplots(2,2,figsize=(10,7.6));fig.subplots_adjust(hspace=.75,wspace=.35,bottom=.15,top=.9)
-    limit=max(r['results']['RH1_510']['fits']['HPS']['energy'] for r in reports)*1.2
-    for ax,report,l in zip(axes[0],reports,['A','B']):plot_curve(ax,report,limit);letter(ax,l)
+    limit=getattr(a,'energy_limit',None) or max(r['results']['RH1_510']['fits']['HPS']['energy'] for r in reports)*1.2
+    for ax,report,l in zip(axes[0],reports,['A','B']):plot_curve(ax,report,limit,getattr(a,'prc_limit',.7));letter(ax,l)
+    if len(reports)==1:axes[0,1].axis('off')
     axes[0,0].legend(frameon=False,fontsize=9,loc='upper right')
     first=reports[0];ax=axes[1,0]
     ratios=[first['results'][key]['led_to_hps_energy_ratio'] for key in ['RH1_510','D850_green_sensitivity']]
@@ -96,9 +97,10 @@ def block_mean(v,n):
 def maps(reports,a):
     locks=json.loads(a.reference_lock.read_text())['sites']
     checks=json.loads((a.reference_lock.parent/'reference_sha256.json').read_text())
-    fig=plt.figure(figsize=(13.5,7));gs=fig.add_gridspec(2,5,width_ratios=[1,1,1,1.25,1.25],hspace=.85,wspace=.5)
+    fig=plt.figure(figsize=(11,7));gs=fig.add_gridspec(2,4,width_ratios=[1,1,1.1,1.1],hspace=.85,wspace=.5)
+    residual_fig,residual_axes=plt.subplots(1,len(reports),figsize=(4*len(reports),3.6),squeeze=False,layout='constrained')
     diagnostics=[];image=None;difference=None
-    limit=max(r['results']['RH1_510']['fits']['HPS']['energy'] for r in reports)*1.2
+    limit=getattr(a,'energy_limit',None) or max(r['results']['RH1_510']['fits']['HPS']['energy'] for r in reports)*1.2
     for row,report in enumerate(reports):
         site=report['site'];lock=locks[site];fitdir=a.fit_root/site/'fit';prcdir=a.prc_root/site
         fpath=fitdir/'twilight_moon_fit.json';apath=fitdir/'twilight_moon_fit_arrays.npz';tpath=prcdir/'prc_comparison.json';spath=prcdir/'prc_support.npz'
@@ -121,30 +123,35 @@ def maps(reports,a):
         n=target['bin_size'];y,x=np.indices(I.shape);xy=np.stack([x*n+(n-1)/2,y*n+(n-1)/2],axis=-1)
         c=np.asarray(lock['reference_center_xy_px']);r=lock['eye_radius_px'];transform=np.asarray(fit['display_camera_to_north_xy'])
         north=xy@transform[:,:2].T+transform[:,2];xx=-(north[...,0]-c[0])/r;yy=-(north[...,1]-c[1])/r
-        for col,(title,values) in enumerate([('Measured green\nRH1 approximation',observed),('PRC-matched RH1 model\nHPS and LED coincide',predicted['HPS']),('Model − measurement\nDoLP residual',delta)]):
+        for col,(title,values) in enumerate([('Measured green\nRH1 approximation',observed),('PRC-matched RH1 model\nHPS and LED coincide',predicted['HPS'])]):
             ax=fig.add_subplot(gs[row,col]);im=ax.pcolormesh(xx,yy,np.where(mask,values,np.nan),shading='nearest',rasterized=True,
                 cmap='viridis' if col<2 else 'RdBu_r',vmin=0 if col<2 else -.08,vmax=.25 if col<2 else .08)
             ax.set(aspect='equal',xlim=(-1.1,1.1),ylim=(-1.1,1.1));ax.axis('off');ax.set_title(title,fontsize=9)
             ax.text(.02,.94,'N',transform=ax.transAxes,fontsize=8);ax.text(.01,.5,'E',transform=ax.transAxes,fontsize=8)
-            letter(ax,chr(65+row*4+col))
+            letter(ax,chr(65+row*3+col))
             if col==0:ax.text(0,-1.38,LABELS.get(site,site)+'\nZenith-centred 60° field',ha='center',fontsize=9)
             if col<2:image=im
             else:difference=im
-        ax=fig.add_subplot(gs[row,3:]);plot_curve(ax,report,limit);letter(ax,chr(68+row*4))
+        rax=residual_axes[0,row]
+        rim=rax.pcolormesh(xx,yy,np.where(mask,delta,np.nan),shading='nearest',rasterized=True,cmap='RdBu_r',vmin=-.08,vmax=.08)
+        rax.set(aspect='equal',xlim=(-1.1,1.1),ylim=(-1.1,1.1));rax.axis('off');rax.set_title(LABELS.get(site,site),fontsize=10)
+        ax=fig.add_subplot(gs[row,2:]);plot_curve(ax,report,limit,getattr(a,'prc_limit',.7));letter(ax,chr(67+row*3))
         if row==0:ax.legend(frameon=False,fontsize=8,loc='upper right')
         diagnostics.append(dict(site=site,dolp_rmse=float(np.sqrt(np.mean(delta[mask]**2))),
             dolp_mean_bias=float(np.mean(delta[mask])),maximum_hps_led_map_difference=float(np.max(abs(predicted['HPS'][mask]-predicted['LED'][mask])))))
     fig.subplots_adjust(bottom=.24,top=.9)
-    cax=fig.add_axes([.12,.065,.21,.018]);fig.colorbar(image,cax=cax,orientation='horizontal',label='DoLP (common 0–0.25 scale)')
-    cax=fig.add_axes([.39,.065,.12,.018]);fig.colorbar(difference,cax=cax,orientation='horizontal',label='DoLP difference (±0.08)')
-    fig.text(.66,.035,'Sky view: north up, east left.\nOnly common measured field shown; no extrapolation.\nPRC matched; spatial DoLP is not forced to agree.',fontsize=8)
+    cax=fig.add_axes([.12,.065,.32,.018]);fig.colorbar(image,cax=cax,orientation='horizontal',label='DoLP (common 0–0.25 scale)')
+    fig.text(.56,.035,'Sky view: north up, east left.\nOnly common measured field shown; no extrapolation.\nPRC matched; spatial DoLP is not forced to agree.',fontsize=8)
     fig.suptitle('Same receptor contrast, different required light amounts',fontsize=14)
     save(fig,a.output,'prc_equivalence_spatial')
+    residual_fig.colorbar(rim,ax=residual_axes.ravel().tolist(),shrink=.8,label='Model − measured DoLP (display ±0.08)')
+    residual_fig.suptitle('Spatial residuals after PRC matching',fontsize=12)
+    save(residual_fig,a.output,'prc_equivalence_residuals')
     return diagnostics
 
 
 def run(a):
-    if len(a.sites)!=2:raise ValueError('This paired-site layout requires exactly two sites')
+    if not 1<=len(a.sites)<=2:raise ValueError('Use one or two sites per page; the batch script handles all sites')
     reports=[];sources={}
     for site in a.sites:
         path=a.results/site/'prc_lamp_equivalence.json';r=json.loads(path.read_text())
@@ -156,8 +163,8 @@ def run(a):
                 if v['status']!='fitted' or not np.isclose(v['achieved_prc'],r['target_maximum_absolute_prc'],atol=1e-10):raise ValueError('Target not matched')
         reports.append(r);sources[site]=digest(path)
     for key in ['RH1_510','D850_green_sensitivity']:
-        if not np.isclose(reports[0]['results'][key]['led_to_hps_energy_ratio'],reports[1]['results'][key]['led_to_hps_energy_ratio']):raise ValueError('Summary cannot pool different spectral ratios')
-    if reports[0]['spectral_band_nm']!=reports[1]['spectral_band_nm']:raise ValueError('Bands differ')
+        if not np.isclose(reports[0]['results'][key]['led_to_hps_energy_ratio'],reports[-1]['results'][key]['led_to_hps_energy_ratio']):raise ValueError('Summary cannot pool different spectral ratios')
+    if reports[0]['spectral_band_nm']!=reports[-1]['spectral_band_nm']:raise ValueError('Bands differ')
     plt.rcParams.update({'font.family':'DejaVu Sans','font.size':10,'pdf.fonttype':42,'svg.fonttype':'none'})
     a.output.mkdir(parents=True)
     summary(reports,a)
@@ -180,6 +187,7 @@ def main():
     p.add_argument('--results',type=Path,required=True);p.add_argument('--output',type=Path,required=True)
     p.add_argument('--sites',nargs='+',default=['WClawn','oxfordbussinesspark'])
     p.add_argument('--camera-response',type=Path,default=Path(__file__).resolve().parents[1]/'data/reference/d850_elf_response.csv')
+    p.add_argument('--energy-limit',type=float);p.add_argument('--prc-limit',type=float,default=.7)
     p.add_argument('--reference-lock',type=Path);p.add_argument('--fit-root',type=Path);p.add_argument('--prc-root',type=Path)
     a=p.parse_args()
     try:run(a)
