@@ -1,0 +1,25 @@
+schema_version: 1
+status: decision_template_not_automatically_applied_by_legacy_wrappers
+geometry:
+  full_fov_deg: 60
+  center: zenith
+  projection: provisional_equisolid
+  astronomical_positions: fixed
+  analyzer_zero: unknown_constant
+  handedness: explicit_per_site_no_automatic_selection
+natural_model:
+  implementation: src/fit_spider_twilight_moon.py
+  fixed_pmax_pilot: 0.8
+  source_ratio_objective: DoLP_with_separate_AoP_change_audit
+  solar_spectral_template: shared_with_lunar_pending_twilight_sensitivity
+pollution:
+  polarization: unpolarized
+  spatial_distribution: uniform
+  fit_endpoint: maximum_absolute_PRC
+receptors:
+  absorbance_parallel: 0.4
+  absorbance_perpendicular: 0.04
+  target: camera_green_as_accepted_RH1_approximation
+outputs:
+  fresh_directory_required: true
+  source_hashes_required: true

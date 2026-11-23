@@ -1,0 +1,13 @@
+schema_version: 1
+status: pending_case_selection
+site: null
+conversion_dates: null
+footprint: null
+hps_spectrum: null
+led_spectrum: null
+pre_post_lumen_output: null
+pre_post_optics_and_shielding: null
+operating_schedule: null
+no_dimming_documentary_evidence: null
+concurrent_changes: null
+supporting_sources: []

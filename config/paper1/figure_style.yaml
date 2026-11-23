@@ -1,0 +1,12 @@
+schema_version: 1
+status: design_template_existing_renderer_has_its_own_defaults
+formats: [png, pdf, svg]
+png_dpi: 300
+editable_vector_text: true
+rasterize_scalar_maps: true
+sky_view: {north: up, east: left}
+colours: {HPS: '#D18A00', LED: '#0072B2'}
+shared_scales_across_sites: true
+main_spatial_panels: [measured_green_proxy, PRC_matched_RH1_model, energy_response]
+residuals: separate_companion
+write_plotted_values: true

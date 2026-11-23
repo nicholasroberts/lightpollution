@@ -1,0 +1,20 @@
+site,site_id,location,setup_state,notes
+ChurchHill,s07,"Church Hill, Wolverhampton",pending_inventory_reconciliation,Planning snapshot; live source checks still required.
+Cottage,s14,"Borrby Strandbad, Sweden",pending_inventory_reconciliation,Planning snapshot; live source checks still required.
+EastHorrington,s13,"East Horrington, UK",pending_inventory_reconciliation,Planning snapshot; live source checks still required.
+Gavarnie,s12,"Gavarnie, France",pending_inventory_reconciliation,Planning snapshot; live source checks still required.
+minifactory,s05,"MINI Plant Oxford, UK",pending_inventory_reconciliation,Planning snapshot; live source checks still required.
+museum,s15,"Museum, Oxford",prior_green_pilot_separate_lock,Planning snapshot; live source checks still required.
+opensquare,s16,"Open Square, Oxford",pending_inventory_reconciliation,Planning snapshot; live source checks still required.
+Ounsdale,s09,"Ounsdale, UK",pending_inventory_reconciliation,Planning snapshot; live source checks still required.
+oxfordbussinesspark,s02,"Oxford Business Park, UK",pilot_completed_prior_review,Planning snapshot; live source checks still required.
+PennCC,s08,"Penn Cricket Club, UK",pending_inventory_reconciliation,Planning snapshot; live source checks still required.
+Skillinge,s10,"Skillinge, Sweden",pending_inventory_reconciliation,Planning snapshot; live source checks still required.
+slabhouse,s17,"Slabhouse, Wells",pending_inventory_reconciliation,Planning snapshot; live source checks still required.
+southhorrington,s11,"South Horrington, UK",pending_inventory_reconciliation,Planning snapshot; live source checks still required.
+stannes,s04,"St Anne's College, Oxford",pending_inventory_reconciliation,Planning snapshot; live source checks still required.
+Waitrose,s03,Waitrose / Tesco Wolverhampton,pending_inventory_reconciliation,Planning snapshot; live source checks still required.
+WClawn,s18,"Worcester College Lawn, Oxford",pilot_completed_prior_review,Planning snapshot; live source checks still required.
+WCpitch,s01,"Worcester College Pitch, Oxford",pending_inventory_reconciliation,Planning snapshot; live source checks still required.
+zoology,s06,"Department of Zoology, Oxford",pending_inventory_reconciliation,Planning snapshot; live source checks still required.
+Wells,,Wells Cathedral,pending_reference_and_geometry,"Investigator identified a separate cathedral measurement; retain as a candidate, not a validated reference."
