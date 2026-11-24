@@ -3,7 +3,7 @@ import argparse
 import json
 import subprocess
 import sys
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 
 SITES={'PennCC':'2019-04-20','WCpitch':'2019-05-14'}
@@ -33,11 +33,13 @@ def main():
         offset=meta.get('EXIF OffsetTimeOriginal')
         if not offset:p.error('Missing explicit NEF UTC offset: '+site)
         observed=datetime.fromisoformat(moment.isoformat()+offset)
-        anchor=lock.get('astronomical_anchor',{})
+        anchor=lock.get('astronomical_anchor') or {}
         if not lock.get('moon_pixel_xy') or not anchor.get('utc'):
             p.error('Reviewed observed Moon and astronomical anchor required: '+site)
         anchored=datetime.fromisoformat(anchor['utc'].replace('Z','+00:00'))
-        if anchored.tzinfo is None or abs((anchored-observed).total_seconds())>1:
+        # Legacy anchors explicitly name this field UTC but omit the suffix.
+        if anchored.tzinfo is None:anchored=anchored.replace(tzinfo=timezone.utc)
+        if abs((anchored-observed).total_seconds())>1:
             p.error(site+': locked anchor does not match first retained NEF time. '
                     'Correct the metadata-based astronomical anchor and re-lock before running; no silent date substitution.')
         if lock.get('radiometry_status')!='black_subtracted_linear_camera_green':
