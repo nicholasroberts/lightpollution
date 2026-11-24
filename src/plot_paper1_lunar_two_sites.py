@@ -7,7 +7,6 @@ import numpy as np
 import matplotlib
 matplotlib.use('Agg')
 import matplotlib.pyplot as plt
-from matplotlib.colors import PowerNorm
 try:
     from cmcrameri import cm as scientific_cmaps
 except ImportError as exc:
@@ -55,10 +54,7 @@ def main():
     p.add_argument('--museum',type=Path,required=True)
     p.add_argument('--museum-lock',type=Path,required=True)
     p.add_argument('--output',type=Path,required=True)
-    p.add_argument('--dolp-cmap', choices=['viridis','cividis'], default='viridis')
-    p.add_argument('--dolp-sqrt', action='store_true', help='Square-root colour scaling only; DoLP values remain unchanged')
     a=p.parse_args()
-    dolp_norm=PowerNorm(gamma=.5, vmin=0, vmax=1) if a.dolp_sqrt else None
     if a.output.exists():p.error('Use a fresh output directory')
     panels=[load_site(a.cottage),load_site(a.museum,a.museum_lock)]
     if [v[0]['site'] for v in panels]!=['Cottage','museum']:
@@ -71,8 +67,8 @@ def main():
         el,az=np.deg2rad([row['moon_elevation_deg'],row['moon_compass_azimuth_deg']])
         mr=r*np.sqrt(1-np.sin(el))
         moon=c+np.array([-np.sin(az),-np.cos(az)])*mr
-        for col,(v,cmap,lo,hi,label) in enumerate([(d,plt.get_cmap(a.dolp_cmap),0,1,'DoLP'),(angle,scientific_cmaps.romaO,-90,90,'AoP')]):
-            ax=axes[ri,col];im=ax.imshow(v,cmap=cmap,**({'norm':dolp_norm} if col==0 and dolp_norm is not None else {'vmin':lo,'vmax':hi}),rasterized=True)
+        for col,(v,cmap,lo,hi,label) in enumerate([(d,plt.get_cmap('viridis'),0,1,'DoLP'),(angle,scientific_cmaps.romaO,-90,90,'AoP')]):
+            ax=axes[ri,col];im=ax.imshow(v,cmap=cmap,vmin=lo,vmax=hi,rasterized=True)
             ax.add_patch(plt.Circle(c,eye,fill=False,color='white',lw=.9))
             ax.plot(*moon,'r+',ms=6)
             for tx,ty,t in [(.5,.99,'N'),(.01,.5,'E'),(.5,.01,'S'),(.99,.5,'W')]:
@@ -82,7 +78,7 @@ def main():
             ax.set_title(title,fontsize=11)
             ax.set_xlim(c[0]-1.07*r,c[0]+1.07*r);ax.set_ylim(c[1]+1.07*r,c[1]-1.07*r)
             ax.axis('off')
-    fig.colorbar(axes[0,0].images[0],ax=axes[:,0].tolist(),shrink=.65,label='DoLP (square-root colour scale)' if a.dolp_sqrt else 'DoLP')
+    fig.colorbar(axes[0,0].images[0],ax=axes[:,0].tolist(),shrink=.65,label='DoLP')
     fig.colorbar(axes[0,1].images[0],ax=axes[:,1].tolist(),shrink=.65,label='AoP (degrees modulo 180)')
     fig.suptitle('Lunar-only Berry/Wang baseline\nNo ALAN or fitted dilution; white circle: 60° full field',fontsize=13)
     fig.text(.015,.985,'B',ha='left',va='top',fontsize=18,fontweight='bold')
@@ -92,7 +88,7 @@ def main():
     rows=[v[-1] for v in panels]
     with (a.output/'figure_values.csv').open('w',newline='') as f:
         w=csv.DictWriter(f,fieldnames=list(rows[0]));w.writeheader();w.writerows(rows)
-    (a.output/'figure_values.json').write_text(json.dumps(dict(sites=rows,script_sha256=digest(__file__),colormaps=dict(DoLP=a.dolp_cmap,AoP='romaO'),dolp_colour_normalization='sqrt' if a.dolp_sqrt else 'linear',
+    (a.output/'figure_values.json').write_text(json.dumps(dict(sites=rows,script_sha256=digest(__file__),colormaps=dict(DoLP='viridis',AoP='romaO'),dolp_colour_normalization='linear',
         definition='Theoretical only; complete 60-degree full field, not measured-mask intersection. Numerical means may differ slightly from prior museum common-support diagnostics. No animal spectral claim.'),indent=2)+'\n')
     lines=['# Figure 1B theoretical field statistics','',
         'Mean of pixel DoLP ± 1 spatial sample SD; zenith-centred 60° full field.',

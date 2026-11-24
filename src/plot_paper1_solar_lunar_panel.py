@@ -9,7 +9,6 @@ import numpy as np
 import matplotlib
 matplotlib.use('Agg')
 import matplotlib.pyplot as plt
-from matplotlib.colors import PowerNorm
 from cmcrameri import cm
 from reconstruct_spider_eye_contrast import digest
 from model_paper1_lunar_baseline import lunar_component
@@ -60,10 +59,7 @@ def main():
     p.add_argument('--reference-lock',type=Path,required=True)
     p.add_argument('--north',type=Path,required=True)
     p.add_argument('--output',type=Path,required=True)
-    p.add_argument('--dolp-cmap', choices=['viridis','cividis'], default='viridis')
-    p.add_argument('--dolp-sqrt', action='store_true', help='Square-root colour scaling only; DoLP values remain unchanged')
     a=p.parse_args()
-    dolp_norm=PowerNorm(gamma=.5, vmin=0, vmax=1) if a.dolp_sqrt else None
     if a.output.exists():p.error('Use a fresh output directory')
     rp=a.fit/'solar_lunar_fit.json';ap=a.fit/'solar_lunar_fit_arrays.npz'
     fit=json.loads(rp.read_text());site=fit['site']
@@ -105,9 +101,9 @@ def main():
         valid=disc&np.isfinite(d)&(i>0)&(d>=0)&(d<=1)
         angle=np.rad2deg(.5*np.arctan2(u,q))
         angle_valid=valid&(np.hypot(q,u)>1e-10)
-        for row,(values,mask,cmap,lo,hi) in enumerate([(d,valid,plt.get_cmap(a.dolp_cmap),0,1),(angle,angle_valid,cm.romaO,-90,90)]):
+        for row,(values,mask,cmap,lo,hi) in enumerate([(d,valid,plt.get_cmap('viridis'),0,1),(angle,angle_valid,cm.romaO,-90,90)]):
             ax=axes[row,col]
-            im=ax.pcolormesh(x,y,np.where(mask,values,np.nan),shading='nearest',cmap=cmap,**({'norm':dolp_norm} if row==0 and dolp_norm is not None else {'vmin':lo,'vmax':hi}),rasterized=True)
+            im=ax.pcolormesh(x,y,np.where(mask,values,np.nan),shading='nearest',cmap=cmap,vmin=lo,vmax=hi,rasterized=True)
             ax.add_patch(plt.Circle(c,lock['eye_radius_px'],fill=False,color='white',lw=.8))
             ax.plot(*observed_moon,'kx',ms=4)
             mr=radius*np.sqrt(1-moon[2])
@@ -121,7 +117,7 @@ def main():
         v=d[field&valid]
         stats[name]=dict(mean_dolp=float(v.mean()),spatial_sd=float(v.std(ddof=1)),included_pixels=int(v.size),
             support='Central60degree binned grid, physical pixels for this field. Measured statistics are north-resampled diagnostics, not replacement camera-frame publication values.')
-    fig.colorbar(axes[0,0].collections[0],ax=axes[0,:].tolist(),shrink=.65,label='DoLP (square-root colour scale)' if a.dolp_sqrt else 'DoLP')
+    fig.colorbar(axes[0,0].collections[0],ax=axes[0,:].tolist(),shrink=.65,label='DoLP')
     fig.colorbar(axes[1,0].collections[0],ax=axes[1,:].tolist(),shrink=.65,label='AoP (degrees modulo 180)')
     fig.suptitle(site+' — fixed-geometry solar/lunar comparison\nNo ALAN; one global analyzer-basis offset fitted on training pixels',fontsize=13)
     fig.text(.012,.985,'C',ha='left',va='top',fontsize=18,fontweight='bold')
@@ -130,7 +126,7 @@ def main():
     plt.close(fig)
     report=dict(site=site,solar_fraction=f,lunar_fraction=1-f,solar=solar,astronomical_anchor=anchor,
         source_fit_report_sha256=digest(rp),source_fit_arrays_sha256=digest(ap),script_sha256=digest(__file__),
-        central_statistics=stats,colormaps=dict(DoLP=a.dolp_cmap,AoP='romaO'),dolp_colour_normalization='sqrt' if a.dolp_sqrt else 'linear',
+        central_statistics=stats,colormaps=dict(DoLP='viridis',AoP='romaO'),dolp_colour_normalization='linear',
         fit_changed=False,background_added=0,absolute_analyzer_zero_fitted=True,analyzer_basis_alignment=alignment,
         limitations=['Observed north-up data, not ALAN-corrected measurements.',
         'Full-disc model is context outside the fit mask; no claim that foreground is predicted.',
