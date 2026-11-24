@@ -101,7 +101,7 @@ def main():
         valid=disc&np.isfinite(d)&(i>0)&(d>=0)&(d<=1)
         angle=np.rad2deg(.5*np.arctan2(u,q))
         angle_valid=valid&(np.hypot(q,u)>1e-10)
-        for row,(values,mask,cmap,lo,hi) in enumerate([(d,valid,cm.batlow,0,1),(angle,angle_valid,cm.romaO,-90,90)]):
+        for row,(values,mask,cmap,lo,hi) in enumerate([(d,valid,plt.get_cmap('viridis'),0,1),(angle,angle_valid,cm.romaO,-90,90)]):
             ax=axes[row,col]
             im=ax.pcolormesh(x,y,np.where(mask,values,np.nan),shading='nearest',cmap=cmap,vmin=lo,vmax=hi,rasterized=True)
             ax.add_patch(plt.Circle(c,lock['eye_radius_px'],fill=False,color='white',lw=.8))
@@ -126,7 +126,7 @@ def main():
     plt.close(fig)
     report=dict(site=site,solar_fraction=f,lunar_fraction=1-f,solar=solar,astronomical_anchor=anchor,
         source_fit_report_sha256=digest(rp),source_fit_arrays_sha256=digest(ap),script_sha256=digest(__file__),
-        central_statistics=stats,colormaps=dict(DoLP='batlow',AoP='romaO'),
+        central_statistics=stats,colormaps=dict(DoLP='viridis',AoP='romaO'),
         fit_changed=False,background_added=0,absolute_analyzer_zero_fitted=True,analyzer_basis_alignment=alignment,
         limitations=['Observed north-up data, not ALAN-corrected measurements.',
         'Full-disc model is context outside the fit mask; no claim that foreground is predicted.',

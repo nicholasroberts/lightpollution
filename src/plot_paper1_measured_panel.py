@@ -46,7 +46,7 @@ def main():
     mean=float(original[good].mean());sd=float(original[good].std(ddof=1))
     plt.rcParams.update({'pdf.fonttype':42,'svg.fonttype':'none'})
     fig,axes=plt.subplots(1,2,figsize=(10,5.3),layout='constrained')
-    for col,(ax,v,cmap,lo,hi,label) in enumerate(zip(axes,[d,angle],[cm.batlow,cm.romaO],[0,-90],[1,90],['Measured green DoLP','Measured green AoP'])):
+    for col,(ax,v,cmap,lo,hi,label) in enumerate(zip(axes,[d,angle],[plt.get_cmap('viridis'),cm.romaO],[0,-90],[1,90],['Measured green DoLP','Measured green AoP'])):
         im=ax.imshow(v,cmap=cmap,vmin=lo,vmax=hi,rasterized=True)
         ax.add_patch(plt.Circle(center,lock['eye_radius_px'],fill=False,color='white',lw=.9))
         ax.plot(*moon,'k+',ms=6)
@@ -63,7 +63,7 @@ def main():
     for ext in ['png','pdf','svg']:
         fig.savefig(a.output/('fig01a_'+a.site+'.'+ext),dpi=300)
     plt.close(fig)
-    report=dict(site=a.site,colormaps=dict(DoLP='batlow',AoP='romaO'),
+    report=dict(site=a.site,colormaps=dict(DoLP='viridis',AoP='romaO'),
         camera_field_mean_dolp=mean,camera_field_spatial_sd=sd,
         included_pixels=int(good.sum()),excluded_field_pixels=int((field&~good).sum()),
         statistic_definition='Unrotated camera-pixel DoLP mean and sample SD ddof=1; zenith-centred full 60-degree field; pair intensity; no added sky mask',
