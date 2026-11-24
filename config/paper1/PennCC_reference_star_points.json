@@ -1,0 +1,60 @@
+{
+  "site": "PennCC",
+  "reference_path": "data/processed/spider_linear_green_all_sites_01/PennCC/1.tif",
+  "reference_sha256": "14b045c1b8702fd1cb53e07de2a49c6fcab0e5612aaf1323b70923acfdcb7e3d",
+  "source_lock_path": "data/processed/spider_registration_green_all_sites_01/runs/PennCC/locked_site_references.json",
+  "source_lock_sha256": "fe955624d447c34fa345ea26f9959a6407e9f0901a04bb5fc91738ef5966d4b5",
+  "image_shape_yx": [
+    1332,
+    2000
+  ],
+  "reference_center_xy_px": [
+    1001.7451430363744,
+    659.0293225899803
+  ],
+  "rim_radius_px": 655.544999673502,
+  "coordinate_convention": "Original reference pixels; x right, y down; no rotation or resampling",
+  "status": "Picked point candidates only; no celestial orientation inferred",
+  "picker_script_sha256": "efcd6bb871f64142191dd43573528f508ac4994f9ea7dfd8c01f2227f62e13a6",
+  "points": [
+    {
+      "label": "P1",
+      "pixel_xy": [
+        1369.5364238410596,
+        634.5015381746994
+      ],
+      "identity_status": "user-selected point; astronomical identity unverified"
+    },
+    {
+      "label": "P2",
+      "pixel_xy": [
+        587.8640776699029,
+        737.9132851204373
+      ],
+      "identity_status": "user-selected point; astronomical identity unverified"
+    },
+    {
+      "label": "P3",
+      "pixel_xy": [
+        681.578947368421,
+        298.3300611224301
+      ],
+      "identity_status": "user-selected point; astronomical identity unverified"
+    },
+    {
+      "label": "P4",
+      "pixel_xy": [
+        1255.2631578947369,
+        1120.265975180589
+      ],
+      "identity_status": "user-selected point; astronomical identity unverified"
+    }
+  ],
+  "star_identities": {
+    "P1": "Arcturus",
+    "P2": "Capella",
+    "P3": "Procyon",
+    "P4": "Vega"
+  },
+  "accepted_by_investigator": "2026-11-24"
+}

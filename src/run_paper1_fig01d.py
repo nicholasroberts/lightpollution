@@ -20,6 +20,7 @@ def main():
     records=json.loads(a.metadata_audit.read_text())
     aliases={'WC_pitch':'WCpitch','ChurcHill':'ChurchHill'}
     selected={}
+    handedness={}
     # Preflight both sites before generating any output.
     for site,confirmed_date in SITES.items():
         path=a.registration_root/'runs'/site/'locked_site_references.json'
@@ -45,6 +46,7 @@ def main():
         if lock.get('radiometry_status')!='black_subtracted_linear_camera_green':
             p.error('Registered linear-green lock required: '+site)
         selected[site]=path.resolve()
+        handedness[site]=lock.get('celestial_orientation',{}).get('handedness','reversed')
     a.output.mkdir(parents=True)
     src=Path(__file__).resolve().parent
     def run(script,*args):
@@ -56,7 +58,7 @@ def main():
         run('audit_spider_measured_stokes.py','--reference-lock',lock,'--sites',site,
             '--raw-manifest-root',a.raw_manifest_root,'--output',base/'audit')
         run('rotate_spider_measured_north.py','--reference-lock',lock,
-            '--audit',base/'audit'/site,'--site',site,'--handedness','reversed',
+            '--audit',base/'audit'/site,'--site',site,'--handedness',handedness[site],
             '--output',base/'north')
         run('fit_paper1_solar_lunar_angle.py','--reference-lock',lock,
             '--north',base/'north','--site',site,'--neutral-separation-deg','24',

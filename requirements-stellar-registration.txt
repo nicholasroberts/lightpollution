@@ -1,0 +1,2 @@
+# Additional ephemeris dependency for the accepted PennCC four-star registration.
+ephem==4.2.1

@@ -45,3 +45,7 @@ Outputs per site: audit/, north/, fit/ (solar_lunar_fit.json, arrays, profile, f
 ## Validation and interpretation
 
 Python syntax checked. A synthetic renderer test verified saved-mixture consistency, reuse of the 1C analyzer-basis alignment, derived combined DoLP and rejection of tampered mixture arrays. The test used stub geometry components; it does not validate the physical sky model or the actual site measurements. EcoVis execution and review remain required. Report the actual fit outcomes, including boundary fractions or no improvement, rather than presupposing a better combined fit.
+
+## Accepted PennCC stellar anchor — supersedes observed-Moon prerequisite for PennCC
+
+PennCC now uses the investigator-accepted four-star orientation, with Moon pixel predicted from that orientation and ephemeris, not observed. WCpitch Moon [621,638] is confirmed. Run the new derived-lock preparation before the 1D runner; use its output as --registration-root. Full protocol and commands: [PennCC stellar orientation](PennCC_stellar_orientation.md). Both sites use the production reversed parity; this is directly tested from stars for PennCC. Suppress its observed-Moon cross and retain the predicted marker. Each site still has one shared solar fraction across DoLP/AoP.

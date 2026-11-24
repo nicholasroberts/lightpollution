@@ -42,7 +42,8 @@ def render_saved_site(a,fig,axes):
         if not np.allclose(expected,arr['combined_'+k],equal_nan=True):raise ValueError('Saved mixture differs')
     spin,alignment=analyzer_basis_alignment(arr)
     names=['measured','lunar','solar','combined']
-    labels=['Measured green; north-up','Lunar only','Solar only',f'Best combined\nSolar {100*f:.1f}% / lunar {100*(1-f):.1f}%']
+    measured_label='Measured green; star-anchored' if lock.get('moon_position_status','').startswith('predicted_') else 'Measured green; north-up'
+    labels=[measured_label,'Lunar only','Solar only',f'Best combined\nSolar {100*f:.1f}% / lunar {100*(1-f):.1f}%']
     disc=np.hypot(x-c[0],y-c[1])<.985*radius
     field=np.hypot(x-c[0],y-c[1])<lock['eye_radius_px']
     stats={}
@@ -59,7 +60,8 @@ def render_saved_site(a,fig,axes):
             ax=axes[row,col]
             im=ax.pcolormesh(x,y,np.where(mask,values,np.nan),shading='nearest',cmap=cmap,vmin=lo,vmax=hi,rasterized=True)
             ax.add_patch(plt.Circle(c,lock['eye_radius_px'],fill=False,color='white',lw=.8))
-            ax.plot(*observed_moon,'kx',ms=4)
+            if not lock.get('moon_position_status','').startswith('predicted_'):
+                ax.plot(*observed_moon,'kx',ms=4)
             mr=radius*np.sqrt(1-moon[2])
             predicted=c+np.array([moon[0],-moon[1]])*mr/max(np.linalg.norm(moon[:2]),1e-12)
             ax.plot(*predicted,'r+',ms=4)
@@ -75,6 +77,7 @@ def render_saved_site(a,fig,axes):
     fig.colorbar(axes[1,0].collections[0],ax=axes[1,:].tolist(),shrink=.65,label='AoP (degrees modulo 180)')
     report=dict(site=site,solar_fraction=f,lunar_fraction=1-f,solar=solar,astronomical_anchor=anchor,
         source_fit_report_sha256=digest(rp),source_fit_arrays_sha256=digest(ap),script_sha256=digest(__file__),
+        moon_position_status=lock.get('moon_position_status','unspecified'),celestial_orientation=lock.get('celestial_orientation'),
         central_statistics=stats,colormaps=dict(DoLP='viridis',AoP='romaO'),dolp_colour_normalization='linear',
         fit_changed=False,background_added=0,absolute_analyzer_zero_fitted=True,analyzer_basis_alignment=alignment,
         limitations=['Observed north-up data, not ALAN-corrected measurements.',

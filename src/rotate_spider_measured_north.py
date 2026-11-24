@@ -77,6 +77,7 @@ def main():
     angle_valid = valid&(np.hypot(q,u)>0)
     dolp = np.where(valid,dolp,np.nan)
     aop = np.where(angle_valid,aop,np.nan)
+    predicted_moon=lock.get('moon_position_status','').startswith('predicted_')
     moon = center+b@(np.asarray(lock['moon_pixel_xy'])-center)
     args.output.mkdir(parents=True)
     for name, values in [('DoLP_north',dolp),('AoP_deg_north',aop)]:
@@ -88,18 +89,19 @@ def main():
     for ax,v,cmap,lo,hi,title in zip(axes,[dolp,aop],['viridis','twilight'],
             [0,-90],[1,90],['Measured green DoLP','AoP; unknown analyzer zero']):
         im=ax.imshow(v,cmap=cmap,vmin=lo,vmax=hi)
-        ax.plot(*moon,'kx',ms=7)
+        ax.plot(*moon,'r+' if predicted_moon else 'kx',ms=7)
         for tx,ty,t in [(.5,.98,'N'),(.02,.5,'E'),(.5,.02,'S'),(.98,.5,'W')]:
             ax.text(tx,ty,t,transform=ax.transAxes,ha='center',va='center')
         ax.set_xlim(center[0]-1.08*radius,center[0]+1.08*radius)
         ax.set_ylim(center[1]+1.08*radius,center[1]-1.08*radius)
         ax.set_title(title);ax.axis('off');fig.colorbar(im,ax=ax,shrink=.8)
-    fig.suptitle(args.site+': observed-Moon anchored; north up, east left')
+    fig.suptitle(args.site+(': star-anchored; predicted Moon' if predicted_moon else ': observed-Moon anchored')+'; north up, east left')
     fig.savefig(args.output/'DoLP_AoP_north.png',dpi=200)
     plt.close(fig)
     provenance=dict(site=args.site,source_lock_sha256=digest(args.reference_lock),
         source_audit_sha256=digest(args.audit/'stokes_audit.json'),
         source_arrays_sha256=digest(source),script_sha256=digest(__file__),
+        moon_position_status=lock.get('moon_position_status','unspecified'),celestial_orientation=lock.get('celestial_orientation'),
         handedness_hypothesis=args.handedness,moon_compass_azimuth_deg=az,
         camera_to_sky_cartesian=a.tolist(),camera_to_raster=b.tolist(),
         note='Pair estimator retained. Transform I,Q,U then calculate DoLP/AoP. One bilinear spatial resampling; no interpolation of angles. No sky-pattern fit. AoP basis +x west/right, +y north/up; unknown constant analyzer zero and off-axis calibration remain. Reversed parity is explicit and separate from analyzer sequence sign. Moon radius not adjusted to match astronomical elevation.')
