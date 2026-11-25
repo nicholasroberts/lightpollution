@@ -177,7 +177,26 @@ def edge_display(image):
     return np.clip(edge/max(hi,1e-12),0,1)
 
 
-def process_site(site,batch,out,anchor,overrides,saved_site=None,registration_model='rigid',linear_raw_manifest=None):
+def reconcile_raw_timestamps(raw_frames,old_times,mapping=None):
+    """Keep both timestamp records; an explicit RAW mapping permits a reviewed mismatch."""
+    approved=None
+    if mapping is not None:
+        approved={int(r['exposure']):r for r in mapping}
+        if len(approved)!=len(mapping):raise ValueError('Duplicate approved RAW exposure indices')
+    differences=[]
+    for n,frame in raw_frames.items():
+        if approved is not None:
+            rec=approved.get(n)
+            if rec is None or rec['datetime_original']!=frame.get('datetime_original') or Path(frame['source_path']).stem.casefold()!=rec['stem'].casefold():
+                raise ValueError('Prepared RAW differs from explicit timestamp mapping for exposure '+str(n))
+        if frame.get('datetime_original')!=old_times[n]:
+            if approved is None:raise ValueError('RAW/TIFF capture timestamps differ for exposure '+str(n))
+            differences.append(dict(exposure=n,old_tiff_datetime_original=old_times[n],
+                raw_datetime_original=frame['datetime_original'],source_raw_path=frame['source_path']))
+    return differences
+
+
+def process_site(site,batch,out,anchor,overrides,saved_site=None,registration_model='rigid',linear_raw_manifest=None,raw_time_mapping=None):
     oldpath=batch/site/'registration/rotation_analysis.json'
     old=json.loads(oldpath.read_text());center=np.asarray(old['reference_center_xy_px'],dtype=float)
     if saved_site is not None and saved_site.get('source_report_sha256')!=digest(oldpath):
@@ -208,6 +227,10 @@ def process_site(site,batch,out,anchor,overrides,saved_site=None,registration_mo
         expected=[g for g in base_groups if set(g)<=set(numbers)]
         if groups!=expected or not groups:raise ValueError('RAW analyzer groups must be exactly the available complete quartets')
         if set(raw_set.get('excluded_exposures',[]))!=set(range(1,raw_set.get('expected_exposure_count',12)+1))-set(numbers):raise ValueError('RAW exclusions do not match available frames')
+    if raw_time_mapping is not None and (raw_set is None or anchor is not None):
+        raise ValueError('Explicit RAW time reconciliation requires a RAW manifest and no inherited celestial anchor')
+    approved_times=json.loads(Path(raw_time_mapping).read_text()) if raw_time_mapping else None
+    time_differences=[]
     images={};inputs=[]
     for n in numbers:
         record=oldinputs[f'{n}.tif'];path=Path(record['path'])
@@ -217,7 +240,7 @@ def process_site(site,batch,out,anchor,overrides,saved_site=None,registration_mo
             with Image.open(path) as original:
                 timestamp=str(original.getexif().get_ifd(34665).get(36867,''))
             frame=raw_frames[n]
-            if frame.get('datetime_original')!=timestamp:raise ValueError('RAW/TIFF capture timestamps differ for exposure '+str(n))
+            time_differences.extend(reconcile_raw_timestamps({n:frame},{n:timestamp},approved_times))
             path=Path(linear_raw_manifest).parent/f'{n}.tif'
             if digest(path)!=frame['output_sha256']:raise ValueError('Linear RAW hash mismatch: '+str(path))
             image,meta=tiff_channel(path,None)
@@ -317,6 +340,8 @@ def process_site(site,batch,out,anchor,overrides,saved_site=None,registration_mo
         lock.update(linear_raw_manifest_sha256=digest(linear_raw_manifest),analyzer_groups=groups,
             excluded_exposures=raw_set['excluded_exposures'],radiometry_status='black_subtracted_linear_camera_'+raw_channel,camera_channel=raw_channel,
             geometry_transfer=geometry_transfer,
+            raw_timestamp_reconciliation=dict(explicit_mapping_sha256=digest(raw_time_mapping) if raw_time_mapping else None,
+                differences=time_differences,inherited_celestial_anchor_discarded=bool(raw_time_mapping)),
             geometry_status='Provisional canvas-scaled reference geometry; newly fitted RAW landmarks; not independent angular calibration')
     if all_pass:
         i,q,u,qa=combine_replicates(([aligned[n] for n in g] for g in groups),'linear_stokes')
@@ -370,10 +395,12 @@ def main():
     p.add_argument('--moon-coordinates',type=Path,help='Optional investigator coordinates: {site:{moon_pixel_xy:[x,y],note:...}}')
     p.add_argument('--registration-model',choices=['rigid','fisheye','fisheye-shared'],default='rigid')
     p.add_argument('--linear-raw-manifest',type=Path,help='Prepared linear camera-channel RAW manifest for one explicitly selected site')
+    p.add_argument('--raw-time-mapping',type=Path,help='Explicit reviewed RAW filename/time mapping; retain mismatches in provenance and require no inherited ephemeris')
     p.add_argument('--from-lock',type=Path,help='Reuse saved image landmark coordinates, not previous transforms')
     a=p.parse_args()
     if a.from_lock and a.registration_model not in ('fisheye','fisheye-shared'):p.error('--from-lock requires a fisheye registration model')
     if a.linear_raw_manifest and (a.from_lock or not a.sites or len(a.sites)!=1):p.error('--linear-raw-manifest requires one --sites entry and fresh landmarks (no --from-lock)')
+    if a.raw_time_mapping and not a.linear_raw_manifest:p.error('--raw-time-mapping requires --linear-raw-manifest')
     if a.output.exists():p.error('Use a fresh versioned output directory')
     try:import cv2
     except ImportError:p.error('Install requirements-registration.txt in the active venv')
@@ -388,7 +415,7 @@ def main():
         print(f'[{index+1}/{len(sites)}] Registering {site} to raw 1.tif',flush=True)
         try:
             if a.from_lock and site not in saved:raise ValueError('Site absent from source landmark lock')
-            locks[site]=process_site(site,a.batch,a.output,anchors.get(site),overrides,saved.get(site),a.registration_model,a.linear_raw_manifest)
+            locks[site]=process_site(site,a.batch,a.output,anchors.get(site),overrides,saved.get(site),a.registration_model,a.linear_raw_manifest,a.raw_time_mapping)
         except (OSError,ValueError,KeyError) as exc:
             locks[site]=dict(site=site,status='pending_inputs_or_registration',reason=str(exc),moon_pixel_xy=None)
             print('  PENDING: '+str(exc),flush=True)

@@ -27,7 +27,12 @@ def main():
     subprocess.run([sys.executable,str(Path(__file__).with_name('lock_spider_site_registration.py')),
         '--batch',str(a.batch),'--model-run',str(pending.parent),
         '--sites','Cottage','--linear-raw-manifest',str(a.linear_raw_manifest),
+        '--raw-time-mapping',str(Path(__file__).resolve().parents[1]/'config/paper1/cottage_raw_mapping.json'),
         '--registration-model','fisheye-shared','--output',str(a.output/'registration')],check=True)
+    registered=json.loads((a.output/'registration/locked_site_references.json').read_text())['sites']['Cottage']
+    if registered.get('status')!='numerically_locked_awaiting_visual_review':
+        p.error('Cottage registration remains pending: '+registered.get('reason',registered.get('status','unknown'))
+                +'. Inspect registration outputs; Stokes audit has not been attempted.')
     subprocess.run([sys.executable,str(Path(__file__).with_name('audit_spider_measured_stokes.py')),
         '--reference-lock',str(a.output/'registration/locked_site_references.json'),
         '--sites','Cottage','--raw-manifest-root',str(a.linear_raw_manifest.parent),
@@ -59,10 +64,10 @@ def main():
         im=ax.imshow(np.where(disc&mask,v,np.nan),cmap=cmap,vmin=lo,vmax=hi)
         ax.add_patch(plt.Circle(c,lock['eye_radius_px'],fill=False,color='white'))
         ax.set_title(label);ax.axis('off');fig.colorbar(im,ax=ax,shrink=.7)
-    fig.suptitle('Cottage — camera frame; north/Moon check pending\\n'
+    fig.suptitle('Cottage — camera frame; north/Moon check pending\n'
         +format(summary['mean_dolp'],'.3f')+' ± '+format(summary['spatial_sd'],'.3f')+' (1 spatial SD, full 60° field)')
     fig.savefig(a.output/'Cottage_camera_DoLP_AoP.png',dpi=200);plt.close(fig)
-    (a.output/'Cottage_camera_field_statistics.json').write_text(json.dumps(summary,indent=2)+'\\n')
+    (a.output/'Cottage_camera_field_statistics.json').write_text(json.dumps(summary,indent=2)+'\n')
     print('Review '+str(a.output/'registration/Cottage/registration_edges.png'))
     print('Camera DoLP review: '+str(a.output/'registration/Cottage/registered_dop_and_north.png'))
     print('North remains unset until a fresh Moon/ephemeris check.')
