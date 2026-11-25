@@ -120,6 +120,16 @@ def green_bayer_plane(mosaic,colors,black_levels,color_desc):
         dropped_bottom_rows=int(mosaic.shape[0]%2),dropped_right_columns=int(mosaic.shape[1]%2))
 
 
+def exposure_settings_changes(metadata,reference,tolerance_seconds=0.0):
+    """Report settings outside the explicitly accepted tolerance; no normalization."""
+    changed=[]
+    for key in ('iso','exposure_seconds','f_number'):
+        tolerance=tolerance_seconds+1e-8 if key=='exposure_seconds' else 1e-8
+        if not np.isclose(metadata[key],reference[key],rtol=0,atol=tolerance):
+            changed.append(f"{key}: {reference[key]:g} -> {metadata[key]:g}")
+    return changed
+
+
 def output_shape(shape,long_edge):
     if long_edge<=0:return tuple(shape)
     ratio=min(1.,long_edge/max(shape))
@@ -131,6 +141,8 @@ def main():
     p.add_argument('--raw-dir',type=Path,required=True,help='One folder containing the original NEF or DNG files')
     p.add_argument('--output',type=Path,help='Fresh output directory; originals are read only')
     p.add_argument('--channel',choices=['blue','green'],default='blue')
+    p.add_argument('--exposure-tolerance-seconds',type=float,default=0.,
+        help='Accepted difference from reference exposure time; no exposure normalization')
     p.add_argument('--inspect',action='store_true',help='Print RAW settings without converting or creating files')
     p.add_argument('--exclude-exposures',type=int,nargs='+',default=[],
         help='Omit specified exposures (1..12); reconstruction groups retain complete quartets only')
@@ -142,6 +154,8 @@ def main():
     if not a.inspect and a.output.exists():p.error('Use a fresh output directory')
     if not a.raw_dir.is_dir():p.error('RAW folder not found')
     if a.long_edge<0:p.error('--long-edge must be nonnegative')
+    if not np.isfinite(a.exposure_tolerance_seconds) or a.exposure_tolerance_seconds<0:
+        p.error('--exposure-tolerance-seconds must be finite and nonnegative')
     if a.inspect and a.mapping is None:
         try:
             available=inspect_available_sources(a.raw_dir,a.raw_kind)
@@ -182,8 +196,7 @@ def main():
         first=prepared[0][2]
         differences=[]
         for _,path,metadata in prepared[1:]:
-            changed=[f"{k}: {first[k]:g} -> {metadata[k]:g}" for k in ('iso','exposure_seconds','f_number')
-                     if not np.isclose(metadata[k],first[k],rtol=0,atol=1e-8)]
+            changed=exposure_settings_changes(metadata,first,a.exposure_tolerance_seconds)
             if changed:differences.append(path.name+' ('+', '.join(changed)+')')
             if metadata['model']!=first['model']:raise ValueError('Camera model changes within the set')
         if differences:raise ValueError('Exposure settings differ from '+prepared[0][1].name+': '+'; '.join(differences))
@@ -198,6 +211,8 @@ def main():
             color_matrix_applied=False,display_profile_or_look_applied=False,auto_brightness_applied=False,
             demosaicing_applied=False,negative_values_retained=True,per_frame_brightness_normalization=False,
             resize='one_common_area_resampling' if a.long_edge else 'none',requested_long_edge=a.long_edge),
+        exposure_tolerance_seconds=a.exposure_tolerance_seconds,
+        exposure_seconds_range=[min(m['exposure_seconds'] for _,_,m in prepared),max(m['exposure_seconds'] for _,_,m in prepared)],
         expected_exposure_count=count,excluded_exposures=excluded,analyzer_groups=complete_groups,
         registration_only_exposures=[r['exposure'] for r in mapping if not any(r['exposure'] in group for group in complete_groups)],
         software=dict(rawpy=rawpy.__version__,numpy=np.__version__,opencv=cv2.__version__,tifffile=tifffile.__version__),
