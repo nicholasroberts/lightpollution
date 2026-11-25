@@ -26,9 +26,9 @@ def load_site(folder, lock_path=None):
             eye=radius*np.sqrt(2)*np.sin(np.pi/12)
         else:
             if lock_path is None:
-                raise ValueError('Museum source lock required to reconstruct complete theoretical field')
+                raise ValueError('Source lock required to reconstruct complete theoretical field')
             if report['source_lock_sha256']!=digest(lock_path):
-                raise ValueError('Museum source lock changed')
+                raise ValueError('Source lock changed')
             lock=json.loads(lock_path.read_text())['sites'][report['site']]
             c=np.asarray(lock['reference_center_xy_px'])
             radius=lock['rim_radius_px'];eye=lock['eye_radius_px']
@@ -53,10 +53,11 @@ def main():
     p.add_argument('--cottage',type=Path,required=True)
     p.add_argument('--museum',type=Path,required=True)
     p.add_argument('--museum-lock',type=Path,required=True)
+    p.add_argument('--cottage-lock',type=Path,help='Required for Cottage theory calculated from its RAW celestial lock')
     p.add_argument('--output',type=Path,required=True)
     a=p.parse_args()
     if a.output.exists():p.error('Use a fresh output directory')
-    panels=[load_site(a.cottage),load_site(a.museum,a.museum_lock)]
+    panels=[load_site(a.cottage,a.cottage_lock),load_site(a.museum,a.museum_lock)]
     if [v[0]['site'] for v in panels]!=['Cottage','museum']:
         p.error('Expected Cottage then museum reports')
     if panels[0][0]['kernel_sha256']!=panels[1][0]['kernel_sha256']:
