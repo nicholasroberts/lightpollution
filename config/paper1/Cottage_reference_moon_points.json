@@ -1,0 +1,71 @@
+{
+  "site": "Cottage",
+  "minimum_points": 1,
+  "initial_point_label": "Moon",
+  "raw_reference_path": "data/raw/skyimages/Cottage/NEF/DSC_2259.NEF",
+  "raw_metadata": {
+    "EXIF DateTimeOriginal": "2018:08:21 21:23:49",
+    "EXIF OffsetTimeOriginal": "+01:00",
+    "EXIF SubSecTimeOriginal": "61",
+    "Image Model": "NIKON D850",
+    "Image Orientation": "Horizontal (normal)"
+  },
+  "reference_path": "data/processed/paper1_cottage_linear_green_01/1.tif",
+  "reference_sha256": "4e43ede689a069c564cb723035081c97157104046aadec11e41e9031ee12e4bb",
+  "source_lock_path": "data/processed/paper1_cottage_camera_review_04/registration/locked_site_references.json",
+  "source_lock_sha256": "45949c033c751f6114f733e1db6b0a9d47f23d428d8730d849d282d65b34df59",
+  "image_shape_yx": [
+    1332,
+    2000
+  ],
+  "reference_center_xy_px": [
+    1001.7451430363743,
+    659.0293225899803
+  ],
+  "rim_radius_px": 655.544999673502,
+  "coordinate_convention": "Original reference pixels; x right, y down; no rotation or resampling",
+  "status": "Picked point candidates only; no celestial orientation inferred",
+  "picker_script_sha256": "891bc40684dbc79010ff0f15c38c42f3067da9e5a26a985f8931a5ba24d71819",
+  "points": [
+    {
+      "label": "Moon",
+      "pixel_xy": [
+        1554.6666666666667,
+        546.7916666666666
+      ],
+      "identity_status": "user-selected point; astronomical identity unverified"
+    },
+    {
+      "label": "P1",
+      "pixel_xy": [
+        1123.4972677595629,
+        588.5789888655987
+      ],
+      "identity_status": "user-selected point; astronomical identity unverified"
+    },
+    {
+      "label": "P2",
+      "pixel_xy": [
+        1353.551912568306,
+        720.8201380742678
+      ],
+      "identity_status": "user-selected point; astronomical identity unverified"
+    },
+    {
+      "label": "P3",
+      "pixel_xy": [
+        1580.327868852459,
+        767.2684756062383
+      ],
+      "identity_status": "user-selected point; astronomical identity unverified"
+    },
+    {
+      "label": "P4",
+      "pixel_xy": [
+        997.8142076502733,
+        159.06847945231823
+      ],
+      "identity_status": "user-selected point; astronomical identity unverified"
+    }
+  ]
+}
