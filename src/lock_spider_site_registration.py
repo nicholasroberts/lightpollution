@@ -196,7 +196,22 @@ def reconcile_raw_timestamps(raw_frames,old_times,mapping=None):
     return differences
 
 
-def process_site(site,batch,out,anchor,overrides,saved_site=None,registration_model='rigid',linear_raw_manifest=None,raw_time_mapping=None):
+def filter_static_regions(source,target,selection):
+    """Select correspondences by investigator polygons in the reference image."""
+    from matplotlib.path import Path as PolygonPath
+    regions=selection.get('regions_xy',[])
+    if not regions:raise ValueError('No static landmark regions supplied')
+    keep=np.zeros(len(target),dtype=bool)
+    for region in regions:
+        polygon=np.asarray(region,dtype=float)
+        if polygon.ndim!=2 or polygon.shape[1]!=2 or len(polygon)<3 or not np.isfinite(polygon).all():
+            raise ValueError('Invalid static landmark polygon')
+        keep|=PolygonPath(polygon).contains_points(np.asarray(target),radius=1e-6)
+    if keep.sum()<16:raise ValueError('Fewer than sixteen matched landmarks in selected static regions')
+    return np.asarray(source)[keep],np.asarray(target)[keep]
+
+
+def process_site(site,batch,out,anchor,overrides,saved_site=None,registration_model='rigid',linear_raw_manifest=None,raw_time_mapping=None,landmark_regions=None):
     oldpath=batch/site/'registration/rotation_analysis.json'
     old=json.loads(oldpath.read_text());center=np.asarray(old['reference_center_xy_px'],dtype=float)
     if saved_site is not None and saved_site.get('source_report_sha256')!=digest(oldpath):
@@ -260,6 +275,12 @@ def process_site(site,batch,out,anchor,overrides,saved_site=None,registration_mo
             old_shape=list(old_shape[:2]),new_shape=list(images[1].shape),scale_xy=scale.tolist(),
             independent_angular_calibration=False)
     destination=out/site;destination.mkdir();reg=destination/'registration';reg.mkdir()
+    selection=json.loads(Path(landmark_regions).read_text()) if landmark_regions else None
+    if selection is not None:
+        if saved_site is not None:raise ValueError('Static regions require fresh fitting; no reuse of accepted transforms')
+        if selection.get('site')!=site or selection.get('reference_sha256')!=inputs[0]['sha256']:
+            raise ValueError('Static landmark regions refer to a different site/reference image')
+        if selection.get('image_shape_yx')!=list(images[1].shape):raise ValueError('Static region image shape differs')
     reference=None if saved_site is not None else landmark_features(images[1],center,radius)
     shared_fits={};shared_geometry=None;site_pairs={}
     if registration_model=='fisheye-shared':
@@ -272,6 +293,8 @@ def process_site(site,batch,out,anchor,overrides,saved_site=None,registration_mo
                 site_pairs[n]=(np.asarray(pairs['source_xy_px']),np.asarray(pairs['reference_xy_px']))
             else:
                 site_pairs[n]=match_landmarks(reference,landmark_features(images[n],center,radius))
+        if selection is not None:
+            site_pairs={n:filter_static_regions(sp,tp,selection) for n,(sp,tp) in site_pairs.items()}
         shared_fits,shared_geometry=fit_site(site_pairs,center,radius)
     aligned={1:images[1]};transforms=[]
     fig,axes=plt.subplots(int(np.ceil(len(numbers)/4)),4,figsize=(16,4*int(np.ceil(len(numbers)/4))),squeeze=False,layout='constrained')
@@ -287,6 +310,8 @@ def process_site(site,batch,out,anchor,overrides,saved_site=None,registration_mo
                     pairs=saved['landmark_correspondences'];sp=np.asarray(pairs['source_xy_px']);tp=np.asarray(pairs['reference_xy_px'])
                 elif registration_model=='fisheye':
                     sp,tp=match_landmarks(reference,landmark_features(images[n],center,radius))
+                if selection is not None and registration_model=='fisheye':
+                    sp,tp=filter_static_regions(sp,tp,selection)
                 if registration_model=='fisheye-shared':
                     sp,tp=site_pairs[n];matrix,quality,error=shared_fits[n]
                 elif registration_model=='fisheye':
@@ -335,6 +360,7 @@ def process_site(site,batch,out,anchor,overrides,saved_site=None,registration_mo
         coordinate_convention='zero-based original pixels, x right, y down; matrices map source xy to reference xy',
         polarimetry_note='Nominal analyzer grouping and camera-basis Stokes equations unchanged; exposure registration is not a full fisheye Mueller calibration',
         registration_method=registration_model+' from static outer-field SIFT correspondences and withheld landmark checks; no sky polarization objective')
+    if landmark_regions:lock['static_landmark_regions']=dict(path=str(landmark_regions),sha256=digest(landmark_regions),reference_sha256=selection['reference_sha256'],regions_xy=selection['regions_xy'],affects_registration_only=True)
     if shared_geometry is not None:lock['shared_image_geometry']=shared_geometry
     if raw_set is not None:
         lock.update(linear_raw_manifest_sha256=digest(linear_raw_manifest),analyzer_groups=groups,
@@ -395,12 +421,15 @@ def main():
     p.add_argument('--moon-coordinates',type=Path,help='Optional investigator coordinates: {site:{moon_pixel_xy:[x,y],note:...}}')
     p.add_argument('--registration-model',choices=['rigid','fisheye','fisheye-shared'],default='rigid')
     p.add_argument('--linear-raw-manifest',type=Path,help='Prepared linear camera-channel RAW manifest for one explicitly selected site')
+    p.add_argument('--landmark-regions',type=Path,help='Investigator-selected stationary reference polygons JSON')
     p.add_argument('--raw-time-mapping',type=Path,help='Explicit reviewed RAW filename/time mapping; retain mismatches in provenance and require no inherited ephemeris')
     p.add_argument('--from-lock',type=Path,help='Reuse saved image landmark coordinates, not previous transforms')
     a=p.parse_args()
     if a.from_lock and a.registration_model not in ('fisheye','fisheye-shared'):p.error('--from-lock requires a fisheye registration model')
     if a.linear_raw_manifest and (a.from_lock or not a.sites or len(a.sites)!=1):p.error('--linear-raw-manifest requires one --sites entry and fresh landmarks (no --from-lock)')
     if a.raw_time_mapping and not a.linear_raw_manifest:p.error('--raw-time-mapping requires --linear-raw-manifest')
+    if a.landmark_regions and (a.from_lock or a.registration_model not in ('fisheye','fisheye-shared')):
+        p.error('--landmark-regions requires fresh fisheye fitting')
     if a.output.exists():p.error('Use a fresh versioned output directory')
     try:import cv2
     except ImportError:p.error('Install requirements-registration.txt in the active venv')
@@ -415,7 +444,7 @@ def main():
         print(f'[{index+1}/{len(sites)}] Registering {site} to raw 1.tif',flush=True)
         try:
             if a.from_lock and site not in saved:raise ValueError('Site absent from source landmark lock')
-            locks[site]=process_site(site,a.batch,a.output,anchors.get(site),overrides,saved.get(site),a.registration_model,a.linear_raw_manifest,a.raw_time_mapping)
+            locks[site]=process_site(site,a.batch,a.output,anchors.get(site),overrides,saved.get(site),a.registration_model,a.linear_raw_manifest,a.raw_time_mapping,a.landmark_regions)
         except (OSError,ValueError,KeyError) as exc:
             locks[site]=dict(site=site,status='pending_inputs_or_registration',reason=str(exc),moon_pixel_xy=None)
             print('  PENDING: '+str(exc),flush=True)

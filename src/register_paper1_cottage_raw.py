@@ -7,6 +7,7 @@ def main():
     p=argparse.ArgumentParser(description=__doc__)
     p.add_argument('--batch',type=Path,required=True)
     p.add_argument('--linear-raw-manifest',type=Path,required=True)
+    p.add_argument('--landmark-regions',type=Path,help='Static reference regions from pick_spider_static_regions.py')
     p.add_argument('--output',type=Path,required=True)
     p.add_argument('--registration-model',choices=['fisheye-shared','fisheye'],default='fisheye-shared',
         help='Existing constrained geometric model; validation thresholds are unchanged')
@@ -26,11 +27,12 @@ def main():
         sites=[dict(site='Cottage',anchor=None)],
         note='Camera-frame registration only; new NEF capture time and Moon pixel require review. No inherited TIFF anchor.'),
         indent=2)+'\n')
+    extra=['--landmark-regions',str(a.landmark_regions)] if a.landmark_regions else []
     subprocess.run([sys.executable,str(Path(__file__).with_name('lock_spider_site_registration.py')),
         '--batch',str(a.batch),'--model-run',str(pending.parent),
         '--sites','Cottage','--linear-raw-manifest',str(a.linear_raw_manifest),
         '--raw-time-mapping',str(Path(__file__).resolve().parents[1]/'config/paper1/cottage_raw_mapping.json'),
-        '--registration-model',a.registration_model,'--output',str(a.output/'registration')],check=True)
+        '--registration-model',a.registration_model,'--output',str(a.output/'registration'),*extra],check=True)
     registered=json.loads((a.output/'registration/locked_site_references.json').read_text())['sites']['Cottage']
     if registered.get('status')!='numerically_locked_awaiting_visual_review':
         p.error('Cottage registration remains pending: '+registered.get('reason',registered.get('status','unknown'))
