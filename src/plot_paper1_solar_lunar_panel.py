@@ -119,12 +119,12 @@ def main():
             support='Central60degree binned grid, physical pixels for this field. Measured statistics are north-resampled diagnostics, not replacement camera-frame publication values.')
     fig.colorbar(axes[0,0].collections[0],ax=axes[0,:].tolist(),shrink=.65,label='DoLP')
     fig.colorbar(axes[1,0].collections[0],ax=axes[1,:].tolist(),shrink=.65,label='AoP (degrees modulo 180)')
-    fig.suptitle(site+' — fixed-geometry solar/lunar comparison\nNo ALAN; one global analyzer-basis offset fitted on training pixels',fontsize=13)
+    fig.suptitle(site+' — fixed-geometry solar/lunar comparison\nNo ALAN; shared separation '+f"{fit['neutral_separation_deg']:.1f}°"+'; one analyzer-basis offset',fontsize=13)
     fig.text(.012,.985,'C',ha='left',va='top',fontsize=18,fontweight='bold')
     a.output.mkdir(parents=True)
     for ext in ['png','pdf','svg']:fig.savefig(a.output/('fig01c_'+site+'.'+ext),dpi=300)
     plt.close(fig)
-    report=dict(site=site,solar_fraction=f,lunar_fraction=1-f,solar=solar,astronomical_anchor=anchor,
+    report=dict(site=site,solar_fraction=f,lunar_fraction=1-f,neutral_separation_deg=fit['neutral_separation_deg'],neutral_separation_fitted=fit.get('neutral_separation_fitted',False),initial_neutral_separation_deg=fit.get('initial_neutral_separation_deg'),solar=solar,astronomical_anchor=anchor,
         source_fit_report_sha256=digest(rp),source_fit_arrays_sha256=digest(ap),script_sha256=digest(__file__),
         central_statistics=stats,colormaps=dict(DoLP='viridis',AoP='romaO'),dolp_colour_normalization='linear',
         fit_changed=False,background_added=0,absolute_analyzer_zero_fitted=True,analyzer_basis_alignment=alignment,

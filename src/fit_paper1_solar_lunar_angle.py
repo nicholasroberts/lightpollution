@@ -39,6 +39,30 @@ def optimize_fraction(measured_change, lunar_lo, lunar_hi, solar_lo, solar_hi, s
     return best[1],residual,grid,costs
 
 
+def optimize_separation(evaluate, measured_change, selected, initial, bounds):
+    """Profile the solar fraction, then refine shared-separation minima."""
+    records={}
+    def profile(separation):
+        key=float(separation)
+        if key not in records:
+            ml,mh,sl,sh=evaluate(key)
+            fraction,residual,_,_=optimize_fraction(measured_change,ml,mh,sl,sh,selected)
+            error=residual(fraction)[selected]
+            records[key]=(float(np.mean(error**2)),fraction)
+        return records[key][0]
+    profile(initial)  # Both sites explicitly start at 82 degrees.
+    grid=np.unique(np.r_[np.linspace(bounds[0],bounds[1],23),initial])
+    costs=np.array([profile(v) for v in grid])
+    candidates=[(costs[j],float(grid[j])) for j in range(len(grid))]
+    for j in range(1,len(grid)-1):
+        if costs[j]<=costs[j-1] and costs[j]<=costs[j+1]:
+            result=minimize_scalar(profile,bounds=(grid[j-1],grid[j+1]),method='bounded',
+                options={'xatol':1e-4})
+            candidates.append((float(result.fun),float(result.x)))
+    _,best=min(candidates)
+    profile(best)
+    return best,records
+
 def error_stats(values):
     v=np.rad2deg(values)
     return dict(pair_count=int(v.size),median_absolute_deg=float(np.median(abs(v))),
@@ -78,7 +102,9 @@ def main():
     p.add_argument('--north',type=Path,required=True)
     p.add_argument('--site',default='museum')
     p.add_argument('--reference',type=Path,default=Path(__file__).resolve().parents[1]/'data/reference/prc_spider_18_sites_verified.csv')
-    p.add_argument('--neutral-separation-deg',type=float,required=True)
+    p.add_argument('--neutral-separation-deg',type=float,required=True,help='Fixed separation, or initial value when jointly fitting')
+    p.add_argument('--fit-neutral-separation',action='store_true')
+    p.add_argument('--separation-bounds-deg',type=float,nargs=2,default=[1.,89.])
     p.add_argument('--bin-size',type=int,default=8)
     p.add_argument('--lags-px',type=int,nargs='+',default=[32,64])
     p.add_argument('--minimum-dolp',type=float,default=.05)
@@ -87,6 +113,8 @@ def main():
     p.add_argument('--output',type=Path,required=True)
     a=p.parse_args()
     if a.output.exists():p.error('Use fresh output directory')
+    if not (0<a.separation_bounds_deg[0]<a.neutral_separation_deg<a.separation_bounds_deg[1]<90) and a.fit_neutral_separation:
+        p.error('Initial separation must lie within bounds, strictly between 0 and 90deg')
     if a.bin_size<1 or a.block_px<a.bin_size or not 0<a.minimum_dolp<1 or not 0<a.neutral_separation_deg<90:
         p.error('Invalid scale, threshold or neutral separation')
     if any(l<a.bin_size or l%a.bin_size for l in a.lags_px):
@@ -113,7 +141,8 @@ def main():
         dolp=abs(observed)/intensity
     mask=(np.hypot(x-center[0],y-center[1])<lock['eye_radius_px'])&(intensity>0)&np.isfinite(observed)&np.isfinite(dolp)&(dolp>=a.minimum_dolp)&(dolp<=.95)
     # Fixed support for endpoints and every candidate fraction; no model-specific threshold masks.
-    mask&=np.isfinite(mz)&np.isfinite(sz)&(abs(mz)>1e-8)&(abs(sz)>1e-8)
+    mask&=np.isfinite(mz)&np.isfinite(sz)
+    if not a.fit_neutral_separation:mask&=(abs(mz)>1e-8)&(abs(sz)>1e-8)
     if a.sky_mask:
         raw=np.load(a.sky_mask,allow_pickle=False)
         if raw.shape!=original_shape or raw.dtype!=np.bool_:p.error('Sky mask shape/dtype differs')
@@ -136,11 +165,26 @@ def main():
             pairs.append((observed[hi][good]*np.conj(observed[lo][good]),
                 mz[lo][good],mz[hi][good],sz[lo][good],sz[hi][good],
                 withheld[lo][good],block[lo][good],block[hi][good],
-                np.full(int(good.sum()),spacing)))
-    columns=[np.concatenate([p[j] for p in pairs]) for j in range(9)]
-    measured,ml,mh,sl,sh,test,bl,bh,spacings=columns
+                np.full(int(good.sum()),spacing),
+                np.arange(mask.size).reshape(mask.shape)[lo][good],
+                np.arange(mask.size).reshape(mask.shape)[hi][good]))
+    columns=[np.concatenate([p[j] for p in pairs]) for j in range(11)]
+    measured,ml,mh,sl,sh,test,bl,bh,spacings,pair_lo,pair_hi=columns
     train=~test
     if min(train.sum(),test.sum())<30:p.error('Insufficient training or withheld pairs')
+    initial_separation=a.neutral_separation_deg
+    separation_records={}
+    if a.fit_neutral_separation:
+        def evaluate(separation):
+            _,m=lunar_component(view,moon,separation)
+            _,s=lunar_component(view,sun,separation)
+            return m.ravel()[pair_lo],m.ravel()[pair_hi],s.ravel()[pair_lo],s.ravel()[pair_hi]
+        best,separation_records=optimize_separation(evaluate,measured,train,
+            initial_separation,a.separation_bounds_deg)
+        a.neutral_separation_deg=best
+        mi,mz=lunar_component(view,moon,best)
+        si,sz=lunar_component(view,sun,best)
+        ml,mh,sl,sh=evaluate(best)
     fraction,residual,grid,costs=optimize_fraction(measured,ml,mh,sl,sh,train)
     zi=(1-fraction)*mz+fraction*sz
     ii=(1-fraction)*mi+fraction*si
@@ -160,6 +204,10 @@ def main():
         f,_,_,_=optimize_fraction(measured,ml,mh,sl,sh,keep)
         stability.append(dict(omitted_block=int(bid),solar_fraction=f))
     a.output.mkdir(parents=True)
+    if separation_records:
+        with (a.output/'separation_profile.csv').open('w',newline='') as stream:
+            w=csv.writer(stream);w.writerow(['shared_separation_deg','best_solar_fraction','training_MSE_rad2'])
+            for separation,(cost,f) in sorted(separation_records.items()):w.writerow([separation,f,cost])
     with (a.output/'ratio_profile.csv').open('w',newline='') as stream:
         w=csv.writer(stream);w.writerow(['solar_fraction','solar_to_lunar_ratio','training_AoP_change_MSE_rad2'])
         for f,cost in zip(grid,costs):w.writerow([f,f/(1-f) if f<1 else 'solar_only',cost])
@@ -186,6 +234,10 @@ def main():
         site_reference_sha256=digest(a.reference),
         sky_mask_sha256=digest(a.sky_mask) if a.sky_mask else None,
         astronomical_anchor=anchor,solar=solar,neutral_separation_deg=a.neutral_separation_deg,
+        neutral_separation_fitted=a.fit_neutral_separation,initial_neutral_separation_deg=initial_separation,
+        neutral_separation_bounds_deg=a.separation_bounds_deg if a.fit_neutral_separation else None,
+        shared_solar_lunar_separation=True,
+        separation_on_boundary=bool(a.fit_neutral_separation and min(abs(a.neutral_separation_deg-v) for v in a.separation_bounds_deg)<.01),
         bin_size=a.bin_size,lags_px=sorted(set(a.lags_px)),block_px=a.block_px,minimum_measured_dolp=a.minimum_dolp,
         central_mask_pixels=int(mask.sum()),training_pair_count=int(train.sum()),withheld_pair_count=int(test.sum()),
         training_blocks=int(len(blocks)),metrics=metrics,leave_one_training_block_out=stability,
@@ -194,13 +246,14 @@ def main():
         limitations=['Berry/Wang geometric solar component extended below the horizon; not calibrated twilight radiative transfer.',
         'No separate solar/lunar spectra: fraction is a green-channel effective weight under achromatic component assumptions.',
         'Correlated pair errors and overlapping lags are not independent replicates; no naive pixel p-values or confidence intervals.',
+        'When separation is fitted, leave-one-block-out fractions are conditional on the fitted separation, not a joint-parameter uncertainty estimate.',
         'Leave-one-block-out results measure conditional spatial stability, not a formal confidence interval or between-night uncertainty.',
         'Mask is central physical sky candidate unless explicit clear-sky mask supplied; no automatic foreground segmentation.',
         'Model selection on this one capture is exploratory; withheld blocks test spatial interpolation, not independent nights.',
         'No ALAN or amplitude fit; combined DoLP remains a prediction and is not optimized.',
         'Inherited camera parity, unknown analyzer zero and idealized optical-axis/projection remain uncertainties.'])
     (a.output/'solar_lunar_fit.json').write_text(json.dumps(result,indent=2,allow_nan=False)+'\n')
-    print(json.dumps(dict(solar=solar,solar_fraction=fraction,solar_to_lunar_ratio=result['solar_to_lunar_uniform_intensity_ratio'],
+    print(json.dumps(dict(solar=solar,neutral_separation_deg=a.neutral_separation_deg,initial_neutral_separation_deg=initial_separation,solar_fraction=fraction,solar_to_lunar_ratio=result['solar_to_lunar_uniform_intensity_ratio'],
         withheld_metrics={n:metrics[n]['pooled_withheld'] for n in metrics}),indent=2))
     print('Saved',a.output)
 
