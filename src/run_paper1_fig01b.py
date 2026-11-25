@@ -38,7 +38,8 @@ def main():
             '--site',site,'--neutral-separation-deg',82,'--output',a.output/site)
     run('plot_paper1_lunar_two_sites.py','--cottage',a.output/'Cottage',
         '--cottage-lock',cottage_lock,'--museum',a.output/'museum',
-        '--museum-lock',a.museum_lock,'--output',a.output/'panel')
+        '--museum-lock',a.museum_lock,'--cottage-north',a.cottage_root/'north',
+        '--museum-north',a.museum_north,'--output',a.output/'panel')
     # Include complete model reports alongside the publication artwork/stats.
     reports={site:json.loads((a.output/site/'lunar_only.json').read_text()) for site,_,_ in sites}
     (a.output/'panel/model_provenance.json').write_text(json.dumps(dict(
