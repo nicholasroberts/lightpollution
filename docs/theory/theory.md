@@ -25,37 +25,36 @@ transformation; it is not merely an arbitrary constant angle adjustment.
 The publication sky view is north up/east left. Changing the display alone
 does not change the inferred physical source geometry.
 
-## 2. Natural solar and lunar contributions
+## 2. Natural solar and lunar contributions — current Figure 1/2 model
 
-For incoherent sources, add spectral Stokes vectors:
+For incoherent sources, add spectral I,Q,U in the same polarization basis.
+Do not add DoLP values or average AoP. Current production components use
+model_paper1_lunar_baseline.lunar_component and wang2016_sky.natural_stokes:
+Berry-normalized complex pattern with the -4 prefactor, existing Wang horizon
+factor cos(theta)^(1/10), and unity atmospheric multiplier. There is no imposed
+ceiling below pmax=1, and no extra atmospheric-depolarization fit.
+This supersedes the former pmax=0.8 Rayleigh pilot.
 
-\[
-\mathbf S_{\rm nat}(\lambda,\mathbf v)
-=\mathbf S_M(\lambda,\mathbf v)
-+\mathbf S_S(\lambda,\mathbf v),\qquad \mathbf S=(I,Q,U).
-\]
+Each geometric component currently has uniform I=1. The fixed natural mixture
+is (1-f) S_M + f S_S. Figure 1 fits f and one neutral-point separation shared
+by the solar and lunar components within each site, from circular spatial
+AoP-change residuals on training support, with withheld spatial diagnostics.
+Source positions/parity/north alignment remain fixed independently.
+The display estimates one constant analyzer-zero offset from the combined
+pattern, shared by all model components; it is not independent polarizer calibration.
 
-Do not add DoLP values or average AoP angles. Different source polarization
-directions can cancel in Q/U even when each source is strongly polarized.
+For Figure 2 retain each site's FINAL Figure 1 fit, not the rounded70-degree
+lunar-only Figure 1B baseline. Cottage: f=0.011626536079624548,
+separation69.21848593071331deg. Museum: f=0.743078968425043,
+separation70.7216738146598deg. Original measured Stokes and approved artwork
+remain unchanged. Figures 2B/2C independently fit nonnegative HPS-only and LED-only
+amounts to measured camera-green DoLP, as explicitly requested25November;
+PRC is then predicted for those fitted scenarios in2E, not used as the2B/2C objective.
 
-The present exploratory component uses \(\mu=\mathbf v\cdot\mathbf s\):
-
-\[
-I_s \propto 1+\mu^2,\qquad
-|Z_s|\propto p_{\max}(1-\mu^2).
-\]
-
-The source intensity normalization in the existing fitter makes zenith I=1
-for each component. Its polarization phase comes from the scattering plane
-and ideal meridional transport into the camera analyzer plane. The pilot
-fixes \(p_{\max}=0.8\). These ideal components are not a complete twilight
-radiative-transfer model, especially with the Sun below the horizon.
-
-The current fitted natural field is \(\mathbf S_M+r\mathbf S_S\). The source
-ratio r is presently estimated with a DoLP objective and separately assessed
-using spatial AoP changes. A joint AoP/DoLP objective is planned, not already
-implemented. The current spectral comparison assumes a common transferred
-natural spectral template for Sun and Moon; this is explicitly provisional.
+The current spectral comparison assumes the same transferred natural/Moon
+spectral template for both Sun and Moon. Thus the fitted green-band mixture
+can be retained under that separable assumption. No new solar twilight spectrum
+or full atmospheric radiative transfer is asserted.
 
 ## 3. Artificial-light contribution and normalization
 
