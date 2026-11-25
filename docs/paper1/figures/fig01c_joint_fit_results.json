@@ -1,0 +1,623 @@
+{
+  "Cottage": {
+    "site": "Cottage",
+    "status": "angle_structure_fit_no_ALAN",
+    "solar_fraction": 0.011626536079624548,
+    "lunar_fraction": 0.9883734639203755,
+    "solar_to_lunar_uniform_intensity_ratio": 0.011763302541033412,
+    "normalization": "Each component has uniform I=1, as in the current Berry/Wang baseline. Fraction is camera-green proxy intensity weight, not top-of-atmosphere or electrical source power.",
+    "objective": "Mean squared circular AoP-change residual; horizontal and vertical pairs, fixed mask, training blocks only. Constant analyzer zero cancels.",
+    "source_lock_sha256": "5299673457612c6d1c989a256a2b38f178c8791316e38c907ef186578993a372",
+    "source_north_arrays_sha256": "360b117f050001fc5115557744b5f7d06dd303b318189de51d9cab869cb2eef2",
+    "source_north_report_sha256": "b4104861ff2f70717740fa017d2d4d12d9ef689ee09dbd7bec33ea893767f993",
+    "script_sha256": "a8426d34416af6f40867c7772d811bef807b1c1b3fee5d077cbe248a1ff8fa70",
+    "kernel_sha256": "e25a2d8abba96b9cbc3d5ddede59cebb5cdf8eb24cb1b43367be40d201c3a8a0",
+    "component_module_sha256": "b3f5617360c767e0da7c18471a56328fa53929ae51f8da6625a587a40e716d61",
+    "site_reference_sha256": "2d08d6d8d4b41bac539ca9b18cf4f09414dc33a6ebede1b4610c4ad94ba38e88",
+    "sky_mask_sha256": null,
+    "astronomical_anchor": {
+      "site_id": "s14",
+      "local_time": "2018:08:21 21:23:49",
+      "camera_utc_offset": "+01:00",
+      "timezone": "EXIF explicit offset; not inferred from Sweden",
+      "utc_offset_hours": 1,
+      "utc": "2018-08-21T20:23:49Z",
+      "timestamp_source": "Original NEF DateTimeOriginal and OffsetTimeOriginal",
+      "reference_field_date": "2018-08-21",
+      "moon_elevation_deg": 12.31370836118817,
+      "moon_compass_azimuth_deg": 191.15960520703004,
+      "moon_illuminated_percent": 81.76532745361328,
+      "sun_elevation_deg": -14.580450925003117,
+      "sun_compass_azimuth_deg": 318.8776266858003,
+      "ephemeris": "PyEphem 4.2.1; pressure=0; height=0; reference exposure start, whole seconds"
+    },
+    "solar": {
+      "sun_elevation_deg": -14.580574579325633,
+      "sun_compass_azimuth_deg": 318.8777979351868,
+      "utc": "2018-08-21T20:23:49Z",
+      "latitude_deg": 55.426041,
+      "longitude_deg": 14.231644,
+      "height_m": 0,
+      "pressure_hpa": 0,
+      "source": "astropy.get_sun; offline IERS; geometric AltAz"
+    },
+    "neutral_separation_deg": 69.21848593071331,
+    "neutral_separation_fitted": true,
+    "initial_neutral_separation_deg": 82,
+    "neutral_separation_bounds_deg": [
+      1,
+      89
+    ],
+    "shared_solar_lunar_separation": true,
+    "separation_on_boundary": false,
+    "bin_size": 8,
+    "lags_px": [
+      32,
+      64
+    ],
+    "block_px": 96,
+    "minimum_measured_dolp": 0.05,
+    "central_mask_pixels": 2819,
+    "training_pair_count": 4882,
+    "withheld_pair_count": 1705,
+    "training_blocks": 21,
+    "metrics": {
+      "lunar_only": {
+        "training": {
+          "32": {
+            "pair_count": 2861,
+            "median_absolute_deg": 0.7248559104545708,
+            "rms_deg": 4.891772443324756,
+            "p95_absolute_deg": 5.188882361438862,
+            "mean_signed_deg": 0.07970019582906768
+          },
+          "64": {
+            "pair_count": 2021,
+            "median_absolute_deg": 0.8000936522337012,
+            "rms_deg": 4.966242057211287,
+            "p95_absolute_deg": 5.17196607950303,
+            "mean_signed_deg": 0.27774148877803595
+          }
+        },
+        "withheld": {
+          "32": {
+            "pair_count": 1157,
+            "median_absolute_deg": 0.6862266212927639,
+            "rms_deg": 1.798506312241813,
+            "p95_absolute_deg": 4.051658164683105,
+            "mean_signed_deg": 0.08128249794056837
+          },
+          "64": {
+            "pair_count": 548,
+            "median_absolute_deg": 0.7564326666844612,
+            "rms_deg": 1.7809750145311898,
+            "p95_absolute_deg": 3.7409081120452945,
+            "mean_signed_deg": 0.16811977742143963
+          }
+        },
+        "pooled_training": {
+          "pair_count": 4882,
+          "median_absolute_deg": 0.7547532595134911,
+          "rms_deg": 4.922737257959969,
+          "p95_absolute_deg": 5.188115912152689,
+          "mean_signed_deg": 0.16168328740011745
+        },
+        "pooled_withheld": {
+          "pair_count": 1705,
+          "median_absolute_deg": 0.7077518973484197,
+          "rms_deg": 1.792890313900689,
+          "p95_absolute_deg": 4.020863545423483,
+          "mean_signed_deg": 0.10919266166814456
+        }
+      },
+      "solar_only": {
+        "training": {
+          "32": {
+            "pair_count": 2861,
+            "median_absolute_deg": 1.3830098069860195,
+            "rms_deg": 5.441532837962475,
+            "p95_absolute_deg": 7.626156817968752,
+            "mean_signed_deg": 0.6523583856655453
+          },
+          "64": {
+            "pair_count": 2021,
+            "median_absolute_deg": 2.271921337136964,
+            "rms_deg": 6.770016746880705,
+            "p95_absolute_deg": 12.132822627420264,
+            "mean_signed_deg": 1.5741077599420596
+          }
+        },
+        "withheld": {
+          "32": {
+            "pair_count": 1157,
+            "median_absolute_deg": 1.4611733765404822,
+            "rms_deg": 2.763471951013839,
+            "p95_absolute_deg": 5.894867335844535,
+            "mean_signed_deg": 0.6120156204321627
+          },
+          "64": {
+            "pair_count": 548,
+            "median_absolute_deg": 2.6659849077982267,
+            "rms_deg": 4.577968484045614,
+            "p95_absolute_deg": 9.168035485327895,
+            "mean_signed_deg": 1.3310855385158493
+          }
+        },
+        "pooled_training": {
+          "pair_count": 4882,
+          "median_absolute_deg": 1.667431590998165,
+          "rms_deg": 6.027109301658699,
+          "p95_absolute_deg": 9.744874826789758,
+          "mean_signed_deg": 1.0339346833740328
+        },
+        "pooled_withheld": {
+          "pair_count": 1705,
+          "median_absolute_deg": 1.729566743662241,
+          "rms_deg": 3.452282440187156,
+          "p95_absolute_deg": 7.640731158539804,
+          "mean_signed_deg": 0.8431301747487963
+        }
+      },
+      "combined": {
+        "training": {
+          "32": {
+            "pair_count": 2861,
+            "median_absolute_deg": 0.7178716275095988,
+            "rms_deg": 4.891207513913431,
+            "p95_absolute_deg": 5.206530331207723,
+            "mean_signed_deg": 0.08660388936414949
+          },
+          "64": {
+            "pair_count": 2021,
+            "median_absolute_deg": 0.8076081085184232,
+            "rms_deg": 4.966511323779638,
+            "p95_absolute_deg": 5.133667524532755,
+            "mean_signed_deg": 0.2904652932235019
+          }
+        },
+        "withheld": {
+          "32": {
+            "pair_count": 1157,
+            "median_absolute_deg": 0.6966233120262203,
+            "rms_deg": 1.8010947086865203,
+            "p95_absolute_deg": 4.041240693884156,
+            "mean_signed_deg": 0.08860680357109098
+          },
+          "64": {
+            "pair_count": 548,
+            "median_absolute_deg": 0.7453994919037805,
+            "rms_deg": 1.7905718901799381,
+            "p95_absolute_deg": 3.773808710980572,
+            "mean_signed_deg": 0.1833440888061637
+          }
+        },
+        "pooled_training": {
+          "pair_count": 4882,
+          "median_absolute_deg": 0.7494022312237193,
+          "rms_deg": 4.9225207452387565,
+          "p95_absolute_deg": 5.202625851854663,
+          "mean_signed_deg": 0.17099633041284903
+        },
+        "pooled_withheld": {
+          "pair_count": 1705,
+          "median_absolute_deg": 0.7211331892071021,
+          "rms_deg": 1.7977193116306351,
+          "p95_absolute_deg": 4.014884973691759,
+          "mean_signed_deg": 0.11905608938271554
+        }
+      }
+    },
+    "leave_one_training_block_out": [
+      {
+        "omitted_block": 93,
+        "solar_fraction": 0.011794217843999515
+      },
+      {
+        "omitted_block": 94,
+        "solar_fraction": 0.011831079333319307
+      },
+      {
+        "omitted_block": 96,
+        "solar_fraction": 0.011623063466305306
+      },
+      {
+        "omitted_block": 113,
+        "solar_fraction": 0.012860026920841644
+      },
+      {
+        "omitted_block": 114,
+        "solar_fraction": 0.011793129775826739
+      },
+      {
+        "omitted_block": 116,
+        "solar_fraction": 0.010644969255472786
+      },
+      {
+        "omitted_block": 117,
+        "solar_fraction": 0.010577884853239855
+      },
+      {
+        "omitted_block": 133,
+        "solar_fraction": 0.011720778558207462
+      },
+      {
+        "omitted_block": 134,
+        "solar_fraction": 0.013487656058191917
+      },
+      {
+        "omitted_block": 136,
+        "solar_fraction": 0.012984969155650295
+      },
+      {
+        "omitted_block": 137,
+        "solar_fraction": 0.013735370635886897
+      },
+      {
+        "omitted_block": 154,
+        "solar_fraction": 0.011636636944248633
+      },
+      {
+        "omitted_block": 156,
+        "solar_fraction": 0.021343356168679915
+      },
+      {
+        "omitted_block": 157,
+        "solar_fraction": 0.02764380436724543
+      },
+      {
+        "omitted_block": 159,
+        "solar_fraction": 0.01200488852743221
+      },
+      {
+        "omitted_block": 176,
+        "solar_fraction": 0.012454282145656127
+      },
+      {
+        "omitted_block": 177,
+        "solar_fraction": 0.00502551330995302
+      },
+      {
+        "omitted_block": 179,
+        "solar_fraction": 0.016544122157759918
+      },
+      {
+        "omitted_block": 180,
+        "solar_fraction": 0.010216562631557572
+      },
+      {
+        "omitted_block": 199,
+        "solar_fraction": 0
+      },
+      {
+        "omitted_block": 200,
+        "solar_fraction": 0
+      }
+    ],
+    "fraction_on_boundary": false,
+    "fitted_background": 0,
+    "fitted_pattern_rotation": false,
+    "fitted_analyzer_zero": false,
+    "limitations": [
+      "Berry/Wang geometric solar component extended below the horizon; not calibrated twilight radiative transfer.",
+      "No separate solar/lunar spectra: fraction is a green-channel effective weight under achromatic component assumptions.",
+      "Correlated pair errors and overlapping lags are not independent replicates; no naive pixel p-values or confidence intervals.",
+      "When separation is fitted, leave-one-block-out fractions are conditional on the fitted separation, not a joint-parameter uncertainty estimate.",
+      "Leave-one-block-out results measure conditional spatial stability, not a formal confidence interval or between-night uncertainty.",
+      "Mask is central physical sky candidate unless explicit clear-sky mask supplied; no automatic foreground segmentation.",
+      "Model selection on this one capture is exploratory; withheld blocks test spatial interpolation, not independent nights.",
+      "No ALAN or amplitude fit; combined DoLP remains a prediction and is not optimized.",
+      "Inherited camera parity, unknown analyzer zero and idealized optical-axis/projection remain uncertainties."
+    ]
+  },
+  "museum": {
+    "site": "museum",
+    "status": "angle_structure_fit_no_ALAN",
+    "solar_fraction": 0.743078968425043,
+    "lunar_fraction": 0.25692103157495705,
+    "solar_to_lunar_uniform_intensity_ratio": 2.8922465547872,
+    "normalization": "Each component has uniform I=1, as in the current Berry/Wang baseline. Fraction is camera-green proxy intensity weight, not top-of-atmosphere or electrical source power.",
+    "objective": "Mean squared circular AoP-change residual; horizontal and vertical pairs, fixed mask, training blocks only. Constant analyzer zero cancels.",
+    "source_lock_sha256": "a3957dfc72a98a9fb71350f3a509ee7bfc29d69f4ff26d7240f34b9260f4693a",
+    "source_north_arrays_sha256": "2d1a345e786f60b1b34b58b95313f7caed3dfbd82819a2e3e1203c69b392b12f",
+    "source_north_report_sha256": "c7d02df746e9ac99622893753743dccbdf5cbfffa698bac616b43280c013c1f0",
+    "script_sha256": "a8426d34416af6f40867c7772d811bef807b1c1b3fee5d077cbe248a1ff8fa70",
+    "kernel_sha256": "e25a2d8abba96b9cbc3d5ddede59cebb5cdf8eb24cb1b43367be40d201c3a8a0",
+    "component_module_sha256": "b3f5617360c767e0da7c18471a56328fa53929ae51f8da6625a587a40e716d61",
+    "site_reference_sha256": "2d08d6d8d4b41bac539ca9b18cf4f09414dc33a6ebede1b4610c4ad94ba38e88",
+    "sky_mask_sha256": null,
+    "astronomical_anchor": {
+      "site_id": "s15",
+      "local_time": "2019:05:14 22:09:51",
+      "timezone": "Europe/London",
+      "utc_offset_hours": 1,
+      "utc": "2019-05-14T21:09:51",
+      "timestamp_source": "EXIF DateTimeOriginal",
+      "reference_field_date": "2019-05-14",
+      "moon_elevation_deg": 41.19831511184027,
+      "moon_compass_azimuth_deg": 187.1466130743674,
+      "candidate_pixel_xy": null,
+      "source_report_sha256": "fa451f82c1813b93611ba12779509cf41a9f28967ffe4f8cdbc7d75dd93de5d9",
+      "flags": [
+        "Time zone inferred from site country; original camera local-time convention assumed as in the existing campaign",
+        "Ephemeris-only forward anchor: no camera bearing selected; not usable for measured north-up overlays"
+      ]
+    },
+    "solar": {
+      "sun_elevation_deg": -10.227399587952283,
+      "sun_compass_azimuth_deg": 319.08424097267704,
+      "utc": "2019-05-14T21:09:51",
+      "latitude_deg": 51.758527,
+      "longitude_deg": -1.256267,
+      "height_m": 0,
+      "pressure_hpa": 0,
+      "source": "astropy.get_sun; offline IERS; geometric AltAz"
+    },
+    "neutral_separation_deg": 70.7216738146598,
+    "neutral_separation_fitted": true,
+    "initial_neutral_separation_deg": 82,
+    "neutral_separation_bounds_deg": [
+      1,
+      89
+    ],
+    "shared_solar_lunar_separation": true,
+    "separation_on_boundary": false,
+    "bin_size": 8,
+    "lags_px": [
+      32,
+      64
+    ],
+    "block_px": 96,
+    "minimum_measured_dolp": 0.05,
+    "central_mask_pixels": 2784,
+    "training_pair_count": 4853,
+    "withheld_pair_count": 1642,
+    "training_blocks": 21,
+    "metrics": {
+      "lunar_only": {
+        "training": {
+          "32": {
+            "pair_count": 2846,
+            "median_absolute_deg": 3.46639399849233,
+            "rms_deg": 7.498513193793327,
+            "p95_absolute_deg": 14.666513033682007,
+            "mean_signed_deg": 0.8080604602046155
+          },
+          "64": {
+            "pair_count": 2007,
+            "median_absolute_deg": 7.081597295545469,
+            "rms_deg": 13.847442301921882,
+            "p95_absolute_deg": 28.236495896686243,
+            "mean_signed_deg": 1.5183110026939568
+          }
+        },
+        "withheld": {
+          "32": {
+            "pair_count": 1121,
+            "median_absolute_deg": 4.292039048355444,
+            "rms_deg": 8.987851214319509,
+            "p95_absolute_deg": 16.584582994192306,
+            "mean_signed_deg": -0.8851227777844914
+          },
+          "64": {
+            "pair_count": 521,
+            "median_absolute_deg": 8.078367832524213,
+            "rms_deg": 16.802386620689912,
+            "p95_absolute_deg": 32.06281920185187,
+            "mean_signed_deg": -1.766792767587793
+          }
+        },
+        "pooled_training": {
+          "pair_count": 4853,
+          "median_absolute_deg": 4.394115696895114,
+          "rms_deg": 10.595980451148787,
+          "p95_absolute_deg": 24.258600002044034,
+          "mean_signed_deg": 1.101790696919247
+        },
+        "pooled_withheld": {
+          "pair_count": 1642,
+          "median_absolute_deg": 5.28712025659607,
+          "rms_deg": 12.030332387353226,
+          "p95_absolute_deg": 23.82310597070414,
+          "mean_signed_deg": -1.164873121686757
+        }
+      },
+      "solar_only": {
+        "training": {
+          "32": {
+            "pair_count": 2846,
+            "median_absolute_deg": 1.0976649776587974,
+            "rms_deg": 2.7246265320486542,
+            "p95_absolute_deg": 5.76231677615641,
+            "mean_signed_deg": 0.25072806535658043
+          },
+          "64": {
+            "pair_count": 2007,
+            "median_absolute_deg": 1.7125659695389461,
+            "rms_deg": 4.072870875960001,
+            "p95_absolute_deg": 9.180092311626204,
+            "mean_signed_deg": 0.4567954847901395
+          }
+        },
+        "withheld": {
+          "32": {
+            "pair_count": 1121,
+            "median_absolute_deg": 1.0210322096908113,
+            "rms_deg": 2.6464265287333344,
+            "p95_absolute_deg": 5.357633609113112,
+            "mean_signed_deg": -0.13983007309772225
+          },
+          "64": {
+            "pair_count": 521,
+            "median_absolute_deg": 1.4494077164239454,
+            "rms_deg": 3.693809528495327,
+            "p95_absolute_deg": 9.323232166628856,
+            "mean_signed_deg": -0.2353749456781632
+          }
+        },
+        "pooled_training": {
+          "pair_count": 4853,
+          "median_absolute_deg": 1.302764899473671,
+          "rms_deg": 3.348690081072853,
+          "p95_absolute_deg": 7.520004435459253,
+          "mean_signed_deg": 0.3359490236922807
+        },
+        "pooled_withheld": {
+          "pair_count": 1642,
+          "median_absolute_deg": 1.1493079643262638,
+          "rms_deg": 3.0183814632454506,
+          "p95_absolute_deg": 6.076346421602586,
+          "mean_signed_deg": -0.1701460771259864
+        }
+      },
+      "combined": {
+        "training": {
+          "32": {
+            "pair_count": 2846,
+            "median_absolute_deg": 1.0723061122940916,
+            "rms_deg": 2.5613294660154473,
+            "p95_absolute_deg": 5.535428228685562,
+            "mean_signed_deg": 0.8201267109782756
+          },
+          "64": {
+            "pair_count": 2007,
+            "median_absolute_deg": 1.5268030178030103,
+            "rms_deg": 3.6358845030183744,
+            "p95_absolute_deg": 8.596952398057795,
+            "mean_signed_deg": 1.5952349506880483
+          }
+        },
+        "withheld": {
+          "32": {
+            "pair_count": 1121,
+            "median_absolute_deg": 1.1098211502809796,
+            "rms_deg": 2.50732563992528,
+            "p95_absolute_deg": 4.68720662367023,
+            "mean_signed_deg": 0.43182067852745254
+          },
+          "64": {
+            "pair_count": 521,
+            "median_absolute_deg": 1.8685221199927022,
+            "rms_deg": 3.304508593028635,
+            "p95_absolute_deg": 7.009109205862084,
+            "mean_signed_deg": 0.9113342072284444
+          }
+        },
+        "pooled_training": {
+          "pair_count": 4853,
+          "median_absolute_deg": 1.2468647104771438,
+          "rms_deg": 3.051949845175782,
+          "p95_absolute_deg": 6.870546445983439,
+          "mean_signed_deg": 1.1406794076808333
+        },
+        "pooled_withheld": {
+          "pair_count": 1642,
+          "median_absolute_deg": 1.2803686509868395,
+          "rms_deg": 2.7850932374957313,
+          "p95_absolute_deg": 5.138959923033739,
+          "mean_signed_deg": 0.5839683937851972
+        }
+      }
+    },
+    "leave_one_training_block_out": [
+      {
+        "omitted_block": 93,
+        "solar_fraction": 0.7357721675942839
+      },
+      {
+        "omitted_block": 94,
+        "solar_fraction": 0.7417202852948989
+      },
+      {
+        "omitted_block": 96,
+        "solar_fraction": 0.7430036122242498
+      },
+      {
+        "omitted_block": 113,
+        "solar_fraction": 0.7403716526583138
+      },
+      {
+        "omitted_block": 114,
+        "solar_fraction": 0.7312782695996379
+      },
+      {
+        "omitted_block": 116,
+        "solar_fraction": 0.7391064622009358
+      },
+      {
+        "omitted_block": 117,
+        "solar_fraction": 0.7409599141259953
+      },
+      {
+        "omitted_block": 133,
+        "solar_fraction": 0.742874716401095
+      },
+      {
+        "omitted_block": 134,
+        "solar_fraction": 0.739534944276834
+      },
+      {
+        "omitted_block": 136,
+        "solar_fraction": 0.7414427474161094
+      },
+      {
+        "omitted_block": 137,
+        "solar_fraction": 0.7403542039227478
+      },
+      {
+        "omitted_block": 154,
+        "solar_fraction": 0.7430174600796817
+      },
+      {
+        "omitted_block": 156,
+        "solar_fraction": 0.7503957113467626
+      },
+      {
+        "omitted_block": 157,
+        "solar_fraction": 0.7357702688912001
+      },
+      {
+        "omitted_block": 159,
+        "solar_fraction": 0.7413933673179401
+      },
+      {
+        "omitted_block": 176,
+        "solar_fraction": 0.7545006180740244
+      },
+      {
+        "omitted_block": 177,
+        "solar_fraction": 0.8154403213602559
+      },
+      {
+        "omitted_block": 179,
+        "solar_fraction": 0.7410991434638051
+      },
+      {
+        "omitted_block": 180,
+        "solar_fraction": 0.7424815556757665
+      },
+      {
+        "omitted_block": 199,
+        "solar_fraction": 0.745758778826597
+      },
+      {
+        "omitted_block": 200,
+        "solar_fraction": 0.7434089890746723
+      }
+    ],
+    "fraction_on_boundary": false,
+    "fitted_background": 0,
+    "fitted_pattern_rotation": false,
+    "fitted_analyzer_zero": false,
+    "limitations": [
+      "Berry/Wang geometric solar component extended below the horizon; not calibrated twilight radiative transfer.",
+      "No separate solar/lunar spectra: fraction is a green-channel effective weight under achromatic component assumptions.",
+      "Correlated pair errors and overlapping lags are not independent replicates; no naive pixel p-values or confidence intervals.",
+      "When separation is fitted, leave-one-block-out fractions are conditional on the fitted separation, not a joint-parameter uncertainty estimate.",
+      "Leave-one-block-out results measure conditional spatial stability, not a formal confidence interval or between-night uncertainty.",
+      "Mask is central physical sky candidate unless explicit clear-sky mask supplied; no automatic foreground segmentation.",
+      "Model selection on this one capture is exploratory; withheld blocks test spatial interpolation, not independent nights.",
+      "No ALAN or amplitude fit; combined DoLP remains a prediction and is not optimized.",
+      "Inherited camera parity, unknown analyzer zero and idealized optical-axis/projection remain uncertainties."
+    ]
+  }
+}
