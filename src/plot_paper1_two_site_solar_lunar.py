@@ -43,7 +43,7 @@ def render_saved_site(a,fig,axes):
     spin,alignment=analyzer_basis_alignment(arr)
     names=['measured','lunar','solar','combined']
     measured_label='Measured green; star-anchored' if lock.get('moon_position_status','').startswith('predicted_') else 'Measured green; north-up'
-    labels=[measured_label,'Lunar only','Solar only',f'Best combined\nSolar {100*f:.1f}% / lunar {100*(1-f):.1f}%']
+    labels=[measured_label,'Lunar only','Solar only',f'Best combined\nSolar {100*f:.1f}% / lunar {100*(1-f):.1f}%\nShared separation {fit["neutral_separation_deg"]:.1f}°']
     disc=np.hypot(x-c[0],y-c[1])<.985*radius
     field=np.hypot(x-c[0],y-c[1])<lock['eye_radius_px']
     stats={}
@@ -75,7 +75,7 @@ def render_saved_site(a,fig,axes):
             support='Central60degree binned grid, physical pixels for this field. Measured statistics are north-resampled diagnostics, not replacement camera-frame publication values.')
     fig.colorbar(axes[0,0].collections[0],ax=axes[0,:].tolist(),shrink=.65,label='DoLP')
     fig.colorbar(axes[1,0].collections[0],ax=axes[1,:].tolist(),shrink=.65,label='AoP (degrees modulo 180)')
-    report=dict(site=site,solar_fraction=f,lunar_fraction=1-f,solar=solar,astronomical_anchor=anchor,
+    report=dict(site=site,solar_fraction=f,lunar_fraction=1-f,neutral_separation_deg=fit['neutral_separation_deg'],initial_neutral_separation_deg=fit.get('initial_neutral_separation_deg'),neutral_separation_fitted=fit.get('neutral_separation_fitted',False),solar=solar,astronomical_anchor=anchor,
         source_fit_report_sha256=digest(rp),source_fit_arrays_sha256=digest(ap),script_sha256=digest(__file__),
         moon_position_status=lock.get('moon_position_status','unspecified'),celestial_orientation=lock.get('celestial_orientation'),
         central_statistics=stats,colormaps=dict(DoLP='viridis',AoP='romaO'),dolp_colour_normalization='linear',
