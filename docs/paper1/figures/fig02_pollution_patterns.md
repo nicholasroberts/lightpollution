@@ -23,8 +23,7 @@ HPS and LED are separate alternative fits, not an inferred mixture of site lamps
 No atmospheric parameter is fit alongside the lamp amount.
 
 2B/2C objective is measured camera-green DoLP, explicitly superseding the older
-PRC-only Figure2 fit proposal. Specify common60degree field support and exact
-DoLP objective before implementing those panels; assess maps/residuals as well.
+PRC-only Figure2 fit proposal. 2B implements common physical60degree support on the saved binned Stokes grid and fits equal-pixel mean DoLP; report spatial residuals as well. Apply this same definition to2C.
 Use camera response in the forward comparison; then calculate PRC for the SAME
 physical fitted lamp amounts with the animal-response approximation.
 Do not refit lamp amounts when plotting PRC. The camera-to-animal approximation
@@ -61,3 +60,10 @@ python src/plot_paper1_fig02a.py \
 render and snapshot execute on EcoVis. 2B–2E are planned, not implemented by2A.
 
 Theory: [shared framework](../../theory/theory.md).
+
+
+## 2B implemented — Cottage
+
+src/fit_paper1_fig02b.py retains final1C natural component arrays and independently fits uniform unpolarized HPS/LED additions to common-field mean camera-greenDoLP using ELF D850 green photon sensitivity. See25November labbook for precise normalization/support. Four columns measured/natural/HPS/LED with linearviridis0–1. At matched DoLP the camera maps coincide; fitted band radiant amounts differ. Report spatial residuals and store full fit/spectral/input provenance. Fitted quantities are relative to total natural sky band radiance, not lunar-only or electrical units. Preserve same physical lamp amounts for subsequent animalPRC in2E. No extra atmosphere or natural geometry refit.
+
+Command: `python src/fit_paper1_fig02b.py --spectra-root data/processed/spider_spectral_inputs_01 --output data/processed/paper1_fig02b_Cottage_01 --figure-copy figures/paper1/fig02b/v01`.
