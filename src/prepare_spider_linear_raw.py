@@ -42,6 +42,24 @@ def select_sources(folder,mapping,raw_kind='auto'):
     return result
 
 
+def inspect_available_sources(folder,raw_kind='auto'):
+    """Read-only chronological inventory; does not assign analyzer exposures."""
+    files=[p for p in Path(folder).iterdir() if p.is_file() and p.suffix.lower() in ('.nef','.dng')]
+    if raw_kind!='auto':
+        files=[p for p in files if p.suffix.lower()=='.'+raw_kind]
+    else:
+        nef_stems={p.stem.casefold() for p in files if p.suffix.lower()=='.nef'}
+        files=[p for p in files if p.suffix.lower()=='.nef' or p.stem.casefold() not in nef_stems]
+    if not files:raise ValueError('No matching original RAW files in '+str(folder))
+    keys=[(p.stem.casefold(),p.suffix.lower()) for p in files]
+    if len(set(keys))!=len(keys):raise ValueError('Ambiguous case-insensitive RAW filenames')
+    records=[(path,read_metadata(path)) for path in files]
+    records.sort(key=lambda item:(item[1]['datetime_original'],
+        ('0.'+item[1].get('subsecond_original','')) if item[1].get('subsecond_original','') else '0',
+        item[0].name.casefold()))
+    return records
+
+
 def _number(tag):
     if tag is None:raise ValueError('Required RAW exposure metadata absent')
     value=tag.values[0]
@@ -124,6 +142,17 @@ def main():
     if not a.inspect and a.output.exists():p.error('Use a fresh output directory')
     if not a.raw_dir.is_dir():p.error('RAW folder not found')
     if a.long_edge<0:p.error('--long-edge must be nonnegative')
+    if a.inspect and a.mapping is None:
+        try:
+            available=inspect_available_sources(a.raw_dir,a.raw_kind)
+        except (ImportError,ValueError,KeyError,OSError) as exc:
+            p.error(str(exc))
+        print('Order     File                  Time                 Seconds       ISO       f-number',flush=True)
+        for order,(path,metadata) in enumerate(available,1):
+            print(f"{order:8d}  {path.name:20s}  {metadata['datetime_original']:19s}  "
+                  f"{metadata['exposure_seconds']:10g}  {metadata['iso']:8g}  {metadata['f_number']:8g}",flush=True)
+        print('Read-only chronological inventory; order is not an assigned analyzer mapping.',flush=True)
+        return
     mapping=json.loads(a.mapping.read_text()) if a.mapping else MUSEUM_MAPPING
     if not isinstance(mapping,list) or len(mapping) not in (4,12):p.error('Mapping must contain 4 or 12 exposures')
     count=len(mapping)
