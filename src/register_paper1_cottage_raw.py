@@ -8,6 +8,8 @@ def main():
     p.add_argument('--batch',type=Path,required=True)
     p.add_argument('--linear-raw-manifest',type=Path,required=True)
     p.add_argument('--output',type=Path,required=True)
+    p.add_argument('--registration-model',choices=['fisheye-shared','fisheye'],default='fisheye-shared',
+        help='Existing constrained geometric model; validation thresholds are unchanged')
     a=p.parse_args()
     if a.output.exists():p.error('Use a fresh output directory')
     manifest=json.loads(a.linear_raw_manifest.read_text())
@@ -28,7 +30,7 @@ def main():
         '--batch',str(a.batch),'--model-run',str(pending.parent),
         '--sites','Cottage','--linear-raw-manifest',str(a.linear_raw_manifest),
         '--raw-time-mapping',str(Path(__file__).resolve().parents[1]/'config/paper1/cottage_raw_mapping.json'),
-        '--registration-model','fisheye-shared','--output',str(a.output/'registration')],check=True)
+        '--registration-model',a.registration_model,'--output',str(a.output/'registration')],check=True)
     registered=json.loads((a.output/'registration/locked_site_references.json').read_text())['sites']['Cottage']
     if registered.get('status')!='numerically_locked_awaiting_visual_review':
         p.error('Cottage registration remains pending: '+registered.get('reason',registered.get('status','unknown'))
