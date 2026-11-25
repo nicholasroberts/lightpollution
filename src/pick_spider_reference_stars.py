@@ -41,6 +41,7 @@ const metadata=__METADATA__;
 const image=new Image();
 const canvas=document.getElementById('canvas'),ctx=canvas.getContext('2d');
 const points=[],table=document.getElementById('points');
+if(metadata.initial_point_label)document.getElementById('label').value=metadata.initial_point_label;
 document.getElementById('heading').textContent=metadata.site+' — reference exposure point picker';
 function redraw(){
  ctx.clearRect(0,0,canvas.width,canvas.height);
@@ -85,7 +86,7 @@ function download(blob,name){
  link.href=url;link.download=name;link.click();setTimeout(()=>URL.revokeObjectURL(url),2000);
 }
 document.getElementById('save').onclick=()=>{
- if(points.length<2){alert('Select at least two points before saving.');return;}
+ if(points.length<metadata.minimum_points){alert('Select at least '+metadata.minimum_points+' point(s) before saving.');return;}
  download(new Blob([JSON.stringify({...metadata,points},null,2)],{type:'application/json'}),
  metadata.site+'_reference_star_points.json');
 };
@@ -101,7 +102,11 @@ def main():
     p.add_argument('--reference-lock',type=Path,required=True)
     p.add_argument('--site',required=True)
     p.add_argument('--output',type=Path,required=True)
+    p.add_argument('--minimum-points',type=int,default=2)
+    p.add_argument('--point-label',help='Initial point label, e.g. Moon')
+    p.add_argument('--raw-reference',type=Path,help='Original NEF reference for timestamp/UTC-offset inspection')
     a=p.parse_args()
+    if a.minimum_points<1:p.error('--minimum-points must be positive')
     if a.output.exists():p.error('Use a fresh output directory')
     lock=json.loads(a.reference_lock.read_text())['sites'][a.site]
     candidates=[r for r in lock['raw_inputs'] if Path(r['path']).stem=='1']
@@ -117,7 +122,17 @@ def main():
     display=np.clip(np.nan_to_num((image-lo)/(hi-lo)),0,1)
     buffer=io.BytesIO()
     imsave(buffer,display,cmap='gray',vmin=0,vmax=1,format='png',origin='upper')
-    metadata=dict(site=a.site,reference_path=str(path),reference_sha256=digest(path),
+    raw_metadata=None
+    if a.raw_reference:
+        if not record.get('source_raw_sha256') or digest(a.raw_reference)!=record['source_raw_sha256']:
+            p.error('Original NEF does not match prepared reference RAW hash')
+        import exifread
+        with a.raw_reference.open('rb') as stream:tags=exifread.process_file(stream,details=False)
+        raw_metadata={key:str(tags[key]) if key in tags else None for key in
+            ['EXIF DateTimeOriginal','EXIF OffsetTimeOriginal','EXIF SubSecTimeOriginal','Image Model','Image Orientation']}
+        print(json.dumps(raw_metadata,indent=2))
+    metadata=dict(site=a.site,minimum_points=a.minimum_points,initial_point_label=a.point_label,
+        raw_reference_path=str(a.raw_reference) if a.raw_reference else None,raw_metadata=raw_metadata,reference_path=str(path),reference_sha256=digest(path),
         source_lock_path=str(a.reference_lock),source_lock_sha256=digest(a.reference_lock),
         image_shape_yx=list(image.shape),reference_center_xy_px=lock['reference_center_xy_px'],
         rim_radius_px=lock['rim_radius_px'],coordinate_convention='Original reference pixels; x right, y down; no rotation or resampling',
