@@ -211,7 +211,8 @@ def filter_static_regions(source,target,selection):
     return np.asarray(source)[keep],np.asarray(target)[keep]
 
 
-def process_site(site,batch,out,anchor,overrides,saved_site=None,registration_model='rigid',linear_raw_manifest=None,raw_time_mapping=None,landmark_regions=None):
+def process_site(site,batch,out,anchor,overrides,saved_site=None,registration_model='rigid',linear_raw_manifest=None,raw_time_mapping=None,landmark_regions=None,alignment_cutoff_px=None):
+    acceptance={} if alignment_cutoff_px is None else dict(validation_cutoff_px=alignment_cutoff_px,validation_median_limit_px=alignment_cutoff_px)
     oldpath=batch/site/'registration/rotation_analysis.json'
     old=json.loads(oldpath.read_text());center=np.asarray(old['reference_center_xy_px'],dtype=float)
     if saved_site is not None and saved_site.get('source_report_sha256')!=digest(oldpath):
@@ -295,7 +296,7 @@ def process_site(site,batch,out,anchor,overrides,saved_site=None,registration_mo
                 site_pairs[n]=match_landmarks(reference,landmark_features(images[n],center,radius))
         if selection is not None:
             site_pairs={n:filter_static_regions(sp,tp,selection) for n,(sp,tp) in site_pairs.items()}
-        shared_fits,shared_geometry=fit_site(site_pairs,center,radius)
+        shared_fits,shared_geometry=fit_site(site_pairs,center,radius,**acceptance)
     aligned={1:images[1]};transforms=[]
     fig,axes=plt.subplots(int(np.ceil(len(numbers)/4)),4,figsize=(16,4*int(np.ceil(len(numbers)/4))),squeeze=False,layout='constrained')
     reference_edge=edge_display(images[1]);all_pass=True
@@ -320,7 +321,7 @@ def process_site(site,batch,out,anchor,overrides,saved_site=None,registration_mo
                         error=np.linalg.norm(transform_points(sp,matrix)-tp,axis=1)
                     else:
                         from spider_fisheye_registration import fit_correspondences
-                        matrix,quality,error=fit_correspondences(sp,tp,center,radius)
+                        matrix,quality,error=fit_correspondences(sp,tp,center,radius,**acceptance)
                 else:
                     matrix,quality,sp,tp,error=register_landmarks(reference,landmark_features(images[n],center,radius),center,radius)
             if not quality['numerical_pass']:all_pass=False
@@ -360,6 +361,10 @@ def process_site(site,batch,out,anchor,overrides,saved_site=None,registration_mo
         coordinate_convention='zero-based original pixels, x right, y down; matrices map source xy to reference xy',
         polarimetry_note='Nominal analyzer grouping and camera-basis Stokes equations unchanged; exposure registration is not a full fisheye Mueller calibration',
         registration_method=registration_model+' from static outer-field SIFT correspondences and withheld landmark checks; no sky polarization objective')
+    lock['registration_acceptance']=dict(validation_inlier_cutoff_px=3. if alignment_cutoff_px is None else alignment_cutoff_px,
+        validation_median_limit_px=2. if alignment_cutoff_px is None else alignment_cutoff_px,
+        minimum_heldout_inlier_fraction=.6,training_inlier_cutoff_px=2.5,
+        explicit_pixel_cutoff=alignment_cutoff_px is not None)
     if landmark_regions:lock['static_landmark_regions']=dict(path=str(landmark_regions),sha256=digest(landmark_regions),reference_sha256=selection['reference_sha256'],regions_xy=selection['regions_xy'],affects_registration_only=True)
     if shared_geometry is not None:lock['shared_image_geometry']=shared_geometry
     if raw_set is not None:
@@ -421,10 +426,13 @@ def main():
     p.add_argument('--moon-coordinates',type=Path,help='Optional investigator coordinates: {site:{moon_pixel_xy:[x,y],note:...}}')
     p.add_argument('--registration-model',choices=['rigid','fisheye','fisheye-shared'],default='rigid')
     p.add_argument('--linear-raw-manifest',type=Path,help='Prepared linear camera-channel RAW manifest for one explicitly selected site')
+    p.add_argument('--alignment-cutoff-px',type=float,help='Explicit held-out inlier cutoff and median limit for this fisheye run; default retains 3px/2px')
     p.add_argument('--landmark-regions',type=Path,help='Investigator-selected stationary reference polygons JSON')
     p.add_argument('--raw-time-mapping',type=Path,help='Explicit reviewed RAW filename/time mapping; retain mismatches in provenance and require no inherited ephemeris')
     p.add_argument('--from-lock',type=Path,help='Reuse saved image landmark coordinates, not previous transforms')
     a=p.parse_args()
+    if a.alignment_cutoff_px is not None and (not np.isfinite(a.alignment_cutoff_px) or a.alignment_cutoff_px<=0 or a.from_lock or a.registration_model=='rigid'):
+        p.error('--alignment-cutoff-px must be positive and finite and requires fresh fisheye fitting')
     if a.from_lock and a.registration_model not in ('fisheye','fisheye-shared'):p.error('--from-lock requires a fisheye registration model')
     if a.linear_raw_manifest and (a.from_lock or not a.sites or len(a.sites)!=1):p.error('--linear-raw-manifest requires one --sites entry and fresh landmarks (no --from-lock)')
     if a.raw_time_mapping and not a.linear_raw_manifest:p.error('--raw-time-mapping requires --linear-raw-manifest')
@@ -444,7 +452,7 @@ def main():
         print(f'[{index+1}/{len(sites)}] Registering {site} to raw 1.tif',flush=True)
         try:
             if a.from_lock and site not in saved:raise ValueError('Site absent from source landmark lock')
-            locks[site]=process_site(site,a.batch,a.output,anchors.get(site),overrides,saved.get(site),a.registration_model,a.linear_raw_manifest,a.raw_time_mapping,a.landmark_regions)
+            locks[site]=process_site(site,a.batch,a.output,anchors.get(site),overrides,saved.get(site),a.registration_model,a.linear_raw_manifest,a.raw_time_mapping,a.landmark_regions,a.alignment_cutoff_px)
         except (OSError,ValueError,KeyError) as exc:
             locks[site]=dict(site=site,status='pending_inputs_or_registration',reason=str(exc),moon_pixel_xy=None)
             print('  PENDING: '+str(exc),flush=True)

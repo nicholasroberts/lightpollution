@@ -34,7 +34,7 @@ def forward(points,mapping):
         np.array(mapping['target_projection_center_xy_px']),mapping['radius_px'])
 
 
-def fit_correspondences(source,target,center,radius):
+def fit_correspondences(source,target,center,radius,validation_cutoff_px=3.,validation_median_limit_px=2.):
     source=np.asarray(source);target=np.asarray(target);center=np.asarray(center)
     held=np.arange(len(source))%4==0
     s=source[~held];t=target[~held]
@@ -63,7 +63,7 @@ def fit_correspondences(source,target,center,radius):
         ray_rotation_source_to_reference=rotation.tolist(),
         fitted_image_geometry_only=True,center_offset_bound_fraction=.05,center_offset_prior_weight=.2)
     error=np.linalg.norm(forward(source,mapping)-target,axis=1)
-    inside=error[~held]<2.5;validation=error[held];confirmed=validation<3
+    inside=error[~held]<2.5;validation=error[held];confirmed=validation<validation_cutoff_px
     good=target[~held][inside]
     sectors=((np.arctan2(good[:,1]-center[1],good[:,0]-center[0])+np.pi)*8/(2*np.pi)).astype(int)%8
     span=float(np.linalg.norm(np.ptp(good,axis=0))) if len(good) else 0.
@@ -75,9 +75,10 @@ def fit_correspondences(source,target,center,radius):
         heldout_inlier_p95_px=float(np.percentile(validation[confirmed],95)) if confirmed.any() else None,
         occupied_reference_sectors=int(len(np.unique(sectors))),landmark_span_px=span,
         optimizer_success=bool(result.success),center_offset_limit_reached=boundary,
-        projection_center_offsets_xy_px=result.x[3:].tolist())
+        projection_center_offsets_xy_px=result.x[3:].tolist(),
+        validation_inlier_cutoff_px=float(validation_cutoff_px),validation_median_limit_px=float(validation_median_limit_px))
     quality['numerical_pass']=bool(result.success and not boundary and inside.sum()>=8 and confirmed.sum()>=4
-        and confirmed.mean()>=.6 and np.median(validation)<2 and len(np.unique(sectors))>=3 and span>.5*radius)
+        and confirmed.mean()>=.6 and np.median(validation)<validation_median_limit_px and len(np.unique(sectors))>=3 and span>.5*radius)
     return mapping,quality,error
 
 

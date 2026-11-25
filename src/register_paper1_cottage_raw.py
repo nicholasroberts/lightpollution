@@ -7,6 +7,7 @@ def main():
     p=argparse.ArgumentParser(description=__doc__)
     p.add_argument('--batch',type=Path,required=True)
     p.add_argument('--linear-raw-manifest',type=Path,required=True)
+    p.add_argument('--alignment-cutoff-px',type=float,help='Explicit per-run held-out alignment cutoff in pixels')
     p.add_argument('--landmark-regions',type=Path,help='Static reference regions from pick_spider_static_regions.py')
     p.add_argument('--output',type=Path,required=True)
     p.add_argument('--registration-model',choices=['fisheye-shared','fisheye'],default='fisheye-shared',
@@ -28,6 +29,7 @@ def main():
         note='Camera-frame registration only; new NEF capture time and Moon pixel require review. No inherited TIFF anchor.'),
         indent=2)+'\n')
     extra=['--landmark-regions',str(a.landmark_regions)] if a.landmark_regions else []
+    if a.alignment_cutoff_px is not None:extra+=['--alignment-cutoff-px',str(a.alignment_cutoff_px)]
     subprocess.run([sys.executable,str(Path(__file__).with_name('lock_spider_site_registration.py')),
         '--batch',str(a.batch),'--model-run',str(pending.parent),
         '--sites','Cottage','--linear-raw-manifest',str(a.linear_raw_manifest),
@@ -59,6 +61,7 @@ def main():
     summary=dict(site='Cottage',mean_dolp=float(values.mean()),spatial_sd=float(values.std(ddof=1)),
         included_pixels=int(values.size),excluded_field_pixels=int((field&~valid).sum()),
         definition='Mean per-pixel camera-green DoLP and sample spatial SD in zenith-centred 60-degree full field; pair estimator; before north resampling',
+        registration_acceptance=lock.get('registration_acceptance'),
         orientation='camera frame; north and Moon anchor pending',all_twelve_frames_used=True,
         source_lock_sha256=__import__('hashlib').sha256((a.output/'registration/locked_site_references.json').read_bytes()).hexdigest())
     fig,axes=plt.subplots(1,2,figsize=(10,5.3),layout='constrained')

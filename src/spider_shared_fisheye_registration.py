@@ -74,7 +74,7 @@ def feasible_start(values, lower, upper):
                       np.where(np.isfinite(upper),upper-margin,upper))
 
 
-def fit_site(correspondences,center,radius,calibration_exposures=None):
+def fit_site(correspondences,center,radius,calibration_exposures=None,validation_cutoff_px=3.,validation_median_limit_px=2.):
     """Return per-frame (mapping, quality, residuals) and shared diagnostics.
 
     For 12 exposures only 4 and 7 determine shared coefficients; 10--12
@@ -136,7 +136,7 @@ def fit_site(correspondences,center,radius,calibration_exposures=None):
             bounds=(pose_lower,pose_upper),
             loss='soft_l1',f_scale=1,max_nfev=200)
         errors=np.linalg.norm(predict(source,fit.x,center,radius,coefficients)-target,axis=1)
-        training_inliers=errors[~held]<2.5;validation=errors[held];confirmed=validation<3
+        training_inliers=errors[~held]<2.5;validation=errors[held];confirmed=validation<validation_cutoff_px
         good=target[~held][training_inliers]
         sectors=((np.arctan2(good[:,1]-center[1],good[:,0]-center[0])+np.pi)*8/(2*np.pi)).astype(int)%8
         span=float(np.linalg.norm(np.ptp(good,axis=0))) if len(good) else 0.
@@ -150,9 +150,10 @@ def fit_site(correspondences,center,radius,calibration_exposures=None):
             optimizer_success=bool(fit.success),center_offset_limit_reached=bound,
             initializer_adjustment_max=float(np.max(abs(pose_start-start_pose))),
             projection_center_offsets_xy_px=fit.x[3:].tolist(),validation_split='spatial_96px_reference_cells',
-            shared_geometry_training_exposure=n in calibration_exposures)
+            shared_geometry_training_exposure=n in calibration_exposures,
+            validation_inlier_cutoff_px=float(validation_cutoff_px),validation_median_limit_px=float(validation_median_limit_px))
         quality['numerical_pass']=bool(shared_ok and fit.success and not bound and training_inliers.sum()>=8
-            and confirmed.sum()>=4 and confirmed.mean()>=.6 and np.median(validation)<2
+            and confirmed.sum()>=4 and confirmed.mean()>=.6 and np.median(validation)<validation_median_limit_px
             and len(np.unique(sectors))>=3 and span>.5*radius)
         mapping=dict(kind='equisolid_shared_tangential_geometry',source_center_xy_px=center.tolist(),
             target_projection_center_xy_px=(center+fit.x[3:]).tolist(),radius_px=radius,
