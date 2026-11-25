@@ -1,0 +1,194 @@
+{
+  "method": "Zeros of Q and U after local Gaussian Stokes smoothing; no smoothing of AoP; investigator-map diagnostic windows",
+  "rim_radius_px": 655.544999673502,
+  "main_sigma_px": 8,
+  "sensitivity_sigma_px": [
+    4,
+    8,
+    12
+  ],
+  "results": [
+    {
+      "site": "Cottage",
+      "sigma_px": 4,
+      "points": [
+        {
+          "xy": [
+            1061.9700272008988,
+            946.8335555429031
+          ],
+          "root": true,
+          "elevation": 53.016820699801485,
+          "azimuth": 191.81896864436243,
+          "moon_distance": 40.706531523656835,
+          "dolp": 0.00033913469440635983
+        },
+        {
+          "xy": [
+            935.0410279660222,
+            188.40647605339672
+          ],
+          "root": true,
+          "elevation": 28.310544921612216,
+          "azimuth": 8.067130368682626,
+          "moon_distance": 139.26564579309257,
+          "dolp": 0.0005299637281097835
+        }
+      ],
+      "visible_points_separation_deg": 98.60685258460138
+    },
+    {
+      "site": "Cottage",
+      "sigma_px": 8,
+      "points": [
+        {
+          "xy": [
+            1061.5265866828802,
+            941.2276722822634
+          ],
+          "root": true,
+          "elevation": 53.74292520282648,
+          "azimuth": 191.96081900770247,
+          "moon_distance": 41.434108307149025,
+          "dolp": 0.00039378707562874165
+        },
+        {
+          "xy": [
+            935.4172300559007,
+            187.29912056013578
+          ],
+          "root": true,
+          "elevation": 28.160198824085853,
+          "azimuth": 8.003639453035825,
+          "moon_distance": 139.41091795745254,
+          "dolp": 0.0007470348883614492
+        }
+      ],
+      "visible_points_separation_deg": 98.02494203709931
+    },
+    {
+      "site": "Cottage",
+      "sigma_px": 12,
+      "points": [
+        {
+          "xy": [
+            1060.9325506984967,
+            940.8347870418921
+          ],
+          "root": true,
+          "elevation": 53.8088639497741,
+          "azimuth": 191.8613875996038,
+          "moon_distance": 41.49889760536637,
+          "dolp": 0.0002569908085911889
+        },
+        {
+          "xy": [
+            935.9132681987935,
+            186.79172272085245
+          ],
+          "root": true,
+          "elevation": 28.097697995943474,
+          "azimuth": 7.936123485013254,
+          "moon_distance": 139.4682221447794,
+          "dolp": 0.0004621860486199249
+        }
+      ],
+      "visible_points_separation_deg": 98.02272969052571
+    },
+    {
+      "site": "museum",
+      "sigma_px": 4,
+      "points": [
+        {
+          "xy": [
+            1275.1208807143194,
+            350.26773186655686
+          ],
+          "root": true,
+          "elevation": 37.17510809099955,
+          "azimuth": 318.4785064214441,
+          "moon_distance": 89.88210669454541,
+          "dolp": 0.001940030228182371
+        },
+        {
+          "xy": [
+            738.7036597135584,
+            778.2745531373304
+          ],
+          "root": true,
+          "elevation": 53.69774499852126,
+          "azimuth": 114.38632739496103,
+          "moon_distance": 48.482503247516036,
+          "dolp": 0.0007719808651902766
+        }
+      ],
+      "visible_points_separation_deg": 86.77101344135852
+    },
+    {
+      "site": "museum",
+      "sigma_px": 8,
+      "points": [
+        {
+          "xy": [
+            1285.5920349704415,
+            330.2399358256993
+          ],
+          "root": true,
+          "elevation": 34.122407418867994,
+          "azimuth": 319.1956557493037,
+          "moon_distance": 92.73444500845369,
+          "dolp": 0.0010800807641919072
+        },
+        {
+          "xy": [
+            738.1028488209723,
+            775.8609684201689
+          ],
+          "root": true,
+          "elevation": 53.75483838148056,
+          "azimuth": 113.90026562237433,
+          "moon_distance": 48.742154957502244,
+          "dolp": 0.00022733638178087356
+        }
+      ],
+      "visible_points_separation_deg": 89.43334827863642
+    },
+    {
+      "site": "museum",
+      "sigma_px": 12,
+      "points": [
+        {
+          "xy": [
+            1284.9752133299442,
+            332.7026397845573
+          ],
+          "root": true,
+          "elevation": 34.43917368770773,
+          "azimuth": 319.04417132585286,
+          "moon_distance": 92.40190857376933,
+          "dolp": 0.0006795074436992869
+        },
+        {
+          "xy": [
+            736.5298679862284,
+            775.7306905825416
+          ],
+          "root": true,
+          "elevation": 53.57449377003087,
+          "azimuth": 113.75069754660625,
+          "moon_distance": 48.878872312125566,
+          "dolp": 0.00035777714838106225
+        }
+      ],
+      "visible_points_separation_deg": 89.29603310546577
+    }
+  ],
+  "sources": {
+    "north_stokes.npz": "360b117f050001fc5115557744b5f7d06dd303b318189de51d9cab869cb2eef2",
+    "north_stokes(1).npz": "2d1a345e786f60b1b34b58b95313f7caed3dfbd82819a2e3e1203c69b392b12f"
+  },
+  "interpretation": {
+    "Cottage": "Visible Babinet/Arago-type roots separated by 98.02 degrees. In the symmetric antipodal Berry construction this implies pair splitting delta=180-98.02=81.98 degrees, approximately 82 degrees; direct Moon-side root is 41.43 degrees from ephemeris Moon. Effective descriptive estimate, not independent atmospheric calibration.",
+    "museum": "Visible roots separated by 89.43 degrees but off lunar meridian. No defensible unique lunar-only splitting from these roots; use them as observed combined-pattern constraints. Do not substitute their 89.43-degree mutual separation for Berry delta."
+  }
+}
