@@ -42,8 +42,9 @@ def load_site(folder, lock_path=None):
     anchor=report.get('astronomical_anchor',report)
     for key in ['local_time','utc','moon_elevation_deg','moon_compass_azimuth_deg']:
         row[key]=anchor.get(key)
-    if report.get('neutral_separation_deg')!=24:
-        raise ValueError('This figure specification requires shared 24-degree separation')
+    if report.get('neutral_separation_deg')!=82:
+        raise ValueError('This figure specification requires shared 82-degree separation')
+    row['neutral_separation_deg']=report['neutral_separation_deg']
     row['source_report_sha256']=digest(rp);row['source_arrays_sha256']=digest(ap)
     return report,d,angle,c,radius,eye,row
 
@@ -81,7 +82,7 @@ def main():
             ax.axis('off')
     fig.colorbar(axes[0,0].images[0],ax=axes[:,0].tolist(),shrink=.65,label='DoLP')
     fig.colorbar(axes[0,1].images[0],ax=axes[:,1].tolist(),shrink=.65,label='AoP (degrees modulo 180)')
-    fig.suptitle('Lunar-only Berry/Wang baseline\nNo ALAN or fitted dilution; white circle: 60° full field',fontsize=13)
+    fig.suptitle('Lunar-only Berry/Wang baseline\n82° neutral-point separation; no ALAN or fitted dilution; white circle: 60° full field',fontsize=13)
     fig.text(.015,.985,'B',ha='left',va='top',fontsize=18,fontweight='bold')
     a.output.mkdir(parents=True)
     for ext in ['png','pdf','svg']:fig.savefig(a.output/('fig01b_two_sites.'+ext),dpi=300)
