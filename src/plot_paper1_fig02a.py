@@ -31,7 +31,8 @@ def spectral_inputs(root):
     metadata=json.loads(provenance.read_text())
     lo=max(352.,*[v['wavelength_nm'][0] for v in data.values()])
     hi=min(700.,*[v['wavelength_nm'][-1] for v in data.values()])
-    if hi-lo<300:raise ValueError('Insufficient common visible spectral band')
+    if hi<=lo:
+        raise ValueError('No overlapping spectra in352–700nm: '+str({k:[float(v['wavelength_nm'][0]),float(v['wavelength_nm'][-1])] for k,v in data.items()}))
     wave=np.unique(np.concatenate([np.linspace(lo,hi,int(np.ceil(hi-lo))+1)]+
         [v['wavelength_nm'][(v['wavelength_nm']>=lo)&(v['wavelength_nm']<=hi)] for v in data.values()]))
     def norm(s,key):
@@ -43,7 +44,7 @@ def spectral_inputs(root):
         raise ValueError('Natural spectral templates differ between HPS and LED input files')
     spectra={'Moon':moon,'HPS':norm(data['HPS'],'alan'),'LED':norm(data['LED'],'alan')}
     report=dict(spectral_band_nm=[float(lo),float(hi)],normalization='Unit integrated radiant energy within the shared band; normalized energy per nm, not photons or human luminance',
-        source_files={k:dict(path=str(p),sha256=digest(p)) for k,p in paths.items()},
+        source_files={k:dict(path=str(p),sha256=digest(p),available_band_nm=[float(data[k]['wavelength_nm'][0]),float(data[k]['wavelength_nm'][-1])]) for k,p in paths.items()},
         source_provenance_path=str(provenance),source_provenance_sha256=digest(provenance),
         inherited_spectral_provenance=metadata,
         natural_template='Existing transferred natural/Moon template shared by the HPS/LED inputs; not a new site-specific measured lunar spectrum',
@@ -62,6 +63,7 @@ def main():
     if a.output.exists() or a.figure_copy.exists():p.error('Use fresh output and figure-copy directories')
     try:wave,spectra,report=spectral_inputs(a.spectra_root)
     except (OSError,ValueError) as exc:p.error(str(exc))
+    print('Shared spectral band: '+f"{wave[0]:g}–{wave[-1]:g} nm"+'; each spectrum normalized over this interval',flush=True)
     plt.rcParams.update({'pdf.fonttype':42,'svg.fonttype':'none'})
     fig,ax=plt.subplots(figsize=(7,4),layout='constrained')
     for label,color in [('Moon','#0072B2'),('HPS','#E69F00'),('LED','#009E73')]:
