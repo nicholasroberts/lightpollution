@@ -1,0 +1,82 @@
+{
+  "site": "PennCC",
+  "source_sha256": "6cd182d156abdc8b246b95c7f633e80683b12ad5b0cf33eaff532085b9958f1c",
+  "rim_radius_px": 655.544999673502,
+  "results": [
+    {
+      "sigma_px": 4,
+      "points": [
+        {
+          "pixel_xy": [
+            544.7525324026712,
+            823.476450104608
+          ],
+          "elevation_deg": 26.814096767028,
+          "azimuth_deg": 109.79108302002457,
+          "distance_from_saved_moon_deg": 24.2947179300983
+        },
+        {
+          "pixel_xy": [
+            1390.714635957965,
+            373.8634968807266
+          ],
+          "elevation_deg": 27.303408632014865,
+          "azimuth_deg": 306.24632057453584,
+          "distance_from_saved_moon_deg": 147.11793062246127
+        }
+      ],
+      "visible_points_separation_deg": 123.61728532593405,
+      "symmetric_berry_delta_deg": 56.38271467406595
+    },
+    {
+      "sigma_px": 8,
+      "points": [
+        {
+          "pixel_xy": [
+            544.6333227963438,
+            823.1661858078497
+          ],
+          "elevation_deg": 26.813047732880843,
+          "azimuth_deg": 109.7518819300848,
+          "distance_from_saved_moon_deg": 24.311087611584515
+        },
+        {
+          "pixel_xy": [
+            1390.24187597879,
+            372.91703274967506
+          ],
+          "elevation_deg": 27.27743329759121,
+          "azimuth_deg": 306.3701586861877,
+          "distance_from_saved_moon_deg": 147.12686287888403
+        }
+      ],
+      "visible_points_separation_deg": 123.59882868677019,
+      "symmetric_berry_delta_deg": 56.40117131322981
+    },
+    {
+      "sigma_px": 12,
+      "points": [
+        {
+          "pixel_xy": [
+            545.0690821714813,
+            823.853301205255
+          ],
+          "elevation_deg": 26.838769039787802,
+          "azimuth_deg": 109.84557755198327,
+          "distance_from_saved_moon_deg": 24.292258923491683
+        },
+        {
+          "pixel_xy": [
+            1388.211814422471,
+            372.69371402575456
+          ],
+          "elevation_deg": 27.494465204114277,
+          "azimuth_deg": 306.5349815593403,
+          "distance_from_saved_moon_deg": 146.8896313079847
+        }
+      ],
+      "visible_points_separation_deg": 123.348390607348,
+      "symmetric_berry_delta_deg": 56.651609392652006
+    }
+  ]
+}
