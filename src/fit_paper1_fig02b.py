@@ -1,4 +1,4 @@
-"""Figure2B: independent HPS/LED fits to Cottage camera-green mean DoLP."""
+"""Figures2B/2C: independent HPS/LED fits to site camera-green mean DoLP."""
 import argparse
 import csv
 import json
@@ -29,11 +29,11 @@ def fit_amount(intensity,polarized,target,lamp_overlap):
     return dict(amount=float(amount),achieved_mean_dolp=mean(amount))
 
 
-def main():
+def main(expected_site='Cottage',panel_letter='B'):
     p=argparse.ArgumentParser(description=__doc__)
-    p.add_argument('--fit',type=Path,default=Path('data/processed/paper1_fig01c_joint_separation_01/Cottage/fit'))
-    p.add_argument('--north',type=Path,default=Path('data/processed/paper1_cottage_north_01/north'))
-    p.add_argument('--reference-lock',type=Path,default=Path('data/processed/paper1_cottage_north_01/registration/locked_site_references.json'))
+    p.add_argument('--fit',type=Path,default=Path('data/processed/paper1_fig01c_joint_separation_01')/expected_site/'fit')
+    p.add_argument('--north',type=Path,default=Path('data/processed/paper1_cottage_north_01/north') if expected_site=='Cottage' else Path('data/processed/paper1_museum_north_01'))
+    p.add_argument('--reference-lock',type=Path,default=Path('data/processed/paper1_cottage_north_01/registration/locked_site_references.json') if expected_site=='Cottage' else Path('data/processed/spider_registration_green_all_sites_01/runs/museum/locked_site_references.json'))
     p.add_argument('--spectra-root',type=Path,default=Path('data/processed/spider_spectral_inputs_01'))
     p.add_argument('--camera-response',type=Path,default=Path(__file__).resolve().parents[1]/'data/reference/d850_elf_response.csv')
     p.add_argument('--output',type=Path,required=True)
@@ -42,7 +42,7 @@ def main():
     if a.output.exists() or a.figure_copy.exists():p.error('Use fresh output and figure-copy directories')
     rp=a.fit/'solar_lunar_fit.json';ap=a.fit/'solar_lunar_fit_arrays.npz'
     fit=json.loads(rp.read_text());site=fit['site']
-    if site!='Cottage':p.error('Figure2B requires Cottage')
+    if site!=expected_site:p.error('Expected '+expected_site+' for Figure2'+panel_letter)
     for path,key in [(a.reference_lock,'source_lock_sha256'),(a.north/'north_stokes.npz','source_north_arrays_sha256'),(a.north/'north_rotation.json','source_north_report_sha256')]:
         if digest(path)!=fit[key]:p.error('Source differs from final Figure1 fit: '+str(path))
     if not fit.get('neutral_separation_fitted') or not fit.get('shared_solar_lunar_separation'):p.error('Requires final joint Figure1 natural fit')
@@ -102,9 +102,9 @@ def main():
         for tx,ty,t in [(.5,.99,'N'),(.01,.5,'E'),(.5,.01,'S'),(.99,.5,'W')]:ax.text(tx,ty,t,transform=ax.transAxes,ha='center',va='center',fontsize=8)
     fig.colorbar(im,ax=axes.tolist(),shrink=.75,label='Camera-green DoLP')
     note='No additional ALAN required' if difference is None else f"LED requires {abs(difference):.1f}% "+('less' if difference>=0 else 'more')+' added band radiance than HPS for the same mean camera-green DoLP'
-    fig.suptitle(f'Cottage — independent HPS and LED fits; target mean DoLP {target:.3f}\n'+note,fontsize=11)
-    fig.text(.01,.99,'B',ha='left',va='top',fontweight='bold',fontsize=18)
-    report=dict(subfigure='2B',site=site,target_mean_camera_green_dolp=target,
+    fig.suptitle(f'{site} — independent HPS and LED fits; target mean DoLP {target:.3f}\n'+note,fontsize=11)
+    fig.text(.01,.99,panel_letter,ha='left',va='top',fontweight='bold',fontsize=18)
+    report=dict(subfigure='2'+panel_letter,site=site,target_mean_camera_green_dolp=target,
         target_spatial_sd=float(measured[support].std(ddof=1)),common_pixels=int(support.sum()),
         natural_mean_dolp=float(natural[support].mean()),natural_spatial_sd=float(natural[support].std(ddof=1)),
         solar_fraction=f,lunar_fraction=1-f,neutral_separation_deg=fit['neutral_separation_deg'],fits=fits,
@@ -125,7 +125,7 @@ def main():
     a.output.mkdir(parents=True)
     arrays=a.output/'lamp_fit_arrays.npz';np.savez_compressed(arrays,**saved);report['source_output_arrays_sha256']=digest(arrays);report['source_output_arrays_path']=str(arrays)
     panel=a.output/'panel';panel.mkdir()
-    for ext in ('png','pdf','svg'):fig.savefig(panel/('fig02b_Cottage.'+ext),dpi=300)
+    for ext in ('png','pdf','svg'):fig.savefig(panel/('fig02'+panel_letter.lower()+'_'+site+'.'+ext),dpi=300)
     plt.close(fig)
     for dest in (a.output,panel):(dest/'lamp_DoLP_fit.json').write_text(json.dumps(report,indent=2)+'\n')
     with (panel/'lamp_amounts.csv').open('w',newline='') as stream:

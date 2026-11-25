@@ -67,3 +67,8 @@ Theory: [shared framework](../../theory/theory.md).
 src/fit_paper1_fig02b.py retains final1C natural component arrays and independently fits uniform unpolarized HPS/LED additions to common-field mean camera-greenDoLP using ELF D850 green photon sensitivity. See25November labbook for precise normalization/support. Four columns measured/natural/HPS/LED with linearviridis0–1. At matched DoLP the camera maps coincide; fitted band radiant amounts differ. Report spatial residuals and store full fit/spectral/input provenance. Fitted quantities are relative to total natural sky band radiance, not lunar-only or electrical units. Preserve same physical lamp amounts for subsequent animalPRC in2E. No extra atmosphere or natural geometry refit.
 
 Command: `python src/fit_paper1_fig02b.py --spectra-root data/processed/spider_spectral_inputs_01 --output data/processed/paper1_fig02b_Cottage_01 --figure-copy figures/paper1/fig02b/v01`.
+
+
+## 2C implemented — museum
+
+src/fit_paper1_fig02c.py uses the identical shared2B calculation with museum final1C data, panelC and museum output names. All objective, spectra, D850 response, normalization and saved-array conventions are shared; no new atmospheric or natural-pattern fit. Output figures/paper1/fig02c/v01/fig02c_museum.png with report lamp_DoLP_fit.json. Figures2D/2E remain next work.
