@@ -1,0 +1,64 @@
+{
+  "figure": "Paper 1 — Figure 1",
+  "status": "INVESTIGATOR_APPROVED",
+  "approval_date": "2026-11-25",
+  "branch": "paper-1-polarization-model",
+  "source_code_commit_at_approval": "f058022e600c573aa05dd64593fa90d40bce14b6",
+  "panels": [
+    {
+      "id": "1A",
+      "description": "Measured camera-green DoLP and AoP; Cottage and museum",
+      "directory": "figures/paper1/fig01a/v01",
+      "artwork": [
+        "fig01a_Cottage_museum.png",
+        "fig01a_Cottage_museum.pdf",
+        "fig01a_Cottage_museum.svg"
+      ]
+    },
+    {
+      "id": "1B",
+      "description": "Lunar-only Berry/Wang baseline; shared fixed70-degree separation; Cottage and museum",
+      "directory": "figures/paper1/fig01b/v01",
+      "artwork": [
+        "fig01b_two_sites.png",
+        "fig01b_two_sites.pdf",
+        "fig01b_two_sites.svg"
+      ],
+      "neutral_separation_deg": 70
+    },
+    {
+      "id": "1C",
+      "description": "Joint solar/lunar proportion and shared-separation fit per site, initialized82deg; Cottage and museum",
+      "directory": "figures/paper1/fig01c/v01",
+      "artwork": [
+        "Cottage/fig01c_Cottage.png",
+        "museum/fig01c_museum.png"
+      ],
+      "fit_results": "joint_fit_results.json",
+      "fitted_separation_deg": {
+        "Cottage": 69.21848593071331,
+        "museum": 70.7216738146598
+      }
+    },
+    {
+      "id": "1D",
+      "description": "PennCC and WCpitch; four rows DoLP/AoP per site, measured/lunar/solar/best combined; joint fits initialized70deg",
+      "directory": "figures/paper1/fig01d/v01",
+      "artwork": [
+        "fig01d_two_sites.png",
+        "fig01d_two_sites.pdf",
+        "fig01d_two_sites.svg"
+      ],
+      "fit_results": "joint_fit_results.json",
+      "initial_neutral_separation_deg": 70
+    }
+  ],
+  "display": {
+    "DoLP": "linear viridis,0–1",
+    "AoP": "cyclic romaO,-90–90deg",
+    "compass": "North up,east left; sky view",
+    "field": "Zenith-centred60deg full field"
+  },
+  "preservation": "Approved scientific/artwork versions. Do not change or overwrite during later work; use a new version for any explicitly requested revision. Existing per-directory archive manifests carry artifact checksums on EcoVis. This document records investigator approval; it does not set filesystem permissions.",
+  "verification": "Investigator reports all panels rendered and reviewed. 1C numerical fit report read and preserved in repository. Final1D numerical report/artwork checksums not independently read here; use EcoVis snapshot provenance. Overall page assembly not asserted."
+}
