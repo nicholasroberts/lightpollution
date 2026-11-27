@@ -1,0 +1,80 @@
+{
+  "site": "ChurchHill",
+  "reference_path": "data/processed/spider_linear_green_all_sites_01/ChurchHill/1.tif",
+  "reference_sha256": "21b113525af2d2589c036a0159d23349aab9c238558fa9001ce6f692e7e3f3d7",
+  "source_lock_path": "data/processed/spider_registration_green_all_sites_01/runs/ChurchHill/locked_site_references.json",
+  "source_lock_sha256": "b5e38fae962ca026a26786c698633a035c1e01a7077fc0449d59f9acf806b754",
+  "image_shape_yx": [
+    1332,
+    2000
+  ],
+  "reference_center_xy_px": [
+    1001.7451430363744,
+    659.0293225899803
+  ],
+  "rim_radius_px": 655.544999673502,
+  "points": [
+    {
+      "label": "P1",
+      "pixel_xy": [
+        675,
+        532.7962797452799
+      ]
+    },
+    {
+      "label": "P2",
+      "pixel_xy": [
+        1180.357142857143,
+        990.5364205116747
+      ]
+    },
+    {
+      "label": "P3",
+      "pixel_xy": [
+        869.6428571428571,
+        981.6078091833315
+      ]
+    },
+    {
+      "label": "P4",
+      "pixel_xy": [
+        1122.6190476190477,
+        1152.4419059322981
+      ]
+    }
+  ],
+  "star_identities": {
+    "P1": "Arcturus",
+    "P2": "Pollux",
+    "P3": "Regulus",
+    "P4": "Procyon"
+  },
+  "identity_status": "candidate four-star identification from positional matching; investigator review pending",
+  "utc": "2019-04-20T21:47:51",
+  "latitude_deg": 52.555609,
+  "longitude_deg": -2.156873,
+  "solution": {
+    "handedness": "reversed",
+    "azimuth_vs_pixel_angle_sign": -1,
+    "azimuth_offset_deg": -36.911110611987965,
+    "rms_position_deg": 1.0038658326302203,
+    "point_residuals_deg": [
+      1.6639268705094319,
+      0.8467429042967171,
+      0.24449499613374231,
+      0.696837470415356
+    ],
+    "predicted_moon_pixel_xy": [
+      419.71627458,
+      483.89280154
+    ],
+    "moon_observed": false
+  },
+  "method": "PyEphem 4.2.1 named-star catalogue; pressure=0, height=0; fixed equisolid centre/radius. Search catalogue stars above horizon within 5 deg of each image-derived elevation, distinct identities, both bearing parities, circular-mean bearing offset. No polarization data used.",
+  "limitations": [
+    "Candidate identities, no independent holdout star",
+    "Catalogue limited to PyEphem named stars",
+    "Existing capture UTC/timezone assumed",
+    "No centre/radius/tilt fit"
+  ]
+}
