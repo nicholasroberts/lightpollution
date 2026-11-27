@@ -6,7 +6,11 @@ pilot:
   led_file: LED_mid_visible_input.csv
   common_band_nm: [400, 700]
   normalization: unit_band_radiant_energy_after_declared_transfer
-  solar_spectrum: shared_natural_template_approximation
+  solar_spectrum: retained_prior_transferred_natural_proxy_not_independent_twilight
+  lunar_spectrum: official_jones_eso_saved_fits_zenith_shape
+  jones_root: data/processed/paper1_jones_moon_spectra_01
+  mixture_constraint: preserve_final_Figure1_camera_green_weights
+  production_runner: src/run_paper1_fig02_jones.py
   animal_response: existing_510_nm_alpha_band_proxy_no_added_UV_peak
   camera_response: data/reference/d850_elf_response.csv
   photon_conversion: multiply_energy_spectrum_by_wavelength_before_receptor_weighting

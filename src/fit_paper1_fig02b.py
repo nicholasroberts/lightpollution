@@ -49,6 +49,7 @@ def main(expected_site='Cottage',panel_letter='B'):
     p.add_argument('--north',type=Path,default=Path('data/processed/paper1_cottage_north_01/north') if expected_site=='Cottage' else Path('data/processed/paper1_museum_north_01'))
     p.add_argument('--reference-lock',type=Path,default=Path('data/processed/paper1_cottage_north_01/registration/locked_site_references.json') if expected_site=='Cottage' else Path('data/processed/spider_registration_green_all_sites_01/runs/museum/locked_site_references.json'))
     p.add_argument('--spectra-root',type=Path,default=Path('data/processed/paper1_spectral_inputs_02'))
+    p.add_argument('--jones-root',type=Path,help='Saved Jones comparison; update lunar spectrum only')
     p.add_argument('--camera-response',type=Path,default=Path(__file__).resolve().parents[1]/'data/reference/d850_elf_response.csv')
     p.add_argument('--output',type=Path,required=True)
     p.add_argument('--figure-copy',type=Path,required=True)
@@ -67,6 +68,17 @@ def main(expected_site='Cottage',panel_letter='B'):
     for k in ('I','Q','U'):
         if not np.allclose(arr['combined_'+k],(1-f)*arr['lunar_'+k]+f*arr['solar_'+k],equal_nan=True):p.error('Saved natural mixture differs: '+k)
     wave,spectra,spectral_report=spectral_inputs(a.spectra_root)
+    jones_metadata=None
+    if a.jones_root:
+        from paper1_jones_spectral_input import load_jones_moon
+        jw,jm,jones_metadata=load_jones_moon(a.jones_root,site,rp)
+        spectra['Solar']=spectra['Moon'].copy()
+        if wave[0]<jw[0] or wave[-1]>jw[-1]:p.error('Jones spectrum does not cover integration band')
+        moon_energy=np.interp(wave,jw,jm)
+        spectra['Moon']=moon_energy/integral(moon_energy,wave)
+        spectral_report['jones_lunar_update']=jones_metadata
+        spectral_report['natural_template']='Separate Jones lunar spectrum and retained prior solar spectral proxy; fitted green mixture preserved'
+        spectral_report['band_integrals']={k:float(integral(v,wave)) for k,v in spectra.items()}
     response=np.genfromtxt(a.camera_response,delimiter=',',names=True)
     if not {'wavelength_nm','green_photon_response'}<=set(response.dtype.names or []):p.error('Invalid camera response CSV')
     cw=response['wavelength_nm'];cg=response['green_photon_response']
@@ -78,18 +90,36 @@ def main(expected_site='Cottage',panel_letter='B'):
     x,y=arr['x_px'],arr['y_px'];c=np.asarray(lock['reference_center_xy_px']);r=lock['rim_radius_px']
     ni,nq,nu=[arr['combined_'+k] for k in ('I','Q','U')]
     mi,mq,mu=[arr['measured_'+k] for k in ('I','Q','U')]
+    # Figure 1 fraction is a CAMERA-GREEN fraction, not a band-energy fraction.
+    band_weights=np.array([1-f,f])
+    if jones_metadata is not None:
+        from paper1_jones_spectral_input import band_weights_from_green
+        band_weights=band_weights_from_green(f,overlaps['Moon'],overlaps['Solar'])
+        camera_components=[]
+        energy_components=[]
+        for k in ('I','Q','U'):
+            ml,sl=arr['lunar_'+k],arr['solar_'+k]
+            energy_components.append(band_weights[0]*ml+band_weights[1]*sl)
+            camera_components.append(band_weights[0]*overlaps['Moon']*ml+band_weights[1]*overlaps['Solar']*sl)
+        ni,nq,nu=energy_components
+        camera_i,camera_q,camera_u=camera_components
+    else:
+        camera_i=ni*overlaps['Moon'];camera_q=nq*overlaps['Moon'];camera_u=nu*overlaps['Moon']
     with np.errstate(divide='ignore',invalid='ignore'):
-        measured=np.hypot(mq,mu)/mi;natural=np.hypot(nq,nu)/ni
+        measured=np.hypot(mq,mu)/mi;natural=np.hypot(camera_q,camera_u)/camera_i
     field=np.hypot(x-c[0],y-c[1])<lock['eye_radius_px']
     support=field & (mi>0) & (ni>0) & np.isfinite(measured) & (measured>=0) & (measured<=1) & np.isfinite(natural) & (natural>=0) & (natural<=1)
     if support.sum()<20:p.error('Insufficient common60degree field support')
     target=float(measured[support].mean())
-    # Same natural spectral template for Sun and Moon preserves the green fit weights.
-    camera_i=ni*overlaps['Moon'];camera_q=nq*overlaps['Moon'];camera_u=nu*overlaps['Moon']
     polarized=np.hypot(camera_q,camera_u)
     fits={};maps={};saved=dict(x_px=x,y_px=y,common_central_field=support,measured_DoLP=measured,
         natural_I=ni,natural_Q=nq,natural_U=nu,camera_natural_I=camera_i,camera_natural_Q=camera_q,camera_natural_U=camera_u,
         wavelength_nm=wave,moon_spectrum=spectra['Moon'],HPS_spectrum=spectra['HPS'],LED_spectrum=spectra['LED'],green_photon_response=green)
+    if jones_metadata is not None:
+        saved['solar_spectrum']=spectra['Solar']
+        saved['lunar_band_weight'],saved['solar_band_weight']=band_weights
+        for component in ('lunar','solar'):
+            for k in ('I','Q','U'):saved[component+'_component_'+k]=arr[component+'_'+k]
     for lamp in ('HPS','LED'):
         try:result=fit_amount(camera_i[support],polarized[support],measured[support],overlaps[lamp])
         except ValueError as exc:p.error(str(exc))
@@ -115,13 +145,16 @@ def main(expected_site='Cottage',panel_letter='B'):
         ax.set(xlim=(c[0]-1.07*r,c[0]+1.07*r),ylim=(c[1]+1.07*r,c[1]-1.07*r),aspect='equal');ax.axis('off');ax.set_title(title,fontsize=10)
         for tx,ty,t in [(.5,.99,'N'),(.01,.5,'E'),(.5,.01,'S'),(.99,.5,'W')]:ax.text(tx,ty,t,transform=ax.transAxes,ha='center',va='center',fontsize=8)
     fig.colorbar(im,ax=axes.tolist(),shrink=.75,label='Camera-green DoLP')
-    fig.suptitle(f'{site} — unpolarized HPS and LED additions to the final natural pattern\\n'
+    fig.suptitle(f'{site} — unpolarized HPS and LED additions to the final natural pattern\n'
                  'Amounts relative to model natural sky band radiance; spatial camera-green DoLP fits',fontsize=11)
     fig.text(.01,.99,panel_letter,ha='left',va='top',fontweight='bold',fontsize=18)
     report=dict(subfigure='2'+panel_letter,site=site,target_mean_camera_green_dolp=target,
         target_spatial_sd=float(measured[support].std(ddof=1)),common_pixels=int(support.sum()),
         natural_mean_dolp=float(natural[support].mean()),natural_spatial_sd=float(natural[support].std(ddof=1)),
-        solar_fraction=f,lunar_fraction=1-f,neutral_separation_deg=fit['neutral_separation_deg'],fits=fits,
+        solar_fraction=f,lunar_fraction=1-f,
+        fraction_convention='Locked Figure 1 camera-green intensity proportions',
+        natural_band_weights=dict(lunar=float(band_weights[0]),solar=float(band_weights[1])),
+        jones_lunar_input=jones_metadata,neutral_separation_deg=fit['neutral_separation_deg'],fits=fits,
         LED_to_HPS_band_radiance_ratio=ratio,LED_band_radiance_reduction_percent=difference,
         band_radiance_definition='Added sky radiant energy over shared band divided by total natural solar+lunar sky band energy per direction (uniform I=1); not lux, electrical power or lunar-only intensity',
         objective='Independently minimize equal-pixel mean squared spatial camera-green DoLP residuals for each lamp on the same common zenith-centred60deg field; binned Figure1 Stokes; no threshold0.05 mask',
@@ -133,7 +166,7 @@ def main(expected_site='Cottage',panel_letter='B'):
         'Fixed scalar spectral overlaps make HPS/LED alternative fits mathematically equivalent in camera space; an identical amount ratio across sites can persist despite independent optimizations.',
         'The full spatial residual vector is minimized; the fitted mean is not constrained to equal the observed mean.',
         'Experimental statistics here are on the common binned model grid, not replacement original-camera Figure1 statistics.',
-        'Common natural spectral template for solar and lunar components; no separate twilight-colour retrieval.',
+        'Solar spectrum remains the prior transferred natural proxy; no twilight-colour retrieval. Jones runs update lunar spectrum only.' if jones_metadata is not None else 'Common natural spectral template for solar and lunar components; no separate twilight-colour retrieval.',
         'No PRC or animal-response fit here;2E must use these same fitted physical lamp amounts.',
         'Fitted added radiance is conditional on the unity-depolarization baseline, spectra and uniform-sky approximation.'])
     a.output.mkdir(parents=True)

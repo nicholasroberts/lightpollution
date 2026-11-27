@@ -1,5 +1,59 @@
 # Figure 2 — spectral ALAN addition to the accepted natural patterns
 
+## Jones spectra adopted for production — 27 November 2026
+
+The investigator accepted the Jones comparison and requested production figures.
+Run src/run_paper1_fig02_jones.py to make new Figure 2A–C v04 snapshots using
+the saved official Jones/ESO FITS, without repeating online requests.
+
+Jones replaces the LUNAR spectral template only. Retain the previous natural
+source-times-lambda^-4 template as the existing approximate SOLAR proxy; there is
+no independently modelled twilight spectrum. Do not label the lunar model a
+solar prediction. The Figure 2A plot explicitly distinguishes both lunar curves,
+the retained solar proxy, HPS and LED.
+
+Keep the final Figure 1 camera-green mixture f exactly fixed. With photon-energy
+overlaps K_M and K_S, calculate the band-energy weights by normalizing
+
+    w_M = (1-f)/K_M
+    w_S = f/K_S
+
+so the integrated camera-green I/Q/U recover the locked pattern, up to one common
+intensity scale. These are deterministic conversions, not fitted parameters.
+Save both camera-green f and band-energy weights; they are different quantities.
+For Jones runs the saved natural_I/Q/U are band-energy component sums, and the
+saved camera_natural_I/Q/U are response-integrated sums. Separate component arrays
+and spectra are retained for later receptor calculations.
+
+Use the site-specific Jones zenith spectral shape uniformly over the field as
+the explicitly simple spectral approximation. Retain the fixed ESO reference
+atmosphere, 400–700 nm band, D850 response, generic lamp templates and ALAN
+transfer exponent. No extra wavelength^-4 or extinction is applied to Jones output.
+Fit HPS and LED independently to spatial camera-green DoLP exactly as before.
+The spectral update changes inferred band-energy amounts, not the approved
+camera-green spatial pattern or fit objective. Do not claim improved spatial
+residuals simply from changing this scalar spectral conversion.
+
+The runner checks source Figure 1 fit hashes and raw Jones FITS hashes before
+using the predictions. It preserves all prior artwork, makes v04 for A/B/C,
+and omits percentage claims from figure headlines and its combined summary.
+Quantitative per-fit records remain reproducible.
+
+```bash
+git pull --ff-only origin paper-1-polarization-model
+python src/run_paper1_fig02_jones.py \
+  --jones-root data/processed/paper1_jones_moon_spectra_01 \
+  --spectra-root data/processed/paper1_spectral_inputs_02 \
+  --output data/processed/paper1_fig02_jones_01 \
+  --figure-version v04
+```
+
+Dependencies are those already installed for the Jones comparison.
+Source arrays and aggregate fig02_jones_summary.json stay in the processed output;
+artwork and per-panel provenance are copied to figures/paper1/fig02a/v04,
+fig02b/v04 and fig02c/v04.
+
+
 ## Approved visible band — 27 November 2026
 
 Use **400–700 nm** consistently for Figure 2A/B/C and the subsequent
