@@ -1,5 +1,60 @@
 # Figure 2 — spectral ALAN addition to the accepted natural patterns
 
+## Approved visible band — 27 November 2026
+
+Use **400–700 nm** consistently for Figure 2A/B/C and the subsequent
+camera/animal comparison. This supersedes the historical commands/band choices
+below. The 450 nm lower edge in existing v01/v02 fits came from the older
+NIST2013 lunar-table pilot, not from the D850 response.
+
+The shared spectral loader now requires complete input coverage of 400–700 nm.
+It fails on 450-start input files instead of narrowing the integration band.
+Each spectrum is normalized to unit radiant energy over exactly 400–700 nm;
+energy-to-photon weighting remains wavelength times photon response.
+Source tables can cover a wider interval, but only the approved band is used.
+
+Generate fresh wider-coverage inputs using the existing audited QASUME/air-LUSI
+lunar preparation and generic lamp source templates. This replaces the coarse
+historical NIST lunar shape as well as extending the band; changed fitted
+amounts should not be attributed solely to inclusion of 400–450 nm.
+Retain natural transfer exponent 4 and ALAN exponent 2. No missing spectral
+range is extrapolated from the old 450 nm file. No UV receptor is added.
+The current composite-source overlap check remains a source-shape check,
+not site-specific spectral validation.
+
+All Figure 1 geometry, proportions and separation remain fixed. Preserve old
+artwork and fits. New Figure 2A uses v02; new B/C use v03. The shared figure
+headline no longer quotes the LED/HPS percentage.
+
+```bash
+git pull --ff-only origin paper-1-polarization-model
+python -m pip install -r requirements-spectral.txt
+
+python src/prepare_spider_spectral_pilot.py \
+  --alan-transfer-exponent 2 \
+  --output data/processed/paper1_spectral_inputs_02
+
+python src/plot_paper1_fig02a.py \
+  --spectra-root data/processed/paper1_spectral_inputs_02 \
+  --output data/processed/paper1_fig02a_spectra_02 \
+  --figure-copy figures/paper1/fig02a/v02
+
+python src/fit_paper1_fig02b.py \
+  --spectra-root data/processed/paper1_spectral_inputs_02 \
+  --output data/processed/paper1_fig02b_Cottage_03 \
+  --figure-copy figures/paper1/fig02b/v03
+
+python src/fit_paper1_fig02c.py \
+  --spectra-root data/processed/paper1_spectral_inputs_02 \
+  --output data/processed/paper1_fig02c_museum_03 \
+  --figure-copy figures/paper1/fig02c/v03
+```
+
+Preparation may retrieve the author lamp archive and lunar source datasets;
+requirements-spectral.txt includes the existing spreadsheet/NetCDF readers.
+No RAW image processing or Figure 1 refitting is needed.
+
+
 Updated 27 November 2026; replaces the earlier PRC-matched Figure2 sketch.
 Approved Figure1 remains unchanged.
 

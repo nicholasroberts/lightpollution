@@ -48,7 +48,7 @@ def main(expected_site='Cottage',panel_letter='B'):
     p.add_argument('--fit',type=Path,default=Path('data/processed/paper1_fig01c_joint_separation_01')/expected_site/'fit')
     p.add_argument('--north',type=Path,default=Path('data/processed/paper1_cottage_north_01/north') if expected_site=='Cottage' else Path('data/processed/paper1_museum_north_01'))
     p.add_argument('--reference-lock',type=Path,default=Path('data/processed/paper1_cottage_north_01/registration/locked_site_references.json') if expected_site=='Cottage' else Path('data/processed/spider_registration_green_all_sites_01/runs/museum/locked_site_references.json'))
-    p.add_argument('--spectra-root',type=Path,default=Path('data/processed/spider_spectral_inputs_01'))
+    p.add_argument('--spectra-root',type=Path,default=Path('data/processed/paper1_spectral_inputs_02'))
     p.add_argument('--camera-response',type=Path,default=Path(__file__).resolve().parents[1]/'data/reference/d850_elf_response.csv')
     p.add_argument('--output',type=Path,required=True)
     p.add_argument('--figure-copy',type=Path,required=True)

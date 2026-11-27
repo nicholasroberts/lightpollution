@@ -1,10 +1,10 @@
 schema_version: 1
 status: decision_template_not_automatically_applied_by_legacy_wrappers
 pilot:
-  inputs_root: data/processed/spider_uv510_01/inputs
+  inputs_root: data/processed/paper1_spectral_inputs_02
   natural_and_hps_file: HPS_visible_input.csv
   led_file: LED_mid_visible_input.csv
-  common_band_nm: [352, 700]
+  common_band_nm: [400, 700]
   normalization: unit_band_radiant_energy_after_declared_transfer
   solar_spectrum: shared_natural_template_approximation
   animal_response: existing_510_nm_alpha_band_proxy_no_added_UV_peak

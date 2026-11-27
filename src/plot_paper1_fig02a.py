@@ -29,10 +29,11 @@ def spectral_inputs(root):
     data={k:load_spectrum(p) for k,p in paths.items()}
     provenance=root/'spectral_provenance.json'
     metadata=json.loads(provenance.read_text())
-    lo=max(352.,*[v['wavelength_nm'][0] for v in data.values()])
-    hi=min(700.,*[v['wavelength_nm'][-1] for v in data.values()])
-    if hi<=lo:
-        raise ValueError('No overlapping spectra in352–700nm: '+str({k:[float(v['wavelength_nm'][0]),float(v['wavelength_nm'][-1])] for k,v in data.items()}))
+    # Fixed publication band: fail rather than silently narrowing old inputs.
+    lo,hi=400.,700.
+    for label,values in data.items():
+        if values['wavelength_nm'][0]>lo or values['wavelength_nm'][-1]<hi:
+            raise ValueError(label+' input must cover the full 400–700 nm band without extrapolation; regenerate wider inputs with prepare_spider_spectral_pilot.py')
     wave=np.unique(np.concatenate([np.linspace(lo,hi,int(np.ceil(hi-lo))+1)]+
         [v['wavelength_nm'][(v['wavelength_nm']>=lo)&(v['wavelength_nm']<=hi)] for v in data.values()]))
     def norm(s,key):
@@ -56,7 +57,7 @@ def spectral_inputs(root):
 
 def main():
     p=argparse.ArgumentParser(description=__doc__)
-    p.add_argument('--spectra-root',type=Path,default=Path('data/processed/spider_spectral_inputs_01'))
+    p.add_argument('--spectra-root',type=Path,default=Path('data/processed/paper1_spectral_inputs_02'))
     p.add_argument('--output',type=Path,required=True)
     p.add_argument('--figure-copy',type=Path,required=True)
     a=p.parse_args()
