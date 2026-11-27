@@ -115,8 +115,8 @@ def main(expected_site='Cottage',panel_letter='B'):
         ax.set(xlim=(c[0]-1.07*r,c[0]+1.07*r),ylim=(c[1]+1.07*r,c[1]-1.07*r),aspect='equal');ax.axis('off');ax.set_title(title,fontsize=10)
         for tx,ty,t in [(.5,.99,'N'),(.01,.5,'E'),(.5,.01,'S'),(.99,.5,'W')]:ax.text(tx,ty,t,transform=ax.transAxes,ha='center',va='center',fontsize=8)
     fig.colorbar(im,ax=axes.tolist(),shrink=.75,label='Camera-green DoLP')
-    note='No additional ALAN required' if difference is None else f"LED requires {abs(difference):.1f}% "+('less' if difference>=0 else 'more')+' added band radiance than HPS at the best spatial camera-green DoLP fits'
-    fig.suptitle(f'{site} — independent spatial HPS and LED fits; measured mean DoLP {target:.3f}\n'+note,fontsize=11)
+    fig.suptitle(f'{site} — unpolarized HPS and LED additions to the final natural pattern\\n'
+                 'Amounts relative to model natural sky band radiance; spatial camera-green DoLP fits',fontsize=11)
     fig.text(.01,.99,panel_letter,ha='left',va='top',fontweight='bold',fontsize=18)
     report=dict(subfigure='2'+panel_letter,site=site,target_mean_camera_green_dolp=target,
         target_spatial_sd=float(measured[support].std(ddof=1)),common_pixels=int(support.sum()),
