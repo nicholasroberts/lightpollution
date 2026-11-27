@@ -1,0 +1,24 @@
+{
+  "stannes": {
+    "lock_sha256": "1d5462b03dd3b42ec68b8732d67023752c28260afe06be5b1747f666a78fe4e9",
+    "stokes_sha256": "bb9314e364e716bfc613fee210640227f9e12a7284ce575d38fbd18913eb6ab1",
+    "moon_pixel_xy": [
+      1412,
+      631
+    ],
+    "utc": "2019-05-14T22:21:05",
+    "analyzer_sequence_sign": 1,
+    "investigator_moon_accepted": "2026-11-27"
+  },
+  "opensquare": {
+    "lock_sha256": "eec4d264d49b9b0eba80802d74c07febd282415db8ed7b6d922dcdb7e1608756",
+    "stokes_sha256": "f166b38ce856e1d3e371d477105f476a62a4d378b7da6e306e39bc1d85aa0814",
+    "moon_pixel_xy": [
+      600,
+      617
+    ],
+    "utc": "2019-05-14T22:08:05",
+    "analyzer_sequence_sign": -1,
+    "investigator_moon_accepted": "2026-11-27"
+  }
+}

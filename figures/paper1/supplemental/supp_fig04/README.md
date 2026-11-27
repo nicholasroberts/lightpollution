@@ -1,32 +1,42 @@
-# Supplementary Figure 4 — stannes and opensquare
+# Supplementary Figure 4: confirmed Moons and fitting — 2026-11-27
 
-Selected by investigator on 2026-11-27 as the next pair. These are further
-Oxford sites; minifactory remains another Oxford acquisition outside this pair.
+Investigator confirms both saved Moon pixels from the reference review sheet.
+Source metadata read from attached registration_readiness(1).json.
 
-Use the same source-check helper with explicit site names:
+| Site | Accepted Moon pixel | Local capture | Moon elevation | Moon azimuth | Image elevation residual | Nominal analyzer sign |
+|---|---|---|---:|---:|---:|---:|
+| stannes | [1412,631] | 2019-05-14 23:21:05 BST | 37.5681° | 209.1688° | −0.2300° | +1 |
+| opensquare | [600,617] | 2019-05-14 23:08:05 BST | 38.5157° | 205.3284° | −0.1766° | −1 |
+
+Exact accepted lock/Stokes hashes and UTC times are recorded in
+config/paper1/supp04_reviewed_moons.json. Both registrations pass the saved
+numerical checks. This confirmation establishes Moon identity; it does not
+invent a new investigator acceptance of every exposure overlay.
+
 ```bash
 git pull --ff-only origin paper-1-polarization-model
-python src/check_paper1_supp03_inputs.py \
-  --sites stannes opensquare \
-  --output data/processed/paper1_supp04_readiness_01
-xdg-open data/processed/paper1_supp04_readiness_01/reference_moon_check.png
+python src/run_paper1_supp04.py
 ```
 
-Inspect/upload registration_readiness.json and reference_moon_check.png from
-that directory. The helper checks saved lock/Stokes hashes, reports all
-candidate locks, records nominal signed analyzer evidence without applying
-it, and produces a reference Moon review sheet. A saved candidate does not
-automatically establish Moon identity. If no suitable source exists, retain
-the pending status and resolve that input rather than borrow another site.
+Fresh derived registrations preserve original files. Preflight verifies
+both sites, checksums, nominal analyzer evidence, Moon coordinates and UTC.
+Existing sign helper retains U for stannes and reverses opensquare U once.
+Campaign reversed camera-to-sky parity remains a separate fixed convention.
+No parity is selected using polarization agreement.
 
-After source review, follow the established Figure 1 method: fixed celestial
-orientation; jointly fit per-site solar fraction and common solar/lunar
-neutral-point separation starting at 70 degrees; pmax=1; existing horizon
-treatment; no ALAN or additional atmospheric depolarization. Use one mixture
-and separation for DoLP and AoP. Compare held-out errors to lunar-only;
-a training improvement alone does not establish solar contribution.
+Run current Figure 1 joint solar-fraction/shared-separation fits, starting
+at 70 degrees independently per site. pmax=1, existing horizon treatment,
+no ALAN/dilution or extra atmospheric depolarization.
+Same mixture/separation for DoLP/AoP, and fitted separation in single-source panels.
 
-Planned outputs: figures/paper1/supplemental/supp_fig04/v01.
-Four rows, DoLP/AoP per site; measured/lunar/solar/combined columns, linear
-viridis and cyclic romaO, as Figure 1 and previous supplementary figures.
-No site fits have yet been run or claimed for this pair.
+Outputs:
+- data/processed/paper1_natural_fit_supp04_01
+- figures/paper1/supplemental/supp_fig04/v01
+
+Four rows, two per site; measured/lunar/solar/combined columns.
+Unchanged Figure 1 per-site renderer, linear viridis DoLP, cyclic romaO AoP,
+north-up/east-left, 60-degree full field circle. Reports, diagnostics, summary
+CSV/JSON and hashes archived beside PNG/PDF/SVG. Existing directories refused.
+
+Validation: script compiles. Actual fits require EcoVis arrays and have not
+yet been run here. Assess held-out agreement separately from training optimum.
