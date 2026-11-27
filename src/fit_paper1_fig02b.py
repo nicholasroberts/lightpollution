@@ -1,10 +1,10 @@
-"""Figures2B/2C: independent HPS/LED fits to site camera-green mean DoLP."""
+"""Figures2B/2C: independent HPS/LED fits to site spatial camera-green DoLP."""
 import argparse
 import csv
 import json
 from pathlib import Path
 import numpy as np
-from scipy.optimize import brentq
+from scipy.optimize import least_squares
 import matplotlib
 matplotlib.use('Agg')
 import matplotlib.pyplot as plt
@@ -12,21 +12,35 @@ from plot_paper1_fig02a import spectral_inputs,integral
 from paper1_figure_archive import archive_figure,digest
 
 
-def fit_amount(intensity,polarized,target,lamp_overlap):
-    """One nonnegative lamp amount; target is equal-pixel mean DoLP."""
-    i,p=np.asarray(intensity),np.asarray(polarized)
-    if i.size==0 or i.shape!=p.shape or not np.isfinite(i).all() or not np.isfinite(p).all() or np.any(i<=0) or np.any(p<0):
+def fit_amount(intensity,polarized,observed,lamp_overlap):
+    """Independently minimize equal-pixel spatial DoLP squared residuals."""
+    i,p,y=[np.asarray(v,dtype=float).ravel() for v in (intensity,polarized,observed)]
+    if i.size==0 or i.shape!=p.shape or i.shape!=y.shape or not np.isfinite(i).all() or not np.isfinite(p).all() or np.any(i<=0) or np.any(p<0):
         raise ValueError('Invalid natural Stokes support')
-    if not np.isfinite([target,lamp_overlap]).all() or not 0<target<=1 or lamp_overlap<=0:
-        raise ValueError('Invalid target or spectral overlap')
-    def mean(amount):return float(np.mean(p/(i+amount*lamp_overlap)))
-    natural=mean(0.)
-    if target>natural+1e-10:raise ValueError('Experimental mean DoLP exceeds natural prediction; cannot match by adding unpolarized light')
-    if abs(target-natural)<=1e-10:return dict(amount=0.,achieved_mean_dolp=natural)
-    upper=float(np.mean(i)/lamp_overlap)
-    while mean(upper)>target:upper*=2
-    amount=brentq(lambda a:mean(a)-target,0.,upper,xtol=1e-12,rtol=1e-12)
-    return dict(amount=float(amount),achieved_mean_dolp=mean(amount))
+    if not np.isfinite(y).all() or np.any((y<0)|(y>1)) or not np.isfinite(lamp_overlap) or lamp_overlap<=0:
+        raise ValueError('Invalid observed DoLP or spectral overlap')
+    if not np.any(y>0):
+        raise ValueError('All observed DoLP is zero: no finite lamp amount is identifiable')
+    def residual(a):return p/(i+a[0]*lamp_overlap)-y
+    def jacobian(a):return (-p*lamp_overlap/(i+a[0]*lamp_overlap)**2)[:,None]
+    scale=float(np.mean(i)/lamp_overlap)
+    # Each lamp has its own optimizer, physical amount, initialization and result.
+    result=least_squares(residual,[scale],jac=jacobian,bounds=(0.,np.inf),
+                         x_scale=scale,ftol=1e-12,xtol=1e-12,gtol=1e-12,max_nfev=1000)
+    if not result.success:raise ValueError('Lamp optimization failed: '+result.message)
+    amount=float(result.x[0])
+    zero_cost=float(np.mean(residual([0.])**2))
+    fitted_cost=float(np.mean(residual([amount])**2))
+    if zero_cost<=fitted_cost:
+        amount=0.
+    prediction=p/(i+amount*lamp_overlap)
+    return dict(amount=amount,achieved_mean_dolp=float(prediction.mean()),
+                objective_mean_squared_DoLP_residual=float(np.mean((prediction-y)**2)),
+                zero_ALAN_mean_squared_DoLP_residual=zero_cost,
+                optimizer='scipy.optimize.least_squares; separate call per lamp',
+                optimizer_success=bool(result.success),optimizer_message=result.message,
+                optimizer_nfev=int(result.nfev),boundary_zero=bool(amount==0.))
+
 
 
 def main(expected_site='Cottage',panel_letter='B'):
@@ -77,7 +91,7 @@ def main(expected_site='Cottage',panel_letter='B'):
         natural_I=ni,natural_Q=nq,natural_U=nu,camera_natural_I=camera_i,camera_natural_Q=camera_q,camera_natural_U=camera_u,
         wavelength_nm=wave,moon_spectrum=spectra['Moon'],HPS_spectrum=spectra['HPS'],LED_spectrum=spectra['LED'],green_photon_response=green)
     for lamp in ('HPS','LED'):
-        try:result=fit_amount(camera_i[support],polarized[support],target,overlaps[lamp])
+        try:result=fit_amount(camera_i[support],polarized[support],measured[support],overlaps[lamp])
         except ValueError as exc:p.error(str(exc))
         amount=result['amount'];ii=camera_i+amount*overlaps[lamp]
         with np.errstate(divide='ignore',invalid='ignore'):d=polarized/ii
@@ -101,8 +115,8 @@ def main(expected_site='Cottage',panel_letter='B'):
         ax.set(xlim=(c[0]-1.07*r,c[0]+1.07*r),ylim=(c[1]+1.07*r,c[1]-1.07*r),aspect='equal');ax.axis('off');ax.set_title(title,fontsize=10)
         for tx,ty,t in [(.5,.99,'N'),(.01,.5,'E'),(.5,.01,'S'),(.99,.5,'W')]:ax.text(tx,ty,t,transform=ax.transAxes,ha='center',va='center',fontsize=8)
     fig.colorbar(im,ax=axes.tolist(),shrink=.75,label='Camera-green DoLP')
-    note='No additional ALAN required' if difference is None else f"LED requires {abs(difference):.1f}% "+('less' if difference>=0 else 'more')+' added band radiance than HPS for the same mean camera-green DoLP'
-    fig.suptitle(f'{site} — independent HPS and LED fits; target mean DoLP {target:.3f}\n'+note,fontsize=11)
+    note='No additional ALAN required' if difference is None else f"LED requires {abs(difference):.1f}% "+('less' if difference>=0 else 'more')+' added band radiance than HPS at the best spatial camera-green DoLP fits'
+    fig.suptitle(f'{site} — independent spatial HPS and LED fits; measured mean DoLP {target:.3f}\n'+note,fontsize=11)
     fig.text(.01,.99,panel_letter,ha='left',va='top',fontweight='bold',fontsize=18)
     report=dict(subfigure='2'+panel_letter,site=site,target_mean_camera_green_dolp=target,
         target_spatial_sd=float(measured[support].std(ddof=1)),common_pixels=int(support.sum()),
@@ -110,14 +124,14 @@ def main(expected_site='Cottage',panel_letter='B'):
         solar_fraction=f,lunar_fraction=1-f,neutral_separation_deg=fit['neutral_separation_deg'],fits=fits,
         LED_to_HPS_band_radiance_ratio=ratio,LED_band_radiance_reduction_percent=difference,
         band_radiance_definition='Added sky radiant energy over shared band divided by total natural solar+lunar sky band energy per direction (uniform I=1); not lux, electrical power or lunar-only intensity',
-        objective='Match equal-pixel mean measured camera-green DoLP on common zenith-centred60deg field; binned Figure1 Stokes; no threshold0.05 mask',
+        objective='Independently minimize equal-pixel mean squared spatial camera-green DoLP residuals for each lamp on the same common zenith-centred60deg field; binned Figure1 Stokes; no threshold0.05 mask',
         spectral_overlaps=overlaps,spectral_inputs=spectral_report,camera_response=dict(path=str(a.camera_response),sha256=digest(a.camera_response),convention='Published ELF green photon response; energy spectra weighted by wavelength*response; added polarizer not calibrated'),
         source_fit_report_path=str(rp),source_fit_arrays_path=str(ap),source_reference_lock_path=str(a.reference_lock),
         source_fit_report_sha256=digest(rp),source_fit_arrays_sha256=digest(ap),source_lock_sha256=digest(a.reference_lock),script_sha256=digest(__file__),
         colormaps=dict(DoLP='viridis'),dolp_colour_normalization='linear0–1',atmospheric_depolarization_multiplier=1.,extra_atmospheric_depolarization=False,
         limitations=['Uniform unpolarized addition leaves Q/U and AoP unchanged.',
-        'At matched mean camera DoLP the HPS/LED camera maps coincide; spectral overlap determines the required radiance ratio.',
-        'Mean matching does not force agreement in every pixel; spatial residuals are reported.',
+        'Fixed scalar spectral overlaps make HPS/LED alternative fits mathematically equivalent in camera space; an identical amount ratio across sites can persist despite independent optimizations.',
+        'The full spatial residual vector is minimized; the fitted mean is not constrained to equal the observed mean.',
         'Experimental statistics here are on the common binned model grid, not replacement original-camera Figure1 statistics.',
         'Common natural spectral template for solar and lunar components; no separate twilight-colour retrieval.',
         'No PRC or animal-response fit here;2E must use these same fitted physical lamp amounts.',

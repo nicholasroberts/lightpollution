@@ -1,6 +1,6 @@
 # Figure 2 — spectral ALAN addition to the accepted natural patterns
 
-Updated25November2026; replaces the earlier PRC-matched Figure2 sketch.
+Updated 27 November 2026; replaces the earlier PRC-matched Figure2 sketch.
 Approved Figure1 remains unchanged.
 
 | Panel | Content |
@@ -23,7 +23,7 @@ HPS and LED are separate alternative fits, not an inferred mixture of site lamps
 No atmospheric parameter is fit alongside the lamp amount.
 
 2B/2C objective is measured camera-green DoLP, explicitly superseding the older
-PRC-only Figure2 fit proposal. 2B implements common physical60degree support on the saved binned Stokes grid and fits equal-pixel mean DoLP; report spatial residuals as well. Apply this same definition to2C.
+PRC-only Figure2 fit proposal. 2B implements common physical60degree support on the saved binned Stokes grid and independently minimizes equal-pixel spatial DoLP squared residuals for each lamp; report RMS, mean residual and optimizer diagnostics. Apply this same definition to2C.
 Use camera response in the forward comparison; then calculate PRC for the SAME
 physical fitted lamp amounts with the animal-response approximation.
 Do not refit lamp amounts when plotting PRC. The camera-to-animal approximation
@@ -64,11 +64,13 @@ Theory: [shared framework](../../theory/theory.md).
 
 ## 2B implemented — Cottage
 
-src/fit_paper1_fig02b.py retains final1C natural component arrays and independently fits uniform unpolarized HPS/LED additions to common-field mean camera-greenDoLP using ELF D850 green photon sensitivity. See25November labbook for precise normalization/support. Four columns measured/natural/HPS/LED with linearviridis0–1. At matched DoLP the camera maps coincide; fitted band radiant amounts differ. Report spatial residuals and store full fit/spectral/input provenance. Fitted quantities are relative to total natural sky band radiance, not lunar-only or electrical units. Preserve same physical lamp amounts for subsequent animalPRC in2E. No extra atmosphere or natural geometry refit.
+src/fit_paper1_fig02b.py retains final1C natural component arrays and independently fits uniform unpolarized HPS/LED additions to the full common-field spatial camera-green DoLP pattern using ELF D850 green photon sensitivity. See25November labbook for precise normalization/support. Four columns measured/natural/HPS/LED with linearviridis0–1. Each lamp has its own nonnegative optimizer call. The observed mean is reported but is not constrained to match. Fixed scalar spectral overlaps still imply equivalent camera predictions and a site-independent LED/HPS amount ratio under this model. Report spatial residuals and store full fit/spectral/input provenance. Fitted quantities are relative to total natural sky band radiance, not lunar-only or electrical units. Preserve same physical lamp amounts for subsequent animalPRC in2E. No extra atmosphere or natural geometry refit.
 
-Command: `python src/fit_paper1_fig02b.py --spectra-root data/processed/spider_spectral_inputs_01 --output data/processed/paper1_fig02b_Cottage_01 --figure-copy figures/paper1/fig02b/v01`.
+Command: `python src/fit_paper1_fig02b.py --spectra-root data/processed/spider_spectral_inputs_01 --output data/processed/paper1_fig02b_Cottage_02 --figure-copy figures/paper1/fig02b/v02`.
 
 
 ## 2C implemented — museum
 
-src/fit_paper1_fig02c.py uses the identical shared2B calculation with museum final1C data, panelC and museum output names. All objective, spectra, D850 response, normalization and saved-array conventions are shared; no new atmospheric or natural-pattern fit. Output figures/paper1/fig02c/v01/fig02c_museum.png with report lamp_DoLP_fit.json. Figures2D/2E remain next work.
+src/fit_paper1_fig02c.py uses the identical shared2B calculation with museum final1C data, panelC and museum output names. All objective, spectra, D850 response, normalization and saved-array conventions are shared; no new atmospheric or natural-pattern fit. Output figures/paper1/fig02c/v02/fig02c_museum.png with report lamp_DoLP_fit.json. Figures2D/2E remain next work.
+
+The v01 outputs used field-mean matching. Preserve them as historical outputs; use fresh _02 data directories and v02 figure snapshots for the spatial fits. Figure 1 natural fits and approved artwork are unchanged.
