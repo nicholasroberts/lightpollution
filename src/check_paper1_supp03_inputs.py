@@ -1,4 +1,4 @@
-"""Inspect ChurchHill/zoology saved registrations before natural-pattern fitting."""
+"""Inspect selected saved registrations before natural-pattern fitting."""
 import argparse
 import hashlib
 import json
@@ -47,7 +47,7 @@ def run(a):
     if a.output.exists():raise ValueError('Use a fresh output directory')
     rows=[]
     # Report all candidates; never select an arbitrary newer lock.
-    for site in SITES:
+    for site in a.sites:
         candidates=[]
         for path in sorted(a.processed.rglob('locked_site_references.json')):
             try:
@@ -92,6 +92,7 @@ def run(a):
 
 def main():
     p=argparse.ArgumentParser(description=__doc__)
+    p.add_argument('--sites',nargs='+',default=list(SITES),help='Canonical site names; defaults preserve the Supp Figure 3 check')
     p.add_argument('--processed',type=Path,default=Path('data/processed'))
     p.add_argument('--output',type=Path,default=Path('data/processed/paper1_supp03_readiness_01'))
     a=p.parse_args()
