@@ -49,7 +49,7 @@
     "P3": "Regulus",
     "P4": "Procyon"
   },
-  "identity_status": "candidate four-star identification from positional matching; investigator review pending",
+  "identity_status": "investigator_accepted_2026-11-27",
   "utc": "2019-04-20T21:47:51",
   "latitude_deg": 52.555609,
   "longitude_deg": -2.156873,
@@ -76,5 +76,6 @@
     "Catalogue limited to PyEphem named stars",
     "Existing capture UTC/timezone assumed",
     "No centre/radius/tilt fit"
-  ]
+  ],
+  "investigator_accepted": "2026-11-27"
 }

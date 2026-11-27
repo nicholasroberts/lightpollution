@@ -61,7 +61,7 @@ def export_reused_stokes(output, site, path, lock_path, arrays):
                   note='Interface export only; I_pair is saved I. I/Q/U copied unchanged.')
     (output/'stokes_audit.json').write_text(json.dumps(report, indent=2)+'\n')
 
-def render(root, output, *, supplemental=False):
+def render(root, output, *, supplemental=False, sites=SITES, title=None, stem=None):
     import matplotlib
     matplotlib.use('Agg')
     import matplotlib.pyplot as plt
@@ -69,7 +69,7 @@ def render(root, output, *, supplemental=False):
     plt.rcParams.update({'pdf.fonttype':42, 'svg.fonttype':'none'})
     fig, axes = plt.subplots(4, 4, figsize=(14,15), layout='constrained')
     reports = []
-    for index, site in enumerate(SITES):
+    for index, site in enumerate(sites):
         base = root/site
         config = SimpleNamespace(fit=base/'fit', north=base/'north',
             reference_lock=Path((base/'source_lock_path.txt').read_text().strip()))
@@ -81,12 +81,13 @@ def render(root, output, *, supplemental=False):
                 transform=axes[row,0].transAxes, rotation=90,
                 ha='right',va='center',fontsize=11)
         reports.append(report)
-    fig.suptitle(('Supplementary Figure 2 — ' if supplemental else '')+
+    fig.suptitle((title if title is not None else ('Supplementary Figure 2 — ' if supplemental else '')+
+        
         'WClawn and Oxford Business Park — joint solar/lunar fits\n'
-        'Shared mixture and separation within each site; no ALAN or fitted dilution',fontsize=13)
+        'Shared mixture and separation within each site; no ALAN or fitted dilution'),fontsize=13)
     output.mkdir(parents=True)
     for ext in ('png','pdf','svg'):
-        fig.savefig(output/(('supp_fig02' if supplemental else 'solar_lunar_two_sites')+'.'+ext),dpi=300)
+        fig.savefig(output/((stem or ('supp_fig02' if supplemental else 'solar_lunar_two_sites'))+'.'+ext),dpi=300)
     plt.close(fig)
     (output/'figure_values.json').write_text(json.dumps(reports,indent=2,allow_nan=False)+'\n')
 
