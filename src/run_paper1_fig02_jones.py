@@ -21,10 +21,11 @@ def main():
     p.add_argument('--figure-root',type=Path,default=Path('figures/paper1'))
     p.add_argument('--figure-version',default='v04')
     p.add_argument('--output',type=Path,required=True)
+    p.add_argument('--spectra-only',action='store_true',help='Regenerate only Figure 2A; do not run lamp fits')
     a=p.parse_args()
     if Path(a.figure_version).name!=a.figure_version or a.figure_version in ('.','..'):
         p.error('Figure version must be a directory name')
-    destinations={panel:a.figure_root/('fig02'+panel)/a.figure_version for panel in ('a','b','c')}
+    destinations={panel:a.figure_root/('fig02'+panel)/a.figure_version for panel in (('a',) if a.spectra_only else ('a','b','c'))}
     if a.output.exists() or any(path.exists() for path in destinations.values()):
         p.error('Use fresh output and figure-version destinations')
     wave,spectra,source_report=spectral_inputs(a.spectra_root)
@@ -40,13 +41,12 @@ def main():
     series=[
         ('Jones moonlight: Cottage',moons['Cottage'],'#0072B2','-'),
         ('Jones moonlight: museum',moons['museum'],'#56B4E9','--'),
-        ('Retained solar spectral proxy',spectra['Moon'],'#777777',':'),
         ('HPS',spectra['HPS'],'#E69F00','-'),
         ('LED',spectra['LED'],'#009E73','-')]
     for label,values,color,style in series:
         ax.plot(wave,values,color=color,ls=style,lw=1.5,label=label)
     ax.set(xlabel='Wavelength (nm)',ylabel='Normalized spectral energy (nm⁻¹)',
-        xlim=(400,700),ylim=(0,None),title='Natural and ALAN spectral inputs\n400–700 nm; equal integrated radiant energy')
+        xlim=(400,700),ylim=(0,None),title='Moonlight and ALAN spectra\n400–700 nm; equal integrated radiant energy')
     ax.legend(frameon=False,fontsize=8);ax.spines[['top','right']].set_visible(False)
     fig.text(.015,.99,'A',ha='left',va='top',fontsize=18,fontweight='bold')
     for ext in ('png','pdf','svg'):fig.savefig(panel/('fig02a_spectra.'+ext),dpi=300)
@@ -56,12 +56,16 @@ def main():
         delimiter=',',comments='',header='wavelength_nm,Jones_Moon_Cottage,Jones_Moon_museum,solar_proxy,HPS,LED')
     report=dict(subfigure='2A',spectral_band_nm=[400,700],
         normalization='Unit integrated energy for each curve; not photon, photopic or electrical units',
+        plotted_curves=[row[0] for row in series],solar_proxy_displayed=False,
         jones_inputs=records,retained_solar_and_lamp_inputs=source_report,
         script_sha256=digest(__file__),solar_spectrum='Retained prior transferred natural spectrum as approximate solar proxy; not an independent twilight calculation',
         atmosphere='Jones lunar spectra use fixed ESO reference atmosphere; no additional transfer applied',
         field_approximation='Zenith lunar spectral shape used throughout 60-degree field; Figure 1 camera-green mixture preserved')
     (panel/'spectral_inputs.json').write_text(json.dumps(report,indent=2)+'\n')
     archive_figure(panel,destinations['a'])
+    if a.spectra_only:
+        print('Archived Figure 2A:',destinations['a'])
+        return
     src=Path(__file__).resolve().parent;summary={}
     for site,letter in [('Cottage','b'),('museum','c')]:
         output=a.output/site/'fit'
